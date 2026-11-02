@@ -46,6 +46,11 @@ h1 span { color: #bfa36d; }
 .occasion-section,
 .design-section { padding: 82px clamp(22px, 5vw, 72px) 72px; background: #101112; border-top: 1px solid rgba(255,255,255,.06); }
 .design-section { background: #0d0e0f; }
+.design-section-reveal { animation: step-reveal .5s ease both; }
+@keyframes step-reveal {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; max-width: 1280px; margin: 0 auto 38px; }
 .section-heading h2 { margin: 0; font-size: clamp(34px, 5vw, 58px); letter-spacing: -.035em; }
 .heading-note { margin: 0 0 4px; color: #77736d; font-size: 13px; }
@@ -98,8 +103,8 @@ h1 span { color: #bfa36d; }
 .selection-summary { color: #77736d; font-size: 13px; }
 .selection-summary strong { color: #ddd9d0; font-weight: 500; }
 .primary-button { border: 0; border-radius: 999px; padding: 14px 20px 14px 22px; color: #17140f; background: #c9aa6c; font-size: 13px; font-weight: 700; cursor: pointer; }
-.primary-button span { margin-left: 12px; font-size: 16px; }
-.primary-button:hover { background: #d6b97a; }
+.primary-button:disabled { opacity: .45; cursor: not-allowed; }
+.primary-button:hover:not(:disabled) { background: #d6b97a; }
 
 @media (max-width: 900px) {
   .occasion-grid, .design-grid { grid-template-columns: repeat(2, 1fr); }
@@ -128,5 +133,5 @@ h1 span { color: #bfa36d; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .occasion-card, .design-card { transition: none; }
+  .occasion-card, .design-card, .design-section-reveal { transition: none; animation: none; }
 }
