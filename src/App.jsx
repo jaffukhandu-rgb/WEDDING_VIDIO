@@ -43,15 +43,18 @@ const designsByOccasion = {
 }
 
 export default function App() {
-  const [selectedOccasion, setSelectedOccasion] = useState('wedding')
-  const [selectedDesign, setSelectedDesign] = useState('royal')
+  const [selectedOccasion, setSelectedOccasion] = useState(null)
+  const [selectedDesign, setSelectedDesign] = useState(null)
 
-  const designs = useMemo(() => designsByOccasion[selectedOccasion], [selectedOccasion])
+  const designs = useMemo(
+    () => (selectedOccasion ? designsByOccasion[selectedOccasion] : []),
+    [selectedOccasion],
+  )
   const selectedOccasionData = occasionCatalog.find((occasion) => occasion.id === selectedOccasion)
 
   const handleOccasionChange = (occasionId) => {
     setSelectedOccasion(occasionId)
-    setSelectedDesign(designsByOccasion[occasionId][0].id)
+    setSelectedDesign(null)
   }
 
   return (
@@ -112,57 +115,59 @@ export default function App() {
         </div>
       </section>
 
-      <section className="design-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Step 02 · {selectedOccasionData?.name}</p>
-            <h2>Choose your design</h2>
+      {selectedOccasion && (
+        <section className="design-section design-section-reveal">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Step 02 · {selectedOccasionData?.name}</p>
+              <h2>Choose your design</h2>
+            </div>
+            <p className="heading-note">These designs are made for your occasion.</p>
           </div>
-          <p className="heading-note">These designs are made for your occasion.</p>
-        </div>
 
-        <div className="design-grid">
-          {designs.map((design) => {
-            const isSelected = selectedDesign === design.id
+          <div className="design-grid">
+            {designs.map((design) => {
+              const isSelected = selectedDesign === design.id
 
-            return (
-              <button
-                className={`design-card ${design.className} ${isSelected ? 'is-selected' : ''}`}
-                key={design.id}
-                type="button"
-                onClick={() => setSelectedDesign(design.id)}
-                aria-pressed={isSelected}
-              >
-                <span className="design-preview">
-                  <span className="preview-orb" />
-                  <span className="preview-frame">
-                    <span className="preview-kicker">{selectedOccasionData?.name}</span>
-                    <strong>{design.label}</strong>
-                    <span className="preview-line" />
-                    <small>Made automatically</small>
+              return (
+                <button
+                  className={`design-card ${design.className} ${isSelected ? 'is-selected' : ''}`}
+                  key={design.id}
+                  type="button"
+                  onClick={() => setSelectedDesign(design.id)}
+                  aria-pressed={isSelected}
+                >
+                  <span className="design-preview">
+                    <span className="preview-orb" />
+                    <span className="preview-frame">
+                      <span className="preview-kicker">{selectedOccasionData?.name}</span>
+                      <strong>{design.label}</strong>
+                      <span className="preview-line" />
+                      <small>Made automatically</small>
+                    </span>
                   </span>
-                </span>
-                <span className="card-footer">
-                  <span>
-                    <strong>{design.name}</strong>
-                    <small>{design.description}</small>
+                  <span className="card-footer">
+                    <span>
+                      <strong>{design.name}</strong>
+                      <small>{design.description}</small>
+                    </span>
+                    <span className="selection-indicator">{isSelected ? '✓' : ''}</span>
                   </span>
-                  <span className="selection-indicator">{isSelected ? '✓' : ''}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+                </button>
+              )
+            })}
+          </div>
 
-        <div className="continue-row">
-          <span className="selection-summary">
-            {selectedOccasionData?.name} · <strong>{designs.find((design) => design.id === selectedDesign)?.name}</strong>
-          </span>
-          <button className="primary-button" type="button">
-            Continue <span>→</span>
-          </button>
-        </div>
-      </section>
+          <div className="continue-row">
+            <span className="selection-summary">
+              {selectedOccasionData?.name} · <strong>{designs.find((design) => design.id === selectedDesign)?.name || 'Choose a design'}</strong>
+            </span>
+            <button className="primary-button" type="button" disabled={!selectedDesign}>
+              Continue <span>→</span>
+            </button>
+          </div>
+        </section>
+      )}
     </main>
   )
 }
