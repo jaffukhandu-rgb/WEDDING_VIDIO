@@ -177,7 +177,6 @@ export function WeddingTemplateGallery({
                       <i aria-hidden="true">▶</i>
                       Preview
                     </span>
-                    <span className="wedding-preview-action">Preview design</span>
                   </button>
 
                   <div className="wedding-template-card-content">
