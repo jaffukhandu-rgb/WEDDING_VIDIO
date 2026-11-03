@@ -52,26 +52,15 @@ function PalaceIllustration({ className = "" }) {
       role="presentation"
       aria-hidden="true"
     >
-      <defs>
-        <linearGradient id="wa-palace-stone" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stopColor="#8f6879" />
-          <stop offset=".5" stopColor="#4a2c48" />
-          <stop offset="1" stopColor="#201527" />
-        </linearGradient>
-        <linearGradient id="wa-palace-gold" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#ffe3a8" />
-          <stop offset="1" stopColor="#a77540" />
-        </linearGradient>
-      </defs>
-      <path d="M20 483H880" stroke="url(#wa-palace-gold)" strokeWidth="4" opacity=".8" />
-      <path d="M35 483V245h128v238M737 483V245h128v238" fill="url(#wa-palace-stone)" stroke="#e3bd7e" strokeWidth="4" />
+      <path d="M20 483H880" stroke="#e3bd80" strokeWidth="4" opacity=".8" />
+      <path d="M35 483V245h128v238M737 483V245h128v238" fill="#4b2d49" stroke="#e3bd7e" strokeWidth="4" />
       <path d="M18 247Q99 116 180 247M720 247Q801 116 882 247" fill="none" stroke="#f0d39a" strokeWidth="8" />
-      <path d="M165 483V212h570v271" fill="url(#wa-palace-stone)" stroke="#e5c38b" strokeWidth="5" />
+      <path d="M165 483V212h570v271" fill="#4b2d49" stroke="#e5c38b" strokeWidth="5" />
       <path d="M143 216L450 28l307 188Z" fill="#553451" stroke="#edca8d" strokeWidth="5" />
       <path d="M246 214Q450 17 654 214" fill="none" stroke="#f8dca7" strokeWidth="7" />
       <path d="M300 213L450 104l150 109" fill="none" stroke="#c99b64" strokeWidth="3" />
       <path d="M410 125V58h80v67M399 58l51-37 51 37" fill="#65445d" stroke="#f2d39b" strokeWidth="4" />
-      <path d="M354 483V330a96 96 0 0 1 192 0v153" fill="#170f1d" stroke="url(#wa-palace-gold)" strokeWidth="7" />
+      <path d="M354 483V330a96 96 0 0 1 192 0v153" fill="#170f1d" stroke="#e3bd80" strokeWidth="7" />
       <path d="M378 483V337a72 72 0 0 1 144 0v146" fill="none" stroke="#b98a59" strokeWidth="3" />
       <path d="M225 483V316a43 43 0 0 1 86 0v167M589 483V316a43 43 0 0 1 86 0v167" fill="#1a1220" stroke="#d6ad74" strokeWidth="5" />
       <path d="M245 483V321a23 23 0 0 1 46 0v162M609 483V321a23 23 0 0 1 46 0v162" fill="none" stroke="#a87c50" strokeWidth="2" />
