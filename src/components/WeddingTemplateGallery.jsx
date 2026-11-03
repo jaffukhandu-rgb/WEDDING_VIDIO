@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { WeddingTemplateArtwork } from "./WeddingTemplateArtwork.jsx";
+import "../styles/wedding-gallery-theme.css";
 
 const WEDDING_FILTERS = [
   { value: "all", label: "All Templates" },
