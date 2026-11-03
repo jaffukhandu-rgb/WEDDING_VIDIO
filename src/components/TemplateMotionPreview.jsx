@@ -24,15 +24,20 @@ export function TemplateMotionPreview({ template }) {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const image = (
-    <Img
-      src={
-        styleId === "royal" && template.occasionId === "wedding"
-          ? "https://images.unsplash.com/photo-1757098737757-828619fb8e6c?auto=format&fit=crop&w=1800&q=90"
+  const previewImageUrl =
+    styleId === "royal" && template.occasionId === "wedding"
+      ? "https://images.unsplash.com/photo-1757098737757-828619fb8e6c?auto=format&fit=crop&w=1800&q=90"
+      : styleId === "heritage" && template.occasionId === "wedding"
+        ? "https://images.unsplash.com/photo-1722952934708-749c22eb2e58?auto=format&fit=crop&w=1800&q=90"
+        : styleId === "floral" && ["wedding", "engagement", "anniversary"].includes(template.occasionId)
+          ? "https://images.unsplash.com/photo-1769812343775-85a27e6a076c?auto=format&fit=crop&w=1800&q=90"
           : styleId === "glass" && template.occasionId === "corporate"
             ? "https://images.unsplash.com/photo-1617381519438-e92c226b236b?auto=format&fit=crop&w=1800&q=90"
-            : template.imageUrl
-      }
+            : template.imageUrl;
+
+  const image = (
+    <Img
+      src={previewImageUrl}
       style={{
         position: "absolute",
         inset: 0,
@@ -440,7 +445,7 @@ export function TemplateMotionPreview({ template }) {
             opacity: titleOpacity,
           }}
         >
-          <Img src={template.imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(" + imageScale + ")" }} />
+          <Img src={previewImageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(" + imageScale + ")" }} />
         </div>
         <div
           style={{
@@ -559,7 +564,7 @@ export function TemplateMotionPreview({ template }) {
       }}
     >
       <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "64%", overflow: "hidden" }}>
-        <Img src={template.imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(" + imageScale + ")" }} />
+        <Img src={previewImageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(" + imageScale + ")" }} />
       </div>
       <AbsoluteFill style={{ background: "linear-gradient(180deg, transparent 32%, rgba(241,229,224,.9) 62%, #eee5df 78%)" }} />
       <div
