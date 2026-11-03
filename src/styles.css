@@ -874,7 +874,9 @@ h1 span { color: #bfa36d; }
 /* Dedicated Wedding template gallery */
 .app-shell-wedding { min-height: 100vh; background: #0e0a14; }
 .wedding-workspace {
-  min-height: 100vh;
+  min-height: auto;
+  padding: 48px 0 54px;
+  border-top: 1px solid rgba(224, 192, 234, .12);
   color: #f7f1f6;
   background:
     radial-gradient(ellipse at 5% 0%, rgba(91, 48, 86, .34), transparent 35%),
@@ -951,7 +953,7 @@ h1 span { color: #bfa36d; }
   background: linear-gradient(145deg, #ffe3a7, #cc904c);
 }
 .wedding-step-connector { color: #c99d61; font-size: 22px; line-height: 1; }
-.wedding-gallery-shell { width: min(100%, 1660px); margin: 0 auto; padding: 26px clamp(20px, 2.2vw, 36px) 42px; }
+.wedding-gallery-shell { width: min(100%, 1660px); margin: 0 auto; padding: 0 clamp(20px, 2.2vw, 36px); }
 .wedding-gallery-heading {
   display: flex;
   align-items: center;
