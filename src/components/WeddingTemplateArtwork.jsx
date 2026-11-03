@@ -36,30 +36,61 @@ const SCENE_COPY = {
     footer: "ROOTED IN LOVE",
   },
   editorial: {
-    eyebrow: "THE ART OF TOGETHERNESS",
-    title: "A Timeless Union",
-    subtitle: "A refined celebration of love",
-    footer: "A NEW CHAPTER",
+    eyebrow: "THE ART OF A KEEPSAKE",
+    title: "The Invitation",
+    subtitle: "A beautiful beginning, thoughtfully presented",
+    footer: "A KEEPSAKE IN PRINT",
   },
 };
 
 function PalaceIllustration({ className = "" }) {
   return (
-    <svg className={className} viewBox="0 0 900 430" role="presentation" aria-hidden="true">
-      <path d="M30 372H870" stroke="#dfbd80" strokeWidth="3" fill="none" opacity=".7" />
-      <path d="M95 370V202h105v168M700 370V202h105v168" fill="#24152a" stroke="#d5ad70" strokeWidth="3" />
-      <path d="M78 204Q147 110 217 204M683 204Q752 110 822 204" fill="none" stroke="#e8c58d" strokeWidth="5" />
-      <path d="M235 370V166h430v204" fill="#35203a" stroke="#e0bb7d" strokeWidth="4" />
-      <path d="M220 168L450 42l230 126Z" fill="#5c3850" stroke="#e5c28a" strokeWidth="4" />
-      <path d="M300 166Q450 27 600 166" fill="none" stroke="#f1d39a" strokeWidth="5" />
-      <path d="M390 370V239a60 60 0 0 1 120 0v131" fill="#160f20" stroke="#e2be82" strokeWidth="4" />
-      <path d="M273 370V255a34 34 0 0 1 68 0v115M559 370V255a34 34 0 0 1 68 0v115" fill="#160f20" stroke="#c99a65" strokeWidth="3" />
-      <path d="M125 202V154l25-32 25 32v48M730 202V154l25-32 25 32v48" fill="#4c3048" stroke="#e5c28a" strokeWidth="3" />
-      <path d="M425 74V25h50v49M416 25l34-22 34 22" fill="#654257" stroke="#f0d49a" strokeWidth="3" />
-      <g fill="#f2d49a" opacity=".78">
-        <circle cx="145" cy="246" r="5" /><circle cx="755" cy="246" r="5" />
-        <circle cx="305" cy="218" r="5" /><circle cx="595" cy="218" r="5" />
-        <circle cx="450" cy="135" r="6" />
+    <svg
+      className={className}
+      viewBox="0 0 900 520"
+      preserveAspectRatio="xMidYMax slice"
+      role="presentation"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="wa-palace-stone" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stopColor="#8f6879" />
+          <stop offset=".5" stopColor="#4a2c48" />
+          <stop offset="1" stopColor="#201527" />
+        </linearGradient>
+        <linearGradient id="wa-palace-gold" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#ffe3a8" />
+          <stop offset="1" stopColor="#a77540" />
+        </linearGradient>
+      </defs>
+      <path d="M20 483H880" stroke="url(#wa-palace-gold)" strokeWidth="4" opacity=".8" />
+      <path d="M35 483V245h128v238M737 483V245h128v238" fill="url(#wa-palace-stone)" stroke="#e3bd7e" strokeWidth="4" />
+      <path d="M18 247Q99 116 180 247M720 247Q801 116 882 247" fill="none" stroke="#f0d39a" strokeWidth="8" />
+      <path d="M165 483V212h570v271" fill="url(#wa-palace-stone)" stroke="#e5c38b" strokeWidth="5" />
+      <path d="M143 216L450 28l307 188Z" fill="#553451" stroke="#edca8d" strokeWidth="5" />
+      <path d="M246 214Q450 17 654 214" fill="none" stroke="#f8dca7" strokeWidth="7" />
+      <path d="M300 213L450 104l150 109" fill="none" stroke="#c99b64" strokeWidth="3" />
+      <path d="M410 125V58h80v67M399 58l51-37 51 37" fill="#65445d" stroke="#f2d39b" strokeWidth="4" />
+      <path d="M354 483V330a96 96 0 0 1 192 0v153" fill="#170f1d" stroke="url(#wa-palace-gold)" strokeWidth="7" />
+      <path d="M378 483V337a72 72 0 0 1 144 0v146" fill="none" stroke="#b98a59" strokeWidth="3" />
+      <path d="M225 483V316a43 43 0 0 1 86 0v167M589 483V316a43 43 0 0 1 86 0v167" fill="#1a1220" stroke="#d6ad74" strokeWidth="5" />
+      <path d="M245 483V321a23 23 0 0 1 46 0v162M609 483V321a23 23 0 0 1 46 0v162" fill="none" stroke="#a87c50" strokeWidth="2" />
+      <path d="M74 247V181l25-39 25 39v66M776 247V181l25-39 25 39v66" fill="#59384f" stroke="#f0d39a" strokeWidth="4" />
+      <path d="M450 483V407M423 410h54M398 483l52-76 52 76" fill="none" stroke="#e7c58b" strokeWidth="3" opacity=".7" />
+      <path d="M180 262H720M180 286H720" stroke="#c99b67" strokeWidth="2" opacity=".7" />
+      <g fill="#f7d99b" opacity=".9">
+        <circle cx="100" cy="294" r="6" /><circle cx="800" cy="294" r="6" />
+        <circle cx="267" cy="275" r="6" /><circle cx="633" cy="275" r="6" />
+        <circle cx="450" cy="178" r="7" />
+      </g>
+      <g fill="none" stroke="#e8c58a" strokeWidth="2" opacity=".8">
+        <path d="M92 355q30-38 60 0q-30 38-60 0ZM748 355q30-38 60 0q-30 38-60 0Z" />
+        <path d="M259 375q22-32 44 0q-22 32-44 0ZM597 375q22-32 44 0q-22 32-44 0Z" />
+        <path d="M418 250q32-28 64 0q-32 28-64 0Z" />
+      </g>
+      <g fill="#e3b77d" opacity=".9">
+        <path d="M52 483q-18-48 10-67q26 17 12 67ZM838 483q-18-48 10-67q26 17 12 67Z" />
+        <path d="M188 483q-10-32 13-47q25 14 15 47ZM684 483q-10-32 13-47q25 14 15 47Z" />
       </g>
     </svg>
   );
@@ -67,35 +98,89 @@ function PalaceIllustration({ className = "" }) {
 
 function MapIllustration() {
   return (
-    <svg className="wa-map-illustration" viewBox="0 0 900 470" role="presentation" aria-hidden="true">
-      <path d="M0 285Q115 210 228 280T450 276T680 250T900 280V470H0Z" fill="#93bac1" opacity=".72" />
-      <path d="M0 330Q135 268 244 327T468 310T690 290T900 335" fill="none" stroke="#e8f1e4" strokeWidth="9" opacity=".8" />
-      <path d="M0 245L115 112l88 96 86-135 119 172 102-104 99 132 95-116 196 123v125H0Z" fill="#b4b8a0" />
-      <path d="M0 271L115 112l88 96 86-135 119 172 102-104 99 132 95-116 196 123" fill="none" stroke="#f5e6c9" strokeWidth="7" />
-      <path d="M80 390l100-83 75 42 74-68 72 53 70-47 76 57 85-44 100 62" fill="none" stroke="#9a8064" strokeWidth="5" opacity=".75" />
-      <path d="M185 190Q310 84 450 208T735 180" fill="none" stroke="#f7f0dd" strokeWidth="5" strokeDasharray="13 12" />
-      <g fill="#f3e1bd" stroke="#9b704a" strokeWidth="4">
-        <path d="M510 278h150v88H510z" /><path d="M496 281l89-68 89 68Z" />
-        <path d="M545 366v-46a20 20 0 0 1 40 0v46" fill="#d2a878" />
+    <svg
+      className="wa-map-illustration"
+      viewBox="0 0 900 600"
+      preserveAspectRatio="xMidYMid slice"
+      role="presentation"
+      aria-hidden="true"
+    >
+      <path d="M0 355Q150 272 278 345T520 326T900 338V600H0Z" fill="#8eb9bd" opacity=".85" />
+      <path d="M0 408Q145 332 278 400T530 386T900 398" fill="none" stroke="#eff0dc" strokeWidth="12" opacity=".8" />
+      <path d="M0 300L105 157l70 93 104-169 104 166 100-132 110 144 83-106 224 148v135H0Z" fill="#aeb99f" />
+      <path d="M0 326L105 157l70 93 104-169 104 166 100-132 110 144 83-106 224 148" fill="none" stroke="#f5e8ca" strokeWidth="8" />
+      <path d="M0 333L105 157l70 93 104-169 104 166 100-132 110 144 83-106 224 148" fill="none" stroke="#d5d9c1" strokeWidth="3" opacity=".8" />
+      <path d="M52 520l132-95 82 46 103-72 87 60 83-64 94 74 90-46 113 72" fill="none" stroke="#8f795c" strokeWidth="6" opacity=".75" />
+      <path d="M90 230Q270 66 442 222T805 205" fill="none" stroke="#fff5e0" strokeWidth="6" strokeDasharray="15 15" />
+      <g fill="#f0dfbd" stroke="#9d7651" strokeWidth="4">
+        <path d="M512 340h172v105H512z" />
+        <path d="M494 342l104-86 105 86Z" />
+        <path d="M548 445v-58a23 23 0 0 1 46 0v58" fill="#cba77c" />
       </g>
-      <g fill="#6d7864"><circle cx="486" cy="298" r="24" /><circle cx="682" cy="295" r="28" /><circle cx="717" cy="332" r="20" /></g>
+      <g fill="#647e68">
+        <circle cx="481" cy="359" r="29" /><circle cx="697" cy="360" r="32" /><circle cx="728" cy="407" r="22" />
+      </g>
+      <g stroke="#647e68" strokeWidth="7" fill="none" strokeLinecap="round">
+        <path d="M130 450q-8-75 7-130M137 352q-53-41-67-18M138 347q10-49 54-62M138 380q-43-24-59-6" />
+        <path d="M787 464q-8-77 9-134M795 358q-48-40-66-17M796 354q12-50 52-65M795 389q-39-24-56-7" />
+      </g>
+      <g fill="#718b70">
+        <path d="M62 320q25-28 54 8q-38 5-54-8ZM144 288q31-20 49 8q-34 9-49-8ZM70 373q31-15 47 13q-34 4-47-13Z" />
+        <path d="M732 324q25-28 54 8q-38 5-54-8ZM813 290q31-20 49 8q-34 9-49-8ZM740 378q31-15 47 13q-34 4-47-13Z" />
+      </g>
+      <g transform="translate(318 410)">
+        <path d="M0 34l21-24h76l22 24v24H0Z" fill="#f9f1df" stroke="#8f6349" strokeWidth="4" />
+        <path d="M27 12h58l16 19H12Z" fill="#8db1b5" stroke="#8f6349" strokeWidth="3" />
+        <circle cx="25" cy="58" r="10" fill="#493c37" /><circle cx="94" cy="58" r="10" fill="#493c37" />
+      </g>
     </svg>
   );
 }
 
 function MandapIllustration() {
   return (
-    <svg className="wa-mandap-illustration" viewBox="0 0 900 470" role="presentation" aria-hidden="true">
-      <path d="M115 420V206Q450-95 785 206V420" fill="#4d1c2f" stroke="#e9bd72" strokeWidth="11" />
-      <path d="M158 420V226Q450-30 742 226V420" fill="none" stroke="#f2d79f" strokeWidth="5" />
-      <path d="M215 420V283Q450 48 685 283V420" fill="#2c1528" stroke="#bd8c58" strokeWidth="5" />
-      <path d="M90 420V244M145 420V232M755 420V232M810 420V244" stroke="#e7bf79" strokeWidth="22" />
-      <path d="M90 244l55-65 55 65M700 244l55-65 55 65" fill="none" stroke="#f0d39a" strokeWidth="7" />
-      <path d="M210 250Q450 345 690 250" fill="none" stroke="#d9a06b" strokeWidth="13" />
-      <path d="M265 240Q450 310 635 240" fill="none" stroke="#f6dca7" strokeWidth="6" />
-      <path d="M450 62v130M432 82h36" stroke="#f6dca7" strokeWidth="6" />
-      <g fill="#e7a4a0"><circle cx="220" cy="230" r="14" /><circle cx="263" cy="202" r="14" /><circle cx="307" cy="178" r="14" /><circle cx="593" cy="178" r="14" /><circle cx="637" cy="202" r="14" /><circle cx="680" cy="230" r="14" /></g>
-      <g fill="#f4d28a"><circle cx="170" cy="310" r="9" /><circle cx="730" cy="310" r="9" /><circle cx="450" cy="160" r="8" /></g>
+    <svg
+      className="wa-mandap-illustration"
+      viewBox="0 0 900 600"
+      preserveAspectRatio="xMidYMax slice"
+      role="presentation"
+      aria-hidden="true"
+    >
+      <path d="M100 560V228Q450-105 800 228V560" fill="#4b1d32" stroke="#edc37e" strokeWidth="13" />
+      <path d="M143 560V249Q450-28 757 249V560" fill="none" stroke="#f6dca8" strokeWidth="6" />
+      <path d="M204 560V305Q450 83 696 305V560" fill="#2d1528" stroke="#c28f5c" strokeWidth="6" />
+      <path d="M76 560V280M137 560V254M763 560V254M824 560V280" stroke="#e6be80" strokeWidth="25" />
+      <path d="M76 281l61-79 61 79M702 281l61-79 61 79" fill="none" stroke="#f5d69d" strokeWidth="9" />
+      <path d="M180 284Q450 397 720 284" fill="none" stroke="#dca16f" strokeWidth="15" />
+      <path d="M228 272Q450 358 672 272" fill="none" stroke="#f7dfad" strokeWidth="7" />
+      <path d="M450 45v170M426 79h48" stroke="#f8dba5" strokeWidth="8" />
+      <g fill="#e7a4a0">
+        {Array.from({ length: 13 }, (_, index) => (
+          <circle key={index} cx={202 + index * 83 / 2} cy={238 + Math.sin(index / 12 * Math.PI) * 46} r="12" />
+        ))}
+      </g>
+      <g fill="#f4d28a"><circle cx="170" cy="365" r="10" /><circle cx="730" cy="365" r="10" /><circle cx="450" cy="164" r="9" /></g>
+      <g fill="none" stroke="#d9ad73" strokeWidth="3">
+        <path d="M110 410q30-36 60 0q-30 36-60 0ZM730 410q30-36 60 0q-30 36-60 0Z" />
+        <path d="M185 500q24-30 48 0q-24 30-48 0ZM667 500q24-30 48 0q-24 30-48 0Z" />
+      </g>
+    </svg>
+  );
+}
+
+function BotanicalBranch({ className = "" }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 180 320"
+      role="presentation"
+      aria-hidden="true"
+    >
+      <path d="M20 300C61 225 70 112 158 18" />
+      <path d="M52 226C10 216 2 180 17 154C57 164 70 194 52 226Z" />
+      <path d="M82 170C119 168 145 138 137 104C100 113 81 137 82 170Z" />
+      <path d="M118 105C82 95 75 60 91 36C123 51 136 79 118 105Z" />
+      <path d="M32 271C75 259 103 282 101 315C62 320 37 301 32 271Z" />
     </svg>
   );
 }
@@ -103,7 +188,8 @@ function MandapIllustration() {
 export function WeddingTemplateArtwork({ template, frame = null }) {
   const styleId = template.styleId;
   const copy = SCENE_COPY[styleId] || SCENE_COPY.royal;
-  const entrance = frame === null ? 1 : Math.max(0, Math.min(1, (frame - 6) / 22));
+  const entrance =
+    frame === null ? 1 : Math.max(0, Math.min(1, (frame - 6) / 22));
   const floatOffset = frame === null ? 0 : Math.sin(frame / 11) * 5;
   const rootStyle = {
     "--wa-accent": template.colors?.accent || "#d8b477",
@@ -114,15 +200,27 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
   };
 
   return (
-    <div className={"wedding-artwork wedding-artwork--" + styleId} style={rootStyle}>
+    <div
+      className={"wedding-artwork wedding-artwork--" + styleId}
+      style={rootStyle}
+    >
       {styleId === "royal" && (
         <>
           <div className="wa-star-field" aria-hidden="true">
-            {Array.from({ length: 24 }, (_, index) => (
-              <i key={index} style={{ left: ((index * 37) % 96) + 2 + "%", top: ((index * 53) % 72) + 2 + "%", opacity: 0.35 + (index % 5) * 0.12 }} />
+            {Array.from({ length: 36 }, (_, index) => (
+              <i
+                key={index}
+                style={{
+                  left: ((index * 37) % 96) + 2 + "%",
+                  top: ((index * 53) % 78) + 2 + "%",
+                  opacity: 0.3 + (index % 5) * 0.13,
+                }}
+              />
             ))}
           </div>
           <div className="wa-royal-halo" />
+          <div className="wa-royal-garland wa-royal-garland-left" />
+          <div className="wa-royal-garland wa-royal-garland-right" />
           <PalaceIllustration className="wa-royal-palace" />
           <div className="wa-royal-reflection" />
           <div className="wa-royal-frame">
@@ -142,8 +240,11 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
         <>
           <div className="wa-glass-orb wa-glass-orb-one" />
           <div className="wa-glass-orb wa-glass-orb-two" />
+          <div className="wa-glass-orb wa-glass-orb-three" />
           <div className="wa-glass-petal wa-glass-petal-one" />
           <div className="wa-glass-petal wa-glass-petal-two" />
+          <div className="wa-glass-petal wa-glass-petal-three" />
+          <div className="wa-glass-arch-back" />
           <div className="wa-glass-arch">
             <div className="wa-glass-monogram">A <i>&</i> R</div>
             <div className="wa-glass-copy wa-copy">
@@ -162,6 +263,8 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
         <>
           <div className="wa-vintage-grain" />
           <div className="wa-vintage-corner wa-vintage-corner-tl">❧</div>
+          <div className="wa-vintage-corner wa-vintage-corner-tr">❧</div>
+          <div className="wa-vintage-corner wa-vintage-corner-bl">❧</div>
           <div className="wa-vintage-corner wa-vintage-corner-br">❧</div>
           <div className="wa-vintage-sheet">
             <span className="wa-vintage-topline">WITH LOVE & JOY · A FORMAL ANNOUNCEMENT</span>
@@ -172,7 +275,9 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
               <span>{copy.subtitle}</span>
               <small>THE CELEBRATION OF A LIFETIME</small>
             </div>
-            <div className="wa-wax-seal">A <i>&</i> R</div>
+            <div className="wa-vintage-wax-stamp">
+              <span>A</span><i>&</i><span>R</span>
+            </div>
           </div>
           <span className="wa-vintage-feather">✒</span>
           <span className="wa-scene-footer wa-vintage-footer">{copy.footer}</span>
@@ -182,10 +287,15 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
       {styleId === "cinematic" && (
         <>
           <div className="wa-cinema-moon" />
-          <div className="wa-cinema-stars" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
+          <div className="wa-cinema-stars" aria-hidden="true">
+            <i /><i /><i /><i /><i /><i /><i /><i />
+          </div>
           <div className="wa-lantern wa-lantern-one"><i /></div>
           <div className="wa-lantern wa-lantern-two"><i /></div>
           <div className="wa-lantern wa-lantern-three"><i /></div>
+          <div className="wa-cinema-chandelier">
+            <i /><i /><i /><i /><i />
+          </div>
           <PalaceIllustration className="wa-cinema-palace" />
           <div className="wa-cinema-water" />
           <div className="wa-cinema-copy wa-copy">
@@ -202,8 +312,14 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
         <>
           <div className="wa-map-paper">
             <MapIllustration />
-            <svg className="wa-map-route" viewBox="0 0 900 470" role="presentation" aria-hidden="true">
-              <path d="M115 330C230 70 420 90 510 240S700 365 795 210" />
+            <svg
+              className="wa-map-route"
+              viewBox="0 0 900 600"
+              preserveAspectRatio="xMidYMid slice"
+              role="presentation"
+              aria-hidden="true"
+            >
+              <path d="M115 450C235 100 405 100 510 315S705 440 795 255" />
             </svg>
             <div className="wa-map-pin wa-map-pin-one">✦</div>
             <div className="wa-map-pin wa-map-pin-two">♥</div>
@@ -223,7 +339,12 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
         <>
           <div className="wa-heritage-glow" />
           <MandapIllustration />
-          <div className="wa-heritage-bells"><i>✧</i><i>✧</i><i>✧</i><i>✧</i><i>✧</i></div>
+          <div className="wa-heritage-bells">
+            <i>✧</i><i>✧</i><i>✧</i><i>✧</i><i>✧</i><i>✧</i><i>✧</i>
+          </div>
+          <div className="wa-heritage-flower-strings" aria-hidden="true">
+            <i /><i /><i /><i /><i />
+          </div>
           <div className="wa-heritage-copy wa-copy">
             <span className="wa-eyebrow">{copy.eyebrow}</span>
             <strong>{copy.title}</strong>
@@ -237,31 +358,51 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
 
       {styleId === "editorial" && (
         <>
-          <div className="wa-modern-orbit wa-modern-orbit-one" />
-          <div className="wa-modern-orbit wa-modern-orbit-two" />
-          <div className="wa-modern-arch">
-            <div className="wa-modern-monogram">A <i>&</i> R</div>
-            <div className="wa-modern-copy wa-copy">
+          <div className="wa-stationery-table" />
+          <div className="wa-stationery-halo" />
+          <div className="wa-stationery-card-shadow" />
+          <div className="wa-stationery-card-back" />
+          <div className="wa-stationery-card">
+            <span className="wa-stationery-overline">TOGETHER WITH THEIR FAMILIES</span>
+            <span className="wa-stationery-ornament">❦</span>
+            <div className="wa-stationery-copy wa-copy">
               <span className="wa-eyebrow">{copy.eyebrow}</span>
               <strong>{copy.title}</strong>
               <span>{copy.subtitle}</span>
               <i />
-              <small>THE WEDDING INVITATION</small>
+              <small>WE INVITE YOU TO CELEBRATE</small>
             </div>
+            <div className="wa-stationery-monogram">A <i>&</i> R</div>
+            <span className="wa-stationery-bottom">WITH LOVE · ALWAYS</span>
           </div>
-          <svg className="wa-modern-branch wa-modern-branch-left" viewBox="0 0 170 280" role="presentation" aria-hidden="true">
-            <path d="M20 260C55 190 65 92 150 20" />
-            <path d="M52 186C14 180 8 146 18 126C53 135 66 158 52 186Z" />
-            <path d="M80 133C113 133 135 108 130 80C98 85 80 105 80 133Z" />
-            <path d="M112 76C80 66 75 39 89 20C114 34 125 55 112 76Z" />
+          <div className="wa-stationery-wax-seal">A <i>&</i> R</div>
+          <div className="wa-stationery-candle">
+            <span />
+            <i />
+          </div>
+          <svg
+            className="wa-stationery-botanical wa-stationery-botanical-left"
+            viewBox="0 0 180 320"
+            role="presentation"
+            aria-hidden="true"
+          >
+            <path d="M20 300C61 225 70 112 158 18" />
+            <path d="M52 226C10 216 2 180 17 154C57 164 70 194 52 226Z" />
+            <path d="M82 170C119 168 145 138 137 104C100 113 81 137 82 170Z" />
+            <path d="M118 105C82 95 75 60 91 36C123 51 136 79 118 105Z" />
           </svg>
-          <svg className="wa-modern-branch wa-modern-branch-right" viewBox="0 0 170 280" role="presentation" aria-hidden="true">
-            <path d="M20 260C55 190 65 92 150 20" />
-            <path d="M52 186C14 180 8 146 18 126C53 135 66 158 52 186Z" />
-            <path d="M80 133C113 133 135 108 130 80C98 85 80 105 80 133Z" />
-            <path d="M112 76C80 66 75 39 89 20C114 34 125 55 112 76Z" />
+          <svg
+            className="wa-stationery-botanical wa-stationery-botanical-right"
+            viewBox="0 0 180 320"
+            role="presentation"
+            aria-hidden="true"
+          >
+            <path d="M20 300C61 225 70 112 158 18" />
+            <path d="M52 226C10 216 2 180 17 154C57 164 70 194 52 226Z" />
+            <path d="M82 170C119 168 145 138 137 104C100 113 81 137 82 170Z" />
+            <path d="M118 105C82 95 75 60 91 36C123 51 136 79 118 105Z" />
           </svg>
-          <span className="wa-modern-footer">{copy.footer}</span>
+          <span className="wa-stationery-caption">{copy.footer}</span>
         </>
       )}
     </div>
