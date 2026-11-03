@@ -161,6 +161,7 @@ export default function App() {
           selectedDesign={selectedDesign}
           selectedDesignData={selectedDesignData}
           isDesignConfirmed={isDesignConfirmed}
+          templateUsage={templateUsage}
           sortMode={sortMode}
           setSortMode={setSortMode}
           onBack={handleBackToOccasions}
