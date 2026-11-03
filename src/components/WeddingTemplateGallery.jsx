@@ -26,7 +26,6 @@ export function WeddingTemplateGallery({
   templateUsage,
   sortMode,
   setSortMode,
-  onBack,
   onDesignChange,
   onContinue,
   onPreviewSelect,
@@ -75,50 +74,10 @@ export function WeddingTemplateGallery({
   };
 
   return (
-    <main className="wedding-workspace">
-      <header className="wedding-topbar">
-        <div className="wedding-brand" aria-label="EventCine invitation videos">
-          <span className="wedding-brand-mark" aria-hidden="true">▶</span>
-          <span className="wedding-brand-copy">
-            <strong>EventCine</strong>
-            <small>INVITATION VIDEOS</small>
-          </span>
-        </div>
-
-        <nav className="wedding-stepper" aria-label="Creation steps">
-          <span className="wedding-step">
-            <i>1</i>
-            <span>Choose Occasion</span>
-          </span>
-          <span className="wedding-step-connector" aria-hidden="true">›</span>
-          <span className="wedding-step is-active" aria-current="step">
-            <i>2</i>
-            <span>Choose Template</span>
-          </span>
-          <span className="wedding-step-connector" aria-hidden="true">›</span>
-          <span className="wedding-step">
-            <i>3</i>
-            <span>Add Details</span>
-          </span>
-          <span className="wedding-step-connector" aria-hidden="true">›</span>
-          <span className="wedding-step">
-            <i>4</i>
-            <span>Generate</span>
-          </span>
-        </nav>
-      </header>
-
-      <section className="wedding-gallery-shell" aria-labelledby="wedding-gallery-title">
+    <section className="wedding-workspace wedding-inline-section" aria-labelledby="wedding-gallery-title">
+      <div className="wedding-gallery-shell">
         <div className="wedding-gallery-heading">
           <div className="wedding-heading-main">
-            <button
-              className="wedding-back-button"
-              type="button"
-              onClick={onBack}
-              aria-label="Back to occasions"
-            >
-              ←
-            </button>
             <span className="wedding-rings-icon" aria-hidden="true">
               <i />
               <b />
@@ -287,7 +246,7 @@ export function WeddingTemplateGallery({
             ✓ {selectedDesignData?.name} is selected. Your next step will be Event Details.
           </p>
         )}
-      </section>
-    </main>
+      </div>
+    </section>
   );
 }
