@@ -23,10 +23,10 @@ export function WeddingTemplateGallery({
   selectedDesign,
   selectedDesignData,
   isDesignConfirmed,
+  templateUsage,
   sortMode,
   setSortMode,
   onBack,
-  onStyleFilterChange,
   onDesignChange,
   onContinue,
   onPreviewSelect,
@@ -37,7 +37,7 @@ export function WeddingTemplateGallery({
   const filteredDesigns = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return designs.filter((design) => {
+    const filtered = designs.filter((design) => {
       const matchesStyle =
         activeFilter === "all" || design.styleId === activeFilter;
       const searchableText = [
@@ -53,11 +53,25 @@ export function WeddingTemplateGallery({
 
       return matchesStyle && matchesSearch;
     });
-  }, [designs, activeFilter, searchQuery]);
+
+    return filtered.sort((a, b) => {
+      if (sortMode === "popular") {
+        const usageDifference =
+          (templateUsage[b.id] || 0) - (templateUsage[a.id] || 0);
+
+        return usageDifference || a.featuredRank - b.featuredRank;
+      }
+
+      if (sortMode === "name") {
+        return a.name.localeCompare(b.name);
+      }
+
+      return a.featuredRank - b.featuredRank;
+    });
+  }, [designs, activeFilter, searchQuery, sortMode, templateUsage]);
 
   const handleFilterChange = (filterId) => {
     setActiveFilter(filterId);
-    onStyleFilterChange(filterId);
   };
 
   return (
