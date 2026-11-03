@@ -46,13 +46,7 @@ const SCENE_COPY = {
 function PalaceIllustration({ className = "" }) {
   return (
     <svg className={className} viewBox="0 0 900 430" role="presentation" aria-hidden="true">
-      <defs>
-        <linearGradient id="wa-palace-gold" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#f7d99b" />
-          <stop offset="1" stopColor="#9f6e3e" />
-        </linearGradient>
-      </defs>
-      <path d="M30 372H870" stroke="url(#wa-palace-gold)" strokeWidth="3" fill="none" opacity=".7" />
+      <path d="M30 372H870" stroke="#dfbd80" strokeWidth="3" fill="none" opacity=".7" />
       <path d="M95 370V202h105v168M700 370V202h105v168" fill="#24152a" stroke="#d5ad70" strokeWidth="3" />
       <path d="M78 204Q147 110 217 204M683 204Q752 110 822 204" fill="none" stroke="#e8c58d" strokeWidth="5" />
       <path d="M235 370V166h430v204" fill="#35203a" stroke="#e0bb7d" strokeWidth="4" />
