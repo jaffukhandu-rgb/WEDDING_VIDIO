@@ -9,6 +9,17 @@ const occasionCatalog = [
   { id: 'corporate', name: 'Corporate', icon: '▣', description: 'Create a polished event video.' },
 ]
 
+const cultureCatalog = [
+  { id: 'general', name: 'General / Modern', icon: '✦', description: 'A clean look without specific cultural styling.' },
+  { id: 'islamic', name: 'Islamic', icon: '☾', description: 'For Islamic celebrations and traditions.' },
+  { id: 'hindu', name: 'Hindu', icon: '◈', description: 'For Hindu celebrations and traditions.' },
+  { id: 'christian', name: 'Christian', icon: '✧', description: 'For Christian celebrations and traditions.' },
+  { id: 'sikh', name: 'Sikh', icon: '◇', description: 'For Sikh celebrations and traditions.' },
+  { id: 'jain', name: 'Jain', icon: '❖', description: 'For Jain celebrations and traditions.' },
+  { id: 'bohra', name: 'Bohra', icon: '✺', description: 'For Bohra community celebrations.' },
+  { id: 'other', name: 'Other / Custom', icon: '+', description: 'Choose a style beyond these options.' },
+]
+
 const designsByOccasion = {
   wedding: [
     { id: 'royal', name: 'Royal', description: 'Rich, elegant, cinematic', className: 'design-royal', label: 'The Wedding' },
@@ -44,6 +55,8 @@ const designsByOccasion = {
 
 export default function App() {
   const [selectedOccasion, setSelectedOccasion] = useState(null)
+  const [selectedCulture, setSelectedCulture] = useState(null)
+  const [isCultureStepComplete, setIsCultureStepComplete] = useState(false)
   const [selectedDesign, setSelectedDesign] = useState(null)
 
   const designs = useMemo(
@@ -51,9 +64,26 @@ export default function App() {
     [selectedOccasion],
   )
   const selectedOccasionData = occasionCatalog.find((occasion) => occasion.id === selectedOccasion)
+  const selectedCultureData = cultureCatalog.find((culture) => culture.id === selectedCulture)
+  const needsCultureStep = selectedOccasion !== 'corporate'
+  const canShowDesigns = Boolean(selectedOccasion) && (!needsCultureStep || isCultureStepComplete)
 
   const handleOccasionChange = (occasionId) => {
     setSelectedOccasion(occasionId)
+    setSelectedCulture(null)
+    setIsCultureStepComplete(false)
+    setSelectedDesign(null)
+  }
+
+  const handleCultureChange = (cultureId) => {
+    setSelectedCulture(cultureId)
+    setIsCultureStepComplete(true)
+    setSelectedDesign(null)
+  }
+
+  const handleSkipCulture = () => {
+    setSelectedCulture(null)
+    setIsCultureStepComplete(true)
     setSelectedDesign(null)
   }
 
@@ -66,7 +96,7 @@ export default function App() {
         <nav className="topbar">
           <div className="brand-mark">W</div>
           <span className="brand-name">Wedding Video Maker</span>
-          <span className="step-label">01 / 05</span>
+          <span className="step-label">01 / 09</span>
         </nav>
 
         <div className="hero-copy">
@@ -77,7 +107,8 @@ export default function App() {
             <span>Beautifully made.</span>
           </h1>
           <p className="hero-description">
-            Choose what you are celebrating. We’ll show you designs made for that occasion.
+            Choose your occasion and, when relevant, a cultural style. We’ll guide you to a design
+            that fits your celebration.
           </p>
         </div>
       </section>
@@ -115,15 +146,71 @@ export default function App() {
         </div>
       </section>
 
-      {selectedOccasion && (
+      {selectedOccasion && needsCultureStep && (
+        <section className="culture-section culture-section-reveal">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Step 02 · Optional</p>
+              <h2>Choose your cultural style</h2>
+            </div>
+            <p className="heading-note">Personalize the look, or skip this step.</p>
+          </div>
+
+          <div className="culture-grid">
+            {cultureCatalog.map((culture) => {
+              const isSelected = selectedCulture === culture.id
+
+              return (
+                <button
+                  className={`culture-card ${isSelected ? 'is-selected' : ''}`}
+                  key={culture.id}
+                  type="button"
+                  onClick={() => handleCultureChange(culture.id)}
+                  aria-pressed={isSelected}
+                >
+                  <span className="culture-card-top">
+                    <span className="culture-icon">{culture.icon}</span>
+                    <span className="selection-indicator">{isSelected ? '✓' : ''}</span>
+                  </span>
+                  <span className="culture-copy">
+                    <strong>{culture.name}</strong>
+                    <small>{culture.description}</small>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="culture-actions">
+            <button className="text-button" type="button" onClick={handleSkipCulture}>
+              Skip for now <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {canShowDesigns && (
         <section className="design-section design-section-reveal">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Step 02 · {selectedOccasionData?.name}</p>
+              <p className="eyebrow">
+                Step 03 · {selectedOccasionData?.name}
+                {selectedCultureData ? ` · ${selectedCultureData.name}` : ''}
+              </p>
               <h2>Choose your design</h2>
             </div>
-            <p className="heading-note">These designs are made for your occasion.</p>
+            <p className="heading-note">
+              {selectedOccasion === 'corporate'
+                ? 'Choose a polished visual theme for your event.'
+                : 'Choose the visual theme for your celebration.'}
+            </p>
           </div>
+
+          {selectedCultureData && (
+            <p className="culture-preference-note">
+              Cultural preference: <strong>{selectedCultureData.name}</strong>
+            </p>
+          )}
 
           <div className="design-grid">
             {designs.map((design) => {
@@ -140,7 +227,11 @@ export default function App() {
                   <span className="design-preview">
                     <span className="preview-orb" />
                     <span className="preview-frame">
-                      <span className="preview-kicker">{selectedOccasionData?.name}</span>
+                      <span className="preview-kicker">
+                        {selectedCultureData
+                          ? `${selectedOccasionData?.name} · ${selectedCultureData.name}`
+                          : selectedOccasionData?.name}
+                      </span>
                       <strong>{design.label}</strong>
                       <span className="preview-line" />
                       <small>Made automatically</small>
@@ -160,7 +251,12 @@ export default function App() {
 
           <div className="continue-row">
             <span className="selection-summary">
-              {selectedOccasionData?.name} · <strong>{designs.find((design) => design.id === selectedDesign)?.name || 'Choose a design'}</strong>
+              {selectedOccasionData?.name}
+              {selectedCultureData ? ` · ${selectedCultureData.name}` : ''}
+              {' · '}
+              <strong>
+                {designs.find((design) => design.id === selectedDesign)?.name || 'Choose a design'}
+              </strong>
             </span>
             <button className="primary-button" type="button" disabled={!selectedDesign}>
               Continue <span>→</span>
