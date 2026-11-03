@@ -13,7 +13,6 @@ import { TemplateMotionPreview } from "./components/TemplateMotionPreview.jsx";
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
   { value: "popular", label: "Most selected on this device" },
-  { value: "newest", label: "Newest" },
   { value: "name", label: "Name: A–Z" },
 ];
 
@@ -74,10 +73,6 @@ export default function App() {
           (templateUsage[b.id] || 0) - (templateUsage[a.id] || 0);
 
         return usageDifference || a.featuredRank - b.featuredRank;
-      }
-
-      if (sortMode === "newest") {
-        return b.releaseOrder - a.releaseOrder;
       }
 
       if (sortMode === "name") {
