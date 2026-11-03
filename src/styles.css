@@ -1447,3 +1447,450 @@ h1 span { color: #bfa36d; }
   .wedding-select-button,
   .wedding-continue-button { transition: none !important; }
 }
+
+
+/* Final Wedding-specific art direction: portrait previews and richer invitation scenes. */
+.wedding-template-art-button {
+  aspect-ratio: 4 / 5;
+  background: #221827;
+}
+.wedding-template-grid {
+  align-items: start;
+}
+.wedding-template-card-content {
+  min-height: 150px;
+}
+
+/* Royal Palace: ornamental floral sides and warm architectural highlights. */
+.wa-royal-garland {
+  position: absolute;
+  z-index: 4;
+  top: 23%;
+  bottom: 17%;
+  width: 12%;
+  border: 1px solid rgba(239, 198, 128, .55);
+  border-radius: 50%;
+  opacity: .8;
+  background:
+    radial-gradient(circle at 50% 5%, #f3c98e 0 4px, transparent 5px),
+    radial-gradient(circle at 22% 22%, #bd777c 0 5px, transparent 6px),
+    radial-gradient(circle at 78% 38%, #e4b579 0 5px, transparent 6px),
+    radial-gradient(circle at 24% 55%, #a75f6a 0 5px, transparent 6px),
+    radial-gradient(circle at 72% 73%, #dfb77a 0 5px, transparent 6px),
+    radial-gradient(circle at 50% 96%, #b56e77 0 5px, transparent 6px);
+  filter: drop-shadow(0 0 10px rgba(224, 176, 112, .18));
+}
+.wa-royal-garland-left { left: 6%; transform: rotate(7deg); }
+.wa-royal-garland-right { right: 6%; transform: scaleX(-1) rotate(7deg); }
+.wa-royal-palace { bottom: 0; height: 66%; }
+.wa-royal-frame { inset: 4% 6%; }
+
+/* Glassmorphism: layered translucent glass planes with prismatic highlights. */
+.wa-glass-orb-three {
+  position: absolute;
+  width: 18%;
+  aspect-ratio: 1;
+  left: 17%;
+  top: 59%;
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 24%, rgba(255,255,255,.82), rgba(228,207,242,.12) 66%);
+  box-shadow: 0 12px 35px rgba(93,79,130,.16), inset -8px -10px 22px rgba(255,255,255,.3);
+}
+.wa-glass-arch-back {
+  position: absolute;
+  inset: 15% 12% 10%;
+  border: 1px solid rgba(255,255,255,.58);
+  border-radius: 48% 48% 22px 22px;
+  background: linear-gradient(125deg, rgba(255,255,255,.23), rgba(255,255,255,.03));
+  box-shadow: 0 18px 44px rgba(113,85,141,.12);
+  transform: rotate(-8deg) translateY(var(--wa-float, 0px));
+  backdrop-filter: blur(10px);
+}
+.wa-glass-arch {
+  inset: 12% 18% 9%;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.55), rgba(255,255,255,.14) 46%, rgba(255,255,255,.28)),
+    linear-gradient(120deg, transparent 40%, rgba(255,255,255,.28) 48%, transparent 58%);
+  box-shadow: 0 30px 70px rgba(87,70,112,.22), inset 0 0 0 7px rgba(255,255,255,.18);
+}
+.wa-glass-petal-three {
+  position: absolute;
+  right: 12%;
+  top: 30%;
+  width: 10%;
+  height: 24%;
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 100% 0 100% 0;
+  background: linear-gradient(145deg, rgba(255,255,255,.58), rgba(207,191,234,.1));
+  transform: rotate(38deg);
+  filter: drop-shadow(0 9px 15px rgba(90,71,120,.12));
+}
+
+/* Vintage storybook: engraved paper, four corner flourishes and embossed wax seal. */
+.wa-vintage-sheet {
+  inset: 7% 10%;
+  border: 1px solid rgba(120,79,45,.68);
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(255,255,255,.66), transparent 63%),
+    repeating-linear-gradient(0deg, rgba(117,80,43,.045) 0 1px, transparent 1px 6px),
+    linear-gradient(135deg, #f2e5ca, #d5b993);
+  box-shadow: 0 22px 50px rgba(55,34,19,.33), inset 0 0 0 6px rgba(255,255,255,.26);
+}
+.wa-vintage-sheet::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border: 1px solid rgba(150,105,64,.25);
+  pointer-events: none;
+}
+.wa-vintage-wax-stamp {
+  position: absolute;
+  right: 12%;
+  bottom: 8%;
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 3px solid rgba(255,222,188,.38);
+  border-radius: 50%;
+  color: #f7d8b6;
+  background: radial-gradient(circle at 29% 23%, #c36d55, #7c3032 67%, #4e2029);
+  box-shadow: 0 7px 15px rgba(65,35,26,.35), inset 0 0 0 3px rgba(255,255,255,.1);
+  font-family: Georgia, serif;
+  font-size: 17px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.wa-vintage-wax-stamp i { font-size: 10px; font-style: normal; }
+.wa-vintage-corner { font-size: 46px; }
+
+/* Cinematic Dreams: chandelier silhouette and layered warm light. */
+.wa-cinema-chandelier {
+  position: absolute;
+  z-index: 5;
+  top: 12%;
+  left: 31%;
+  width: 38%;
+  height: 20%;
+  border-top: 1px solid rgba(232,194,128,.76);
+  border-radius: 50% 50% 0 0;
+  filter: drop-shadow(0 0 14px rgba(242,184,102,.2));
+}
+.wa-cinema-chandelier::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -38px;
+  width: 1px;
+  height: 39px;
+  background: rgba(234,198,139,.8);
+}
+.wa-cinema-chandelier::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #f3d49c;
+  border-radius: 50%;
+  background: #ffe4ae;
+  box-shadow: 0 0 16px #ffe4ae;
+}
+.wa-cinema-chandelier i {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 28px;
+  border: 1px solid rgba(238,194,120,.8);
+  border-radius: 0 0 50% 50%;
+  background: linear-gradient(180deg, rgba(255,223,165,.52), rgba(224,158,79,.16));
+  box-shadow: 0 4px 14px rgba(252,188,101,.24);
+}
+.wa-cinema-chandelier i:nth-child(1) { left: 12%; transform: rotate(-20deg); }
+.wa-cinema-chandelier i:nth-child(2) { left: 30%; transform: rotate(-9deg); }
+.wa-cinema-chandelier i:nth-child(3) { left: 48%; }
+.wa-cinema-chandelier i:nth-child(4) { left: 66%; transform: rotate(9deg); }
+.wa-cinema-chandelier i:nth-child(5) { left: 84%; transform: rotate(20deg); }
+.wa-cinema-stars i:nth-child(7) { top: 46%; left: 15%; }
+.wa-cinema-stars i:nth-child(8) { top: 51%; left: 76%; }
+.wa-cinema-palace { height: 50%; }
+
+/* Destination illustration: keep a complete scenic map inside portrait cards. */
+.wa-map-illustration { object-fit: cover; }
+.wa-map-paper { inset: 0 0 21%; }
+.wa-map-route { width: 100%; height: 100%; }
+.wa-map-pin { width: 34px; height: 34px; box-shadow: 0 7px 16px rgba(72,49,34,.32); }
+.wa-map-label { font-size: 8px; letter-spacing: .16em; }
+
+/* Heritage: denser garlands, flower strings and carved pavilion depth. */
+.wa-heritage-bells { top: 5%; left: 8%; right: 8%; font-size: 19px; }
+.wa-heritage-flower-strings {
+  position: absolute;
+  z-index: 4;
+  top: 8%;
+  left: 13%;
+  right: 13%;
+  height: 28%;
+  display: flex;
+  justify-content: space-around;
+  pointer-events: none;
+}
+.wa-heritage-flower-strings i {
+  width: 2px;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(180deg, rgba(239,200,133,.75), rgba(239,200,133,.05));
+}
+.wa-heritage-flower-strings i::after {
+  content: '✿';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  color: #e8a0a0;
+  font-size: 17px;
+  transform: translateX(-50%);
+  text-shadow: 0 0 10px rgba(239,171,151,.2);
+}
+.wa-mandap-illustration { height: 70%; }
+
+/* Luxury Stationery: physical invitation mockup, wax seal, candle and botanical styling. */
+.wedding-artwork--editorial {
+  color: #45362e;
+  background:
+    radial-gradient(ellipse at 55% 38%, rgba(236,207,158,.35), transparent 42%),
+    repeating-linear-gradient(90deg, rgba(89,57,32,.17) 0 2px, transparent 2px 18px),
+    linear-gradient(135deg, #4b3024, #78523a 48%, #342219);
+}
+.wa-stationery-table {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 29px, rgba(255,220,172,.035) 30px 31px),
+    repeating-linear-gradient(90deg, rgba(28,17,13,.08) 0 2px, transparent 2px 80px),
+    linear-gradient(145deg, #714b35, #493024 54%, #2e201c);
+}
+.wa-stationery-halo {
+  position: absolute;
+  top: 8%;
+  left: 17%;
+  width: 66%;
+  height: 72%;
+  border-radius: 50%;
+  background: rgba(241,206,157,.16);
+  filter: blur(40px);
+}
+.wa-stationery-card-shadow {
+  position: absolute;
+  z-index: 1;
+  top: 12%;
+  left: 24%;
+  width: 55%;
+  height: 72%;
+  border-radius: 3px;
+  background: rgba(13,8,6,.45);
+  filter: blur(14px);
+  transform: translate(12px,16px) rotate(3deg);
+}
+.wa-stationery-card-back {
+  position: absolute;
+  z-index: 2;
+  top: 12%;
+  left: 23%;
+  width: 56%;
+  height: 72%;
+  border: 1px solid rgba(235,207,163,.7);
+  background: linear-gradient(145deg, #cdbb9c, #a99577);
+  box-shadow: 0 15px 24px rgba(20,12,8,.28);
+  transform: rotate(3deg) translateY(var(--wa-float, 0px));
+}
+.wa-stationery-card {
+  position: absolute;
+  z-index: 3;
+  top: 10%;
+  left: 20%;
+  width: 58%;
+  height: 72%;
+  padding: 10% 8%;
+  overflow: hidden;
+  border: 1px solid #c4a77d;
+  color: #514333;
+  background:
+    radial-gradient(ellipse at 50% 18%, rgba(255,255,255,.92), transparent 72%),
+    linear-gradient(145deg, #fff9eb, #e8dbc3);
+  box-shadow: 0 20px 38px rgba(18,10,7,.3), inset 0 0 0 6px rgba(255,255,255,.35);
+  text-align: center;
+  transform: rotate(-1.5deg);
+}
+.wa-stationery-card::before {
+  content: '';
+  position: absolute;
+  inset: 5%;
+  border: 1px solid rgba(159,126,84,.42);
+  pointer-events: none;
+}
+.wa-stationery-card::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border: 1px solid rgba(159,126,84,.18);
+  pointer-events: none;
+}
+.wa-stationery-overline {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: #987d5e;
+  font-family: Georgia, serif;
+  font-size: clamp(6px, .55vw, 8px);
+  letter-spacing: .14em;
+}
+.wa-stationery-ornament {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin-top: 8%;
+  color: #a78a68;
+  font-size: clamp(20px, 2.4vw, 34px);
+}
+.wa-stationery-copy {
+  position: relative;
+  z-index: 1;
+  margin-top: 7%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+.wa-stationery-copy .wa-eyebrow { color: #a78966; font-size: clamp(5px,.52vw,8px); }
+.wa-stationery-copy strong {
+  max-width: 100%;
+  color: #4b3a2e;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(20px, 2.2vw, 34px);
+  font-weight: 500;
+  line-height: 1;
+}
+.wa-stationery-copy > span:not(.wa-eyebrow) {
+  color: #806b55;
+  font-family: Georgia, serif;
+  font-size: clamp(8px,.8vw,12px);
+  font-style: italic;
+}
+.wa-stationery-copy i { width: 38px; height: 1px; background: #b99769; }
+.wa-stationery-copy small { color: #9d8768; font-size: 6px; letter-spacing: .1em; }
+.wa-stationery-monogram {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 15%;
+  color: #9b7856;
+  font-family: Georgia, serif;
+  font-size: clamp(15px, 1.7vw, 25px);
+}
+.wa-stationery-monogram i { color: #b89169; font-size: .65em; font-style: normal; }
+.wa-stationery-bottom {
+  position: absolute;
+  z-index: 1;
+  bottom: 7%;
+  left: 0;
+  right: 0;
+  color: #a18a6d;
+  font-size: 5px;
+  letter-spacing: .18em;
+}
+.wa-stationery-wax-seal {
+  position: absolute;
+  z-index: 5;
+  right: 17%;
+  bottom: 15%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 3px solid rgba(255,220,188,.3);
+  border-radius: 50%;
+  color: #f4d0ad;
+  background: radial-gradient(circle at 28% 23%, #c66c56, #7b3031 68%, #4b2025);
+  box-shadow: 0 7px 15px rgba(32,15,10,.45), inset 0 0 0 3px rgba(255,255,255,.1);
+  font-family: Georgia, serif;
+  font-size: 14px;
+  transform: translateY(var(--wa-float, 0px));
+}
+.wa-stationery-wax-seal i { font-size: 9px; font-style: normal; }
+.wa-stationery-candle {
+  position: absolute;
+  z-index: 4;
+  right: 7%;
+  top: 25%;
+  width: 34px;
+  height: 28%;
+  border: 1px solid rgba(226,205,169,.75);
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(90deg, #cbb99c, #fff2d7 48%, #b09a7d);
+  box-shadow: 0 13px 25px rgba(18,10,7,.32);
+}
+.wa-stationery-candle span {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  width: 9px;
+  height: 16px;
+  border-radius: 80% 15% 80% 20%;
+  background: radial-gradient(circle at 45% 65%, #fff0a6, #e39c4c 68%, transparent 72%);
+  filter: drop-shadow(0 0 9px rgba(255,192,96,.6));
+  transform: translateX(-50%) rotate(8deg);
+}
+.wa-stationery-candle i {
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  width: 1px;
+  height: 7px;
+  background: #34251d;
+}
+.wa-stationery-botanical {
+  position: absolute;
+  z-index: 4;
+  bottom: 7%;
+  width: 24%;
+  height: 42%;
+  fill: rgba(134,151,120,.22);
+  stroke: #a8ae85;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 5px 8px rgba(10,8,6,.24));
+}
+.wa-stationery-botanical-left { left: -1%; transform: rotate(-8deg); }
+.wa-stationery-botanical-right { right: -1%; transform: scaleX(-1) rotate(-8deg); }
+.wa-stationery-caption {
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  right: 0;
+  bottom: 3%;
+  color: #eed5b0;
+  text-align: center;
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: .2em;
+}
+
+@media (max-width: 1180px) {
+  .wedding-template-art-button { aspect-ratio: 4 / 5; }
+}
+@media (max-width: 700px) {
+  .wedding-template-art-button { aspect-ratio: 4 / 5; }
+}
+@media (max-width: 520px) {
+  .wedding-template-art-button { aspect-ratio: 4 / 5; }
+  .wa-stationery-candle { width: 27px; }
+  .wa-stationery-wax-seal { width: 42px; height: 42px; }
+}
