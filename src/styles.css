@@ -590,3 +590,283 @@ h1 span { color: #bfa36d; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Image-led template artwork: each style uses a different composition. */
+.template-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  color: var(--art-ink, #fff);
+  background: #1b1b1b;
+  text-align: left;
+  cursor: pointer;
+}
+.template-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--art-ink, #fff);
+  background: var(--art-background, #202020);
+  text-align: left;
+}
+.template-art-photo {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.015);
+  transition: transform .8s cubic-bezier(.2,.75,.2,1), filter .6s ease;
+}
+.template-preview:hover .template-art-photo { transform: scale(1.07); }
+.preview-play {
+  position: absolute;
+  z-index: 20;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(12,14,16,.62);
+  backdrop-filter: blur(12px);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  opacity: .88;
+  transition: opacity .2s ease, transform .2s ease, background .2s ease;
+}
+.template-preview:hover .preview-play { opacity: 1; transform: translateY(-2px); background: rgba(12,14,16,.82); }
+.preview-play span { font-size: 9px; }
+.template-art strong { display: block; font-family: 'Playfair Display', Georgia, serif; font-weight: 500; }
+
+/* Royal Maharaja: full-bleed palace photography, gold framing and a formal lower title block. */
+.template-art-royal { color: #fff1d1; background: #28131d; }
+.royal-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(17,8,12,.16) 0%, rgba(20,7,13,.08) 35%, rgba(22,8,13,.94) 100%),
+    linear-gradient(90deg, rgba(17,8,12,.3), transparent 27%, transparent 73%, rgba(17,8,12,.3));
+}
+.royal-topline {
+  position: absolute;
+  top: 10%;
+  left: 9%;
+  right: 9%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(231,194,122,.7);
+  color: #f0d69e;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .2em;
+}
+.royal-top-emblem { font-family: Georgia, serif; font-size: 21px; }
+.royal-side-ornament {
+  position: absolute;
+  top: 16%;
+  bottom: 17%;
+  width: 13px;
+  opacity: .82;
+  border-top: 1px solid rgba(231,194,122,.8);
+  border-bottom: 1px solid rgba(231,194,122,.8);
+}
+.royal-side-left { left: 5%; border-left: 1px solid rgba(231,194,122,.8); }
+.royal-side-right { right: 5%; border-right: 1px solid rgba(231,194,122,.8); }
+.royal-copy {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 19%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  text-align: center;
+}
+.royal-kicker { color: #f0d69e; font-size: 7px; font-weight: 700; letter-spacing: .22em; }
+.royal-rule { width: 66%; height: 1px; background: rgba(231,194,122,.7); position: relative; }
+.royal-rule i { position: absolute; top: -3px; left: calc(50% - 3px); width: 7px; height: 7px; background: #e6c17f; transform: rotate(45deg); }
+.royal-copy strong { max-width: 100%; color: #fff0cf; font-size: clamp(27px, 3vw, 39px); line-height: 1.02; text-shadow: 0 5px 24px rgba(0,0,0,.4); }
+.royal-subtitle { color: #f4dfb8; font-family: Georgia, serif; font-size: 13px; font-style: italic; }
+.royal-details { max-width: 90%; color: rgba(255,239,205,.76); font-size: 7px; line-height: 1.5; letter-spacing: .04em; }
+.royal-footer { position: absolute; bottom: 8%; left: 0; width: 100%; color: #e7c27d; text-align: center; font-size: 6px; font-weight: 700; letter-spacing: .28em; }
+
+/* Glassmorphism: actual photo behind floating translucent information panels. */
+.template-art-glass { color: #f1fbff; background: #163747; }
+.template-art-glass .template-art-photo { filter: saturate(.78) brightness(.74); }
+.glass-image-wash { position: absolute; inset: 0; z-index: -1; background: linear-gradient(135deg, rgba(8,38,55,.16), rgba(14,77,91,.5)); }
+.glass-floating-orb { position: absolute; border-radius: 50%; filter: blur(1px); background: rgba(188,239,245,.24); border: 1px solid rgba(255,255,255,.38); box-shadow: 0 20px 50px rgba(0,0,0,.12); }
+.glass-orb-one { width: 34%; aspect-ratio: 1; right: -10%; top: 12%; }
+.glass-orb-two { width: 19%; aspect-ratio: 1; left: 6%; bottom: 20%; background: rgba(255,255,255,.12); }
+.glass-label {
+  position: absolute;
+  top: 13%;
+  left: 9%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(244,253,255,.9);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+.glass-label-dot { width: 6px; height: 6px; border-radius: 50%; background: #a6eef2; box-shadow: 0 0 12px #a6eef2; }
+.glass-panel { position: absolute; border: 1px solid rgba(255,255,255,.38); border-radius: 18px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.glass-panel-back { top: 22%; right: 10%; width: 48%; height: 37%; background: rgba(255,255,255,.13); transform: rotate(7deg); box-shadow: 0 18px 42px rgba(0,0,0,.15); }
+.glass-panel-number { position: absolute; top: 11px; right: 13px; color: rgba(255,255,255,.66); font-family: Georgia, serif; font-size: 22px; }
+.glass-panel-line { position: absolute; bottom: 17px; left: 14px; width: 45%; height: 1px; background: rgba(255,255,255,.5); }
+.glass-panel-main {
+  left: 9%;
+  right: 9%;
+  top: 31%;
+  min-height: 42%;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 9px;
+  background: linear-gradient(135deg, rgba(244,253,255,.24), rgba(225,248,250,.09));
+  box-shadow: 0 25px 65px rgba(0,0,0,.22);
+}
+.glass-overline { color: #d4f4f4; font-size: 7px; font-weight: 700; letter-spacing: .18em; }
+.glass-panel-main strong { max-width: 100%; font-size: clamp(25px, 3vw, 37px); line-height: 1.04; text-shadow: 0 4px 20px rgba(0,0,0,.15); }
+.glass-panel-divider { width: 38px; height: 2px; background: #b9eff0; }
+.glass-subtitle { color: #e4faff; font-family: Georgia, serif; font-size: 12px; font-style: italic; }
+.glass-details { color: rgba(244,253,255,.78); font-size: 7px; line-height: 1.5; }
+.glass-bottom-chip { position: absolute; bottom: 9%; left: 9%; color: #e3fbff; font-size: 6px; font-weight: 700; letter-spacing: .2em; }
+
+/* 3D Opulence: dimensional medallion, layered typography and foreground depth. */
+.template-art-three-d { color: #fff0d1; background: #26180f; }
+.template-art-three-d .template-art-photo { filter: saturate(.9) brightness(.58); }
+.three-d-vignette { position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(18,10,4,.08), rgba(18,9,3,.76) 72%, rgba(18,9,3,.95)); }
+.three-d-orb { position: absolute; border-radius: 50%; border: 1px solid rgba(255,218,151,.42); box-shadow: inset -9px -12px 20px rgba(0,0,0,.28), inset 6px 7px 18px rgba(255,239,195,.12), 0 18px 35px rgba(0,0,0,.32); }
+.three-d-orb-one { width: 34%; aspect-ratio: 1; top: 20%; right: -8%; background: radial-gradient(circle at 32% 28%, rgba(255,229,166,.48), rgba(161,91,35,.22) 50%, rgba(33,14,7,.85)); }
+.three-d-orb-two { width: 17%; aspect-ratio: 1; top: 42%; left: -6%; background: radial-gradient(circle at 32% 28%, rgba(255,229,166,.35), rgba(123,68,25,.4) 55%, rgba(33,14,7,.8)); }
+.three-d-topline { position: absolute; top: 11%; left: 10%; right: 10%; display: flex; justify-content: space-between; color: #f2d39c; font-size: 7px; font-weight: 700; letter-spacing: .18em; }
+.three-d-medallion { position: absolute; top: 22%; left: 50%; width: 25%; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; border: 2px solid #f0c579; background: radial-gradient(circle at 32% 28%, #f8dc9e, #9b5c25 48%, #45200d 85%); color: #4a250f; box-shadow: 0 7px 0 #4b2813, 0 15px 30px rgba(0,0,0,.35), inset 0 0 0 5px rgba(255,238,190,.18); transform: translateX(-50%); }
+.three-d-medallion span { font-family: Georgia, serif; font-size: clamp(25px, 3vw, 42px); text-shadow: 0 1px 0 #fff0c6; }
+.three-d-copy { position: absolute; left: 8%; right: 8%; bottom: 18%; display: flex; flex-direction: column; align-items: center; gap: 9px; text-align: center; }
+.three-d-overline { color: #f1cc8e; font-size: 7px; font-weight: 700; letter-spacing: .2em; }
+.three-d-copy strong { max-width: 100%; color: #fff0cf; font-size: clamp(29px, 3.2vw, 42px); line-height: 1.02; text-shadow: 0 2px 0 #7e481f, 0 5px 0 #4d2915, 0 12px 20px rgba(0,0,0,.55); }
+.three-d-subtitle { color: #ffdfac; font-family: Georgia, serif; font-size: 12px; font-style: italic; }
+.three-d-details { color: rgba(255,238,208,.7); font-size: 7px; line-height: 1.5; }
+.three-d-bottom { position: absolute; bottom: 8%; left: 0; width: 100%; color: #d8b67d; text-align: center; font-size: 6px; letter-spacing: .28em; }
+
+/* Cinematic: full photograph, title treatment, film bars and scene metadata. */
+.template-art-cinematic { color: #fff; background: #101c2b; }
+.template-art-cinematic .template-art-photo { filter: saturate(.78) brightness(.56); }
+.cinema-vignette { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(5,12,21,.83), rgba(5,12,21,.15) 85%), linear-gradient(0deg, rgba(5,12,21,.82), transparent 65%); }
+.cinema-frame-count { position: absolute; top: 13%; left: 11%; color: #d7e1e9; font-size: 6px; font-weight: 700; letter-spacing: .2em; }
+.cinema-left-rule { position: absolute; top: 43%; left: 11%; height: 26%; width: 2px; background: var(--art-accent); box-shadow: 0 0 14px var(--art-accent); }
+.cinema-copy { position: absolute; left: 15%; right: 8%; bottom: 20%; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.cinema-overline { color: #d7e1e9; font-size: 7px; font-weight: 700; letter-spacing: .21em; }
+.cinema-copy strong { max-width: 100%; font-size: clamp(31px, 3.5vw, 47px); line-height: .98; text-shadow: 0 5px 22px rgba(0,0,0,.48); }
+.cinema-subtitle { color: #e5d9bf; font-family: Georgia, serif; font-size: 13px; font-style: italic; }
+.cinema-meta { display: flex; align-items: center; gap: 8px; max-width: 92%; color: rgba(232,239,244,.72); font-size: 7px; line-height: 1.5; }
+.cinema-meta i { width: 24px; height: 1px; flex: 0 0 24px; background: var(--art-accent); }
+.cinema-bottom-bar { position: absolute; left: 9%; right: 9%; bottom: 9%; display: flex; align-items: center; gap: 9px; color: #e5d9bf; font-size: 6px; letter-spacing: .2em; }
+.cinema-bottom-line { height: 1px; flex: 1; background: rgba(255,255,255,.45); }
+
+/* Luxury Editorial: paper canvas, asymmetric photograph and magazine hierarchy. */
+.template-art-editorial { color: #29261f; background: #eee8dc; }
+.template-art-editorial .template-art-photo { display: none; }
+.editorial-paper { position: absolute; inset: 0; padding: 7% 8%; background: linear-gradient(135deg, #f3eee4, #e6ddce); }
+.editorial-masthead { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid rgba(49,43,35,.35); color: #534b40; font-size: 6px; font-weight: 700; letter-spacing: .13em; }
+.editorial-photo-window { position: absolute; top: 18%; right: 8%; width: 64%; height: 44%; overflow: hidden; background: #b3a48b; box-shadow: 0 12px 26px rgba(41,35,26,.18); }
+.editorial-photo-window img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.editorial-photo-index { position: absolute; right: 7px; bottom: 7px; padding: 5px 6px; color: #f5efe4; background: rgba(28,25,20,.68); font-size: 6px; letter-spacing: .12em; }
+.editorial-copy { position: absolute; left: 9%; bottom: 13%; width: 75%; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.editorial-overline { color: #86745c; font-size: 6px; font-weight: 700; letter-spacing: .19em; }
+.editorial-copy strong { max-width: 100%; color: #28241e; font-size: clamp(32px, 4vw, 48px); line-height: .91; }
+.editorial-subtitle { color: #6e6251; font-family: Georgia, serif; font-size: 13px; font-style: italic; }
+.editorial-separator { width: 45px; height: 2px; background: #a88858; margin: 2px 0; }
+.editorial-details { max-width: 85%; color: #72685a; font-size: 7px; line-height: 1.5; }
+.editorial-footer { position: absolute; bottom: 5.5%; left: 8%; right: 8%; display: flex; justify-content: space-between; color: #817563; font-size: 5px; font-weight: 700; letter-spacing: .14em; }
+
+/* Traditional Heritage: carved arch frame, photo window and a separate ceremonial caption panel. */
+.template-art-heritage { color: #fff0d8; background: #381d17; }
+.template-art-heritage .template-art-photo { filter: saturate(.8) brightness(.6); }
+.template-art-heritage::before { content: ''; position: absolute; z-index: 4; inset: 4%; border: 3px double rgba(237,194,126,.78); pointer-events: none; }
+.heritage-topband { position: absolute; top: 8%; left: 12%; right: 12%; display: flex; justify-content: space-between; align-items: center; color: #f4d49d; font-size: 6px; font-weight: 700; letter-spacing: .16em; }
+.heritage-arch { position: absolute; top: 19%; left: 14%; right: 14%; height: 47%; border: 2px solid rgba(233,189,119,.86); border-bottom: 0; border-radius: 48% 48% 0 0 / 36% 36% 0 0; padding: 9px 9px 0; background: rgba(44,17,13,.18); box-shadow: 0 0 0 5px rgba(233,189,119,.08), inset 0 0 22px rgba(0,0,0,.25); }
+.heritage-arch-inner { height: 100%; border: 1px solid rgba(242,210,156,.48); border-bottom: 0; border-radius: inherit; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 9px 18px; background: linear-gradient(180deg, transparent, rgba(34,13,10,.68)); text-align: center; }
+.heritage-motif { color: #f2d39c; font-family: Georgia, serif; font-size: 28px; }
+.heritage-overline { color: #f5dcaf; font-size: 6px; font-weight: 700; letter-spacing: .17em; }
+.heritage-arch-inner strong { max-width: 100%; color: #fff1d3; font-size: clamp(22px, 2.8vw, 35px); line-height: 1.02; }
+.heritage-subtitle { color: #f5dfbb; font-family: Georgia, serif; font-size: 11px; font-style: italic; }
+.heritage-bottom-panel { position: absolute; left: 9%; right: 9%; bottom: 11%; display: flex; flex-direction: column; align-items: center; gap: 9px; text-align: center; }
+.heritage-details { color: rgba(255,239,208,.78); font-size: 7px; line-height: 1.5; }
+.heritage-footer { color: #e6c58f; font-size: 6px; font-weight: 700; letter-spacing: .2em; }
+.heritage-corner { position: absolute; z-index: 5; color: #edca8c; font-family: Georgia, serif; font-size: 17px; }
+.heritage-corner-tl { top: 5%; left: 6%; }
+.heritage-corner-tr { top: 5%; right: 6%; transform: scaleX(-1); }
+.heritage-corner-bl { bottom: 5%; left: 6%; transform: scaleY(-1); }
+.heritage-corner-br { bottom: 5%; right: 6%; transform: scale(-1); }
+
+/* Modern Floral: soft photo mask, asymmetric botanical linework and an ivory title panel. */
+.template-art-floral { color: #3a3030; background: #efe4df; }
+.template-art-floral .template-art-photo { top: 0; height: 65%; object-position: center; z-index: -1; }
+.floral-photo-mask { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 0%, rgba(25,14,17,.05) 40%, #eee5df 70%, #eee5df 100%); }
+.floral-copy { position: absolute; left: 12%; right: 12%; bottom: 12%; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.floral-overline { color: #9a6e73; font-size: 6px; font-weight: 700; letter-spacing: .2em; }
+.floral-copy strong { max-width: 100%; color: #3b3030; font-size: clamp(29px, 3.3vw, 42px); line-height: .98; }
+.floral-subtitle { color: #795c60; font-family: Georgia, serif; font-size: 13px; font-style: italic; }
+.floral-rule { width: 48px; height: 1px; background: #b78a8c; margin: 2px 0; }
+.floral-details { max-width: 90%; color: #806e6b; font-size: 7px; line-height: 1.5; }
+.floral-footer { position: absolute; bottom: 5%; left: 0; width: 100%; color: #a27a7e; text-align: center; font-size: 5px; font-weight: 700; letter-spacing: .22em; }
+.floral-branch { position: absolute; z-index: 3; width: 24%; height: 34%; pointer-events: none; opacity: .94; }
+.floral-branch svg { width: 100%; height: 100%; overflow: visible; }
+.floral-branch path { fill: rgba(117,139,108,.16); stroke: #7d927b; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.floral-branch-left { left: -2%; bottom: 18%; transform: rotate(-12deg); }
+.floral-branch-right { right: -2%; bottom: 19%; transform: scaleX(-1) rotate(-12deg); }
+
+@media (max-width: 820px) {
+  .template-preview { aspect-ratio: 4 / 5; }
+  .glass-panel-main { padding: 16px 13px; }
+  .glass-panel-main strong { font-size: clamp(25px, 4vw, 34px); }
+  .editorial-photo-window { height: 41%; }
+}
+
+@media (max-width: 620px) {
+  .template-preview { aspect-ratio: 5 / 4; }
+  .template-art-royal .template-art-photo { object-position: center 42%; }
+  .royal-topline { top: 8%; }
+  .royal-copy { bottom: 15%; }
+  .royal-copy strong, .cinema-copy strong, .heritage-arch-inner strong, .floral-copy strong { font-size: clamp(27px, 7vw, 36px); }
+  .glass-panel-main { top: 27%; min-height: 47%; }
+  .three-d-medallion { top: 18%; width: 22%; }
+  .three-d-copy { bottom: 14%; }
+  .cinema-copy { bottom: 17%; }
+  .editorial-photo-window { top: 17%; height: 39%; }
+  .editorial-copy { bottom: 12%; }
+  .heritage-arch { top: 17%; height: 48%; }
+  .heritage-bottom-panel { bottom: 8%; }
+  .floral-copy { bottom: 10%; }
+  .floral-branch { height: 29%; width: 22%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-preview:hover .template-art-photo,
+  .template-preview:hover .preview-play { transform: none; }
+}
