@@ -1,206 +1,183 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from "react";
+import { Player } from "@remotion/player";
+import {
+  COLOR_FILTER_OPTIONS,
+  CULTURE_OCCASIONS,
+  CULTURE_OPTIONS,
+  OCCASIONS,
+  STYLE_FILTER_OPTIONS,
+  getTemplatesForOccasion,
+} from "./data/templateCatalog.js";
+import { TemplateMotionPreview } from "./components/TemplateMotionPreview.jsx";
 
-const CULTURE_OCCASIONS = ['wedding', 'festival']
+const SORT_OPTIONS = [
+  { value: "featured", label: "Featured" },
+  { value: "popular", label: "Most selected on this device" },
+  { value: "newest", label: "Newest" },
+  { value: "name", label: "Name: A–Z" },
+];
 
-const occasionCatalog = [
-  { id: 'wedding', name: 'Wedding', icon: '✦', description: 'A beautiful celebration of two lives.' },
-  { id: 'festival', name: 'Festival', icon: '✺', description: 'Celebrate traditions, faith and togetherness.' },
-  { id: 'birthday', name: 'Birthday', icon: '🎂', description: 'Make their special day unforgettable.' },
-  { id: 'engagement', name: 'Engagement', icon: '◇', description: 'Celebrate the beginning of forever.' },
-  { id: 'anniversary', name: 'Anniversary', icon: '∞', description: 'Turn memories into a beautiful story.' },
-  { id: 'baby-shower', name: 'Baby Shower', icon: '♡', description: 'Welcome a beautiful new chapter.' },
-  { id: 'corporate', name: 'Corporate', icon: '▣', description: 'Create a polished event video.' },
-]
+const STORAGE_KEY = "event-video-template-usage-v1";
 
-const cultureCatalog = [
-  { id: 'general', name: 'General / Modern', icon: '✦', description: 'A contemporary look without specific religious styling.' },
-  { id: 'islamic', name: 'Islamic', icon: '☾', description: 'Geometric patterns, crescents and elegant ornament.' },
-  { id: 'hindu', name: 'Hindu', icon: 'ॐ', description: 'Traditional motifs, mandap details and festive colour.' },
-  { id: 'christian', name: 'Christian', icon: '✝', description: 'Church-inspired details, crosses and floral elements.' },
-  { id: 'sikh', name: 'Sikh', icon: 'ੴ', description: 'Khanda, Ik Onkar and Gurdwara-inspired details.' },
-  { id: 'jain', name: 'Jain', icon: 'अ', description: 'Ahimsa-inspired details, lotus and temple ornament.' },
-  { id: 'bohra', name: 'Bohra', icon: '۞', description: 'Bohra-inspired geometry, arches and refined ornament.' },
-  { id: 'other', name: 'Other / Custom', icon: '+', description: 'A flexible style for other traditions and preferences.' },
-]
+function readTemplateUsage() {
+  if (typeof window === "undefined") return {};
 
-const createTemplate = (
-  id,
-  name,
-  description,
-  theme,
-  motif,
-  previewTitle,
-  previewSubtitle,
-  detailLine,
-) => ({
-  id,
-  name,
-  description,
-  themeClass: `theme-${theme}`,
-  motif,
-  previewTitle,
-  previewSubtitle,
-  detailLine,
-})
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : {};
 
-const culturalTemplatesByOccasion = {
-  wedding: {
-    islamic: [
-      createTemplate('islamic-noor-arch', 'Noor Arch', 'Elegant, refined and timeless', 'islamic', '☾', 'Nikah', 'A blessed beginning', 'Crescent · arabesque · antique gold'),
-      createTemplate('islamic-mehrab-pearl', 'Mehrab Pearl', 'Ornamental and softly luxurious', 'islamic', '۞', 'Bismillah', 'Together in grace', 'Geometric arch · pearl · emerald'),
-    ],
-    hindu: [
-      createTemplate('hindu-shubh-vivah', 'Shubh Vivah', 'Traditional mandap-inspired elegance', 'hindu', 'ॐ', 'Shubh Vivah', 'A sacred union', 'Mandap · marigold · kalash'),
-      createTemplate('hindu-lotus-mandap', 'Lotus Mandap', 'Warm, floral and ceremonial', 'hindu', 'श्री', 'Mangal Parinay', 'A beautiful new beginning', 'Temple arch · lotus · gold'),
-    ],
-    christian: [
-      createTemplate('christian-sacred-vows', 'Sacred Vows', 'Graceful, classic and romantic', 'christian', '✝', 'Sacred Vows', 'Two lives, one promise', 'Church arch · lilies · ivory'),
-      createTemplate('christian-everlasting-grace', 'Everlasting Grace', 'Soft florals with a formal finish', 'christian', '✧', 'Forever & Always', 'A love blessed with grace', 'Cross detail · stained glass · roses'),
-    ],
-    sikh: [
-      createTemplate('sikh-anand-karaj', 'Anand Karaj', 'Traditional and richly detailed', 'sikh', 'ੴ', 'Anand Karaj', 'A union in divine love', 'Ik Onkar · floral arch · warm gold'),
-      createTemplate('sikh-golden-gurdwara', 'Golden Gurdwara', 'Architectural, elegant and serene', 'sikh', '☬', 'Blessed Union', 'A beautiful shared journey', 'Khanda · Gurdwara arch · ivory'),
-    ],
-    jain: [
-      createTemplate('jain-ahimsa-vows', 'Ahimsa Vows', 'Peaceful, meaningful and refined', 'jain', 'अहिंसा', 'A Sacred Union', 'Together in harmony', 'Lotus · temple carving · ivory'),
-      createTemplate('jain-lotus-serenity', 'Lotus Serenity', 'Minimal ornament with a graceful feel', 'jain', '❀', 'With Grace', 'A timeless celebration', 'Lotus petals · carved arch · sage'),
-    ],
-    bohra: [
-      createTemplate('bohra-noorani-nikah', 'Noorani Nikah', 'Community-inspired and elegant', 'bohra', '☾', 'Nikah Mubarak', 'A blessed new chapter', 'Geometric floral work · pearl · gold'),
-      createTemplate('bohra-mehfil-elegance', 'Mehfil Elegance', 'Rich detail with a premium finish', 'bohra', '۞', 'A Celebration', 'Together with family and love', 'Ornamental arch · burgundy · gold'),
-    ],
-    general: [
-      createTemplate('general-modern-vows', 'Modern Vows', 'Clean typography and contemporary style', 'general', '✦', 'The Wedding', 'A story made for two', 'Minimal frame · soft light · modern type'),
-      createTemplate('general-classic-romance', 'Classic Romance', 'Warm, graceful and versatile', 'general', '♡', 'Forever Begins', 'A day to remember', 'Floral detail · champagne · ivory'),
-    ],
-    other: [
-      createTemplate('other-custom-heritage', 'Custom Heritage', 'A flexible traditional design direction', 'other', '❖', 'A Celebration', 'Made around your traditions', 'Custom motifs · ornate frame · rich detail'),
-      createTemplate('other-custom-modern', 'Custom Modern', 'A clean design ready for personalization', 'other', '✧', 'Together', 'Your story, your style', 'Custom palette · modern type · soft light'),
-    ],
-  },
-  festival: {
-    islamic: [
-      createTemplate('islamic-eid-radiance', 'Eid Radiance', 'Festive lanterns and elegant ornament', 'islamic', '☾', 'Eid Mubarak', 'A season of blessings', 'Crescent · lantern · geometric stars'),
-      createTemplate('islamic-moonlit-mosaic', 'Moonlit Mosaic', 'A rich, atmospheric festive style', 'islamic', '۞', 'Festive Lights', 'Celebrate together', 'Arabesque pattern · moonlight · gold'),
-    ],
-    hindu: [
-      createTemplate('hindu-deepotsav', 'Deepotsav', 'Warm light, rangoli and festive detail', 'hindu', 'दीप', 'Shubh Utsav', 'May your home shine with joy', 'Diya · rangoli · marigold'),
-      createTemplate('hindu-temple-utsav', 'Temple Utsav', 'Temple-inspired architecture and ornament', 'hindu', 'ॐ', 'Divine Celebration', 'A festival of devotion', 'Temple arch · toran · deity artwork space'),
-    ],
-    christian: [
-      createTemplate('christian-christmas-glow', 'Christmas Glow', 'Warm festive light and classic details', 'christian', '✧', 'Season of Joy', 'Peace, hope and togetherness', 'Star · candlelight · evergreen'),
-      createTemplate('christian-easter-light', 'Easter Light', 'Fresh, bright and reverent', 'christian', '✝', 'Easter Blessings', 'A celebration of hope', 'Cross · lilies · sunrise'),
-    ],
-    sikh: [
-      createTemplate('sikh-gurpurab-lights', 'Gurpurab Lights', 'Radiant and community-centred', 'sikh', 'ੴ', 'Gurpurab', 'Celebrate the light of wisdom', 'Ik Onkar · Gurdwara arch · light'),
-      createTemplate('sikh-prakash-parv', 'Prakash Parv', 'Traditional details with a golden finish', 'sikh', '☬', 'Prakash Parv', 'A joyful gathering', 'Khanda · floral border · warm gold'),
-    ],
-    jain: [
-      createTemplate('jain-paryushan-peace', 'Paryushan Peace', 'Calm, thoughtful and minimal', 'jain', 'अहिंसा', 'Maitri Bhav', 'A time for peace and reflection', 'Ahimsa motif · lotus · ivory'),
-      createTemplate('jain-mahavir-jayanti', 'Jain Utsav', 'A serene temple-inspired celebration', 'jain', '❖', 'A Sacred Celebration', 'Celebrate with kindness', 'Temple arch · lotus · soft gold'),
-    ],
-    bohra: [
-      createTemplate('bohra-eid-gathering', 'Eid Gathering', 'Warm community celebration styling', 'bohra', '☾', 'Eid Mubarak', 'Together in gratitude', 'Lantern · floral geometry · gold'),
-      createTemplate('bohra-festive-noor', 'Festive Noor', 'Elegant geometry with a luminous finish', 'bohra', '۞', 'A Time to Celebrate', 'Joy shared with loved ones', 'Crescent · ornamental border · pearl'),
-    ],
-    general: [
-      createTemplate('general-festival-glow', 'Festival Glow', 'Bright, welcoming and versatile', 'general', '✺', 'Festival of Joy', 'Celebrate every moment', 'Warm light · floral accents · gold'),
-      createTemplate('general-celebration-mosaic', 'Celebration Mosaic', 'Colourful, modern and energetic', 'general', '✦', 'Let’s Celebrate', 'A gathering to remember', 'Geometric colour · confetti · modern type'),
-    ],
-    other: [
-      createTemplate('other-cultural-celebration', 'Cultural Celebration', 'A flexible base for your tradition', 'other', '❖', 'A Special Celebration', 'Made around your culture', 'Custom symbols · decorative border · colour'),
-      createTemplate('other-custom-festive', 'Custom Festive', 'A modern festive design direction', 'other', '✧', 'Festival Moments', 'Your celebration, your way', 'Custom palette · light effects · modern type'),
-    ],
-  },
-}
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
 
-const designsByOccasion = {
-  birthday: [
-    { id: 'celebration', name: 'Celebration', description: 'Bold, joyful, energetic', className: 'design-celebration', label: 'Happy Birthday', motif: '✺', previewSubtitle: 'A day full of happiness' },
-    { id: 'elegant', name: 'Elegant', description: 'Refined, stylish, modern', className: 'design-elegant', label: 'A Special Day', motif: '✧', previewSubtitle: 'Made to feel unforgettable' },
-    { id: 'playful', name: 'Playful', description: 'Fun, colourful, expressive', className: 'design-playful', label: 'Let’s Celebrate', motif: '♡', previewSubtitle: 'Big smiles and bright moments' },
-  ],
-  engagement: [
-    { id: 'romance', name: 'Romance', description: 'Intimate, soft, cinematic', className: 'design-romance', label: 'The Engagement', motif: '♡', previewSubtitle: 'The beginning of forever' },
-    { id: 'luxury', name: 'Luxury', description: 'Polished, premium, dramatic', className: 'design-luxury', label: 'Forever Begins', motif: '✦', previewSubtitle: 'A moment worth celebrating' },
-    { id: 'minimal', name: 'Minimal', description: 'Clean, modern, timeless', className: 'design-minimal', label: 'Together', motif: '◇', previewSubtitle: 'Simple, meaningful, yours' },
-  ],
-  anniversary: [
-    { id: 'classic', name: 'Classic', description: 'Warm, elegant, heartfelt', className: 'design-classic', label: 'Our Story', motif: '∞', previewSubtitle: 'Celebrating every chapter' },
-    { id: 'cinematic', name: 'Cinematic', description: 'Dramatic, emotional, refined', className: 'design-cinematic', label: 'Years Together', motif: '✦', previewSubtitle: 'A story still unfolding' },
-    { id: 'minimal', name: 'Minimal', description: 'Clean, modern, timeless', className: 'design-minimal', label: 'Still Us', motif: '♡', previewSubtitle: 'Always and forever' },
-  ],
-  'baby-shower': [
-    { id: 'soft', name: 'Soft', description: 'Gentle, warm, delicate', className: 'design-soft', label: 'A Little Wonder', motif: '♡', previewSubtitle: 'A beautiful new chapter' },
-    { id: 'floral', name: 'Floral', description: 'Fresh, graceful, joyful', className: 'design-floral', label: 'Coming Soon', motif: '❀', previewSubtitle: 'Love is growing' },
-    { id: 'playful', name: 'Playful', description: 'Sweet, cheerful, charming', className: 'design-playful', label: 'Baby Love', motif: '✺', previewSubtitle: 'Tiny moments, big love' },
-  ],
-  corporate: [
-    { id: 'executive', name: 'Executive', description: 'Premium, confident, polished', className: 'design-executive', label: 'Our Event', motif: '▣', previewSubtitle: 'A professional impression' },
-    { id: 'modern', name: 'Modern', description: 'Clean, sharp, contemporary', className: 'design-modern', label: 'Let’s Connect', motif: '◇', previewSubtitle: 'Ideas into moments' },
-    { id: 'minimal', name: 'Minimal', description: 'Simple, clear, professional', className: 'design-minimal', label: 'Together', motif: '✦', previewSubtitle: 'A clear, confident story' },
-  ],
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([key, value]) =>
+          typeof key === "string" && Number.isFinite(value) && value >= 0,
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 export default function App() {
-  const [selectedOccasion, setSelectedOccasion] = useState(null)
-  const [selectedCulture, setSelectedCulture] = useState(null)
-  const [isCultureStepComplete, setIsCultureStepComplete] = useState(false)
-  const [selectedDesign, setSelectedDesign] = useState(null)
-  const [isDesignConfirmed, setIsDesignConfirmed] = useState(false)
+  const [selectedOccasion, setSelectedOccasion] = useState(null);
+  const [selectedCulture, setSelectedCulture] = useState(null);
+  const [isCultureStepComplete, setIsCultureStepComplete] = useState(false);
+  const [selectedDesign, setSelectedDesign] = useState(null);
+  const [isDesignConfirmed, setIsDesignConfirmed] = useState(false);
 
-  const needsCultureStep = CULTURE_OCCASIONS.includes(selectedOccasion)
-  const cultureKey = selectedCulture || 'general'
+  const [styleFilter, setStyleFilter] = useState("all");
+  const [colorFilter, setColorFilter] = useState("all");
+  const [sortMode, setSortMode] = useState("featured");
+  const [templateUsage, setTemplateUsage] = useState(readTemplateUsage);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
 
-  const designs = useMemo(() => {
-    if (!selectedOccasion) return []
+  const needsCultureStep = CULTURE_OCCASIONS.includes(selectedOccasion);
+  const cultureKey = selectedCulture || "general";
 
-    if (CULTURE_OCCASIONS.includes(selectedOccasion)) {
-      return culturalTemplatesByOccasion[selectedOccasion]?.[cultureKey]
-        || culturalTemplatesByOccasion[selectedOccasion]?.general
-        || []
+  const designs = useMemo(
+    () => getTemplatesForOccasion(selectedOccasion, cultureKey),
+    [selectedOccasion, cultureKey],
+  );
+
+  const visibleDesigns = useMemo(() => {
+    const filtered = designs.filter((design) => {
+      const matchesStyle = styleFilter === "all" || design.styleId === styleFilter;
+      const matchesColor = colorFilter === "all" || design.colorId === colorFilter;
+
+      return matchesStyle && matchesColor;
+    });
+
+    return filtered.sort((a, b) => {
+      if (sortMode === "popular") {
+        const usageDifference =
+          (templateUsage[b.id] || 0) - (templateUsage[a.id] || 0);
+
+        return usageDifference || a.featuredRank - b.featuredRank;
+      }
+
+      if (sortMode === "newest") {
+        return b.releaseOrder - a.releaseOrder;
+      }
+
+      if (sortMode === "name") {
+        return a.name.localeCompare(b.name);
+      }
+
+      return a.featuredRank - b.featuredRank;
+    });
+  }, [designs, styleFilter, colorFilter, sortMode, templateUsage]);
+
+  const selectedOccasionData = OCCASIONS.find(
+    (occasion) => occasion.id === selectedOccasion,
+  );
+  const selectedCultureData = CULTURE_OPTIONS.find(
+    (culture) => culture.id === selectedCulture,
+  );
+  const effectiveCultureData = selectedCultureData || CULTURE_OPTIONS[0];
+  const selectedDesignData = designs.find(
+    (design) => design.id === selectedDesign,
+  );
+  const canShowDesigns =
+    Boolean(selectedOccasion) &&
+    (!needsCultureStep || isCultureStepComplete);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(templateUsage));
+    } catch {
+      // Template selection still works when local storage is unavailable.
     }
+  }, [templateUsage]);
 
-    return designsByOccasion[selectedOccasion] || []
-  }, [selectedOccasion, cultureKey])
+  useEffect(() => {
+    if (!previewTemplate) return undefined;
 
-  const selectedOccasionData = occasionCatalog.find((occasion) => occasion.id === selectedOccasion)
-  const selectedCultureData = cultureCatalog.find((culture) => culture.id === selectedCulture)
-  const effectiveCultureData = selectedCultureData || cultureCatalog.find((culture) => culture.id === 'general')
-  const canShowDesigns = Boolean(selectedOccasion) && (!needsCultureStep || isCultureStepComplete)
-  const selectedDesignData = designs.find((design) => design.id === selectedDesign)
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setPreviewTemplate(null);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [previewTemplate]);
+
+  const resetGalleryControls = () => {
+    setStyleFilter("all");
+    setColorFilter("all");
+    setSortMode("featured");
+    setPreviewTemplate(null);
+  };
 
   const handleOccasionChange = (occasionId) => {
-    setSelectedOccasion(occasionId)
-    setSelectedCulture(null)
-    setIsCultureStepComplete(false)
-    setSelectedDesign(null)
-    setIsDesignConfirmed(false)
-  }
+    setSelectedOccasion(occasionId);
+    setSelectedCulture(null);
+    setIsCultureStepComplete(false);
+    setSelectedDesign(null);
+    setIsDesignConfirmed(false);
+    resetGalleryControls();
+  };
 
   const handleCultureChange = (cultureId) => {
-    setSelectedCulture(cultureId)
-    setIsCultureStepComplete(true)
-    setSelectedDesign(null)
-    setIsDesignConfirmed(false)
-  }
+    setSelectedCulture(cultureId);
+    setIsCultureStepComplete(true);
+    setSelectedDesign(null);
+    setIsDesignConfirmed(false);
+    resetGalleryControls();
+  };
 
   const handleSkipCulture = () => {
-    setSelectedCulture(null)
-    setIsCultureStepComplete(true)
-    setSelectedDesign(null)
-    setIsDesignConfirmed(false)
-  }
+    setSelectedCulture(null);
+    setIsCultureStepComplete(true);
+    setSelectedDesign(null);
+    setIsDesignConfirmed(false);
+    resetGalleryControls();
+  };
 
-  const handleDesignChange = (designId) => {
-    setSelectedDesign(designId)
-    setIsDesignConfirmed(false)
-  }
+  const handleDesignChange = (design) => {
+    setSelectedDesign(design.id);
+    setIsDesignConfirmed(false);
+    setTemplateUsage((current) => {
+      if (current[design.id]) return current;
+
+      return { ...current, [design.id]: 1 };
+    });
+  };
 
   const handleDesignContinue = () => {
-    if (!selectedDesignData) return
-    setIsDesignConfirmed(true)
-  }
+    if (!selectedDesignData) return;
+    setIsDesignConfirmed(true);
+  };
+
+  const handlePreviewSelect = (design) => {
+    setPreviewTemplate(design);
+    handleDesignChange(design);
+  };
 
   return (
     <main className="app-shell">
@@ -208,7 +185,7 @@ export default function App() {
         <div className="hero-glow hero-glow-one" />
         <div className="hero-glow hero-glow-two" />
 
-        <nav className="topbar">
+        <nav className="topbar" aria-label="Main">
           <div className="brand-mark" aria-hidden="true">W</div>
           <span className="brand-name">Event Video Maker</span>
           <span className="step-label">01 / 09</span>
@@ -222,8 +199,8 @@ export default function App() {
             <span>Beautifully made.</span>
           </h1>
           <p className="hero-description">
-            Choose your occasion and, for weddings or festivals, a cultural style. We’ll find a
-            design direction that fits your celebration.
+            Choose an occasion, explore professional styles and preview your favourite design.
+            We’ll handle the video creation for you.
           </p>
         </div>
       </section>
@@ -238,12 +215,12 @@ export default function App() {
         </div>
 
         <div className="occasion-grid">
-          {occasionCatalog.map((occasion) => {
-            const isSelected = selectedOccasion === occasion.id
+          {OCCASIONS.map((occasion) => {
+            const isSelected = selectedOccasion === occasion.id;
 
             return (
               <button
-                className={`occasion-card ${isSelected ? 'is-selected' : ''}`}
+                className={"occasion-card " + (isSelected ? "is-selected" : "")}
                 key={occasion.id}
                 type="button"
                 onClick={() => handleOccasionChange(occasion.id)}
@@ -254,45 +231,68 @@ export default function App() {
                   <strong>{occasion.name}</strong>
                   <small>{occasion.description}</small>
                 </span>
-                <span className="selection-indicator" aria-hidden="true">{isSelected ? '✓' : ''}</span>
+                <span className="selection-indicator" aria-hidden="true">
+                  {isSelected ? "✓" : ""}
+                </span>
               </button>
-            )
+            );
           })}
         </div>
       </section>
 
       {selectedOccasion && needsCultureStep && (
-        <section className="culture-section culture-section-reveal" aria-labelledby="culture-heading">
+        <section
+          className="culture-section culture-section-reveal"
+          aria-labelledby="culture-heading"
+        >
           <div className="section-heading">
             <div>
               <p className="eyebrow">Step 02 · Optional</p>
               <h2 id="culture-heading">Choose your cultural style</h2>
             </div>
-            <p className="heading-note">Shown for weddings and festivals. You can skip this step.</p>
+            <p className="heading-note">
+              Personalise wedding and festival designs. You can skip this step.
+            </p>
           </div>
 
           <div className="culture-grid">
-            {cultureCatalog.map((culture) => {
-              const isSelected = selectedCulture === culture.id
+            {CULTURE_OPTIONS.map((culture) => {
+              const isSelected = selectedCulture === culture.id;
 
               return (
                 <button
-                  className={`culture-card ${isSelected ? 'is-selected' : ''}`}
+                  className={"culture-card " + (isSelected ? "is-selected" : "")}
                   key={culture.id}
                   type="button"
                   onClick={() => handleCultureChange(culture.id)}
                   aria-pressed={isSelected}
                 >
                   <span className="culture-card-top">
-                    <span className="culture-icon" aria-hidden="true">{culture.icon}</span>
-                    <span className="selection-indicator" aria-hidden="true">{isSelected ? '✓' : ''}</span>
+                    <span className="culture-icon" aria-hidden="true">
+                      {culture.id === "general" ? "✦" :
+                        culture.id === "islamic" ? "☾" :
+                        culture.id === "hindu" ? "ॐ" :
+                        culture.id === "christian" ? "✝" :
+                        culture.id === "sikh" ? "ੴ" :
+                        culture.id === "jain" ? "अ" :
+                        culture.id === "bohra" ? "۞" : "+"}
+                    </span>
+                    <span className="selection-indicator" aria-hidden="true">
+                      {isSelected ? "✓" : ""}
+                    </span>
                   </span>
                   <span className="culture-copy">
                     <strong>{culture.name}</strong>
-                    <small>{culture.description}</small>
+                    <small>
+                      {culture.id === "general"
+                        ? "A contemporary look without specific religious styling."
+                        : culture.id === "other"
+                          ? "A flexible style for other traditions and preferences."
+                          : "Explore designs tailored to this cultural style."}
+                    </small>
                   </span>
                 </button>
-              )
+              );
             })}
           </div>
 
@@ -305,84 +305,197 @@ export default function App() {
       )}
 
       {canShowDesigns && (
-        <section className="design-section design-section-reveal" aria-labelledby="design-heading">
-          <div className="section-heading">
+        <section
+          className="design-section design-section-reveal"
+          aria-labelledby="design-heading"
+        >
+          <div className="section-heading design-heading">
             <div>
               <p className="eyebrow">
                 Step 03 · {selectedOccasionData?.name}
-                {needsCultureStep ? ` · ${effectiveCultureData?.name}` : ''}
+                {needsCultureStep ? " · " + effectiveCultureData?.name : ""}
               </p>
-              <h2 id="design-heading">Choose your design</h2>
+              <h2 id="design-heading">Find your perfect design</h2>
             </div>
-            <p className="heading-note">
-              {needsCultureStep
-                ? `Templates curated for ${selectedOccasionData?.name.toLowerCase()} and ${effectiveCultureData?.name.toLowerCase()} style.`
-                : 'Choose a visual theme for your event video.'}
-            </p>
+            <div className="design-heading-meta">
+              <p className="heading-note">
+                {needsCultureStep
+                  ? "Seven styles tailored for your " +
+                    selectedOccasionData?.name.toLowerCase() +
+                    " and " +
+                    effectiveCultureData?.name.toLowerCase() +
+                    " preference."
+                  : "Seven distinct design directions for your event."}
+              </p>
+              <span className="template-count">
+                {visibleDesigns.length} of {designs.length} designs
+              </span>
+            </div>
           </div>
-
-          {selectedCulture === 'hindu' && (
-            <p className="culture-guidance" role="note">
-              Hindu designs use tradition-aware motifs. The exact festival or ceremony and deity artwork,
-              where relevant, should be selected in Event Details so the video never shows the wrong deity.
-            </p>
-          )}
 
           {needsCultureStep && (
             <div className="design-context">
-              <span>Occasion <strong>{selectedOccasionData?.name}</strong></span>
-              <span>Style <strong>{effectiveCultureData?.name}</strong></span>
-              {selectedCulture === null && <span className="context-hint">General templates selected because you skipped culture.</span>}
+              <span>
+                Occasion <strong>{selectedOccasionData?.name}</strong>
+              </span>
+              <span>
+                Cultural style <strong>{effectiveCultureData?.name}</strong>
+              </span>
+              {selectedCulture === null && (
+                <span className="context-hint">
+                  General designs selected because you skipped culture.
+                </span>
+              )}
             </div>
           )}
 
+          <div className="gallery-toolbar" aria-label="Template filters">
+            <label className="filter-control">
+              <span>Design style</span>
+              <select
+                value={styleFilter}
+                onChange={(event) => setStyleFilter(event.target.value)}
+              >
+                {STYLE_FILTER_OPTIONS.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="filter-control">
+              <span>Colour</span>
+              <select
+                value={colorFilter}
+                onChange={(event) => setColorFilter(event.target.value)}
+              >
+                {COLOR_FILTER_OPTIONS.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="filter-control filter-sort">
+              <span>Sort by</span>
+              <select
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value)}
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="design-grid">
-            {designs.map((design) => {
-              const isSelected = selectedDesign === design.id
-              const previewTitle = design.previewTitle || design.label
-              const previewSubtitle = design.previewSubtitle || 'Made automatically'
-              const previewMotif = design.motif || '✦'
+            {visibleDesigns.map((design) => {
+              const isSelected = selectedDesign === design.id;
 
               return (
-                <button
-                  className={`design-card ${design.className || ''} ${isSelected ? 'is-selected' : ''}`}
+                <article
+                  className={"design-card " + (isSelected ? "is-selected" : "")}
                   key={design.id}
-                  type="button"
-                  onClick={() => handleDesignChange(design.id)}
-                  aria-pressed={isSelected}
+                  style={{
+                    "--template-background": design.colors.background,
+                    "--template-middle": design.colors.middle,
+                    "--template-accent": design.colors.accent,
+                    "--template-ink": design.colors.ink,
+                    "--template-soft": design.colors.soft,
+                  }}
                 >
-                  <span className={`design-preview template-preview ${design.themeClass || ''}`}>
-                    <span className="template-content">
-                      <span className="template-motif" aria-hidden="true">{previewMotif}</span>
-                      <span className="preview-kicker">
-                        {design.previewKicker || (selectedCultureData ? selectedCultureData.name : selectedOccasionData?.name)}
+                  <button
+                    className={"template-preview art-" + design.styleId}
+                    type="button"
+                    onClick={() => handlePreviewSelect(design)}
+                    aria-label={"Play animated preview of " + design.name}
+                  >
+                    <span className="art-glow" aria-hidden="true" />
+                    <span className="art-orbit art-orbit-one" aria-hidden="true" />
+                    <span className="art-orbit art-orbit-two" aria-hidden="true" />
+                    <span className="art-border" aria-hidden="true" />
+                    <span className="art-content">
+                      <span className="art-motif" aria-hidden="true">
+                        {design.styleMotif}
                       </span>
-                      <strong>{previewTitle}</strong>
-                      <span className="preview-line" />
-                      <small>{previewSubtitle}</small>
-                      <span className="template-detail-line">{design.detailLine || design.description}</span>
+                      <span className="art-kicker">{design.styleName}</span>
+                      <strong>{design.previewTitle}</strong>
+                      <span className="art-divider" />
+                      <small>{design.previewSubtitle}</small>
+                      <span className="art-detail">{design.detailLine}</span>
                     </span>
-                    <span className="template-corner template-corner-top" aria-hidden="true">✧</span>
-                    <span className="template-corner template-corner-bottom" aria-hidden="true">✧</span>
-                  </span>
-                  <span className="card-footer">
-                    <span className="card-footer-copy">
-                      <strong>{design.name}</strong>
-                      <small>{design.description}</small>
+                    <span className="preview-play" aria-hidden="true">
+                      <span>▶</span>
+                      Preview
                     </span>
-                    <span className="selection-indicator" aria-hidden="true">{isSelected ? '✓' : ''}</span>
-                  </span>
-                </button>
-              )
+                    <span className="art-footer-mark" aria-hidden="true">
+                      EVENT FILM · {selectedOccasionData?.name.toUpperCase()}
+                    </span>
+                  </button>
+
+                  <div className="card-footer">
+                    <div className="card-title-row">
+                      <div className="card-footer-copy">
+                        <strong>{design.name}</strong>
+                        <small>{design.description}</small>
+                      </div>
+                      <span className="style-tag">{design.category}</span>
+                    </div>
+                    <div className="card-meta-row">
+                      <span className="color-dot" aria-hidden="true" />
+                      <span>{design.color}</span>
+                      <span className="meta-separator">·</span>
+                      <span>
+                        {templateUsage[design.id]
+                          ? "Selected " + templateUsage[design.id] + "× here"
+                          : "New design"}
+                      </span>
+                    </div>
+                    <button
+                      className={
+                        "select-template-button " +
+                        (isSelected ? "is-selected" : "")
+                      }
+                      type="button"
+                      onClick={() => handleDesignChange(design)}
+                      aria-pressed={isSelected}
+                    >
+                      {isSelected ? "Selected ✓" : "Select design"}
+                    </button>
+                  </div>
+                </article>
+              );
             })}
           </div>
+
+          {visibleDesigns.length === 0 && (
+            <div className="empty-gallery">
+              <strong>No designs match these filters.</strong>
+              <span>Try another style or colour to see more templates.</span>
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => {
+                  setStyleFilter("all");
+                  setColorFilter("all");
+                }}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
 
           <div className="continue-row">
             <span className="selection-summary">
               {selectedOccasionData?.name}
-              {needsCultureStep ? ` · ${effectiveCultureData?.name}` : ''}
-              {' · '}
-              <strong>{selectedDesignData?.name || 'Choose a design'}</strong>
+              {needsCultureStep ? " · " + effectiveCultureData?.name : ""}
+              {" · "}
+              <strong>{selectedDesignData?.name || "Choose a design"}</strong>
             </span>
             <button
               className="primary-button"
@@ -390,7 +503,7 @@ export default function App() {
               disabled={!selectedDesignData}
               onClick={handleDesignContinue}
             >
-              {isDesignConfirmed ? 'Design confirmed ✓' : 'Confirm design'}
+              {isDesignConfirmed ? "Design confirmed ✓" : "Continue"}
               {!isDesignConfirmed && <span aria-hidden="true"> →</span>}
             </button>
           </div>
@@ -403,6 +516,65 @@ export default function App() {
           )}
         </section>
       )}
+
+      {previewTemplate && (
+        <div
+          className="preview-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreviewTemplate(null);
+          }}
+        >
+          <section
+            className="preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="preview-modal-title"
+          >
+            <div className="preview-modal-header">
+              <div>
+                <p className="eyebrow">Animated template preview</p>
+                <h2 id="preview-modal-title">{previewTemplate.name}</h2>
+                <p>{previewTemplate.styleName} · {previewTemplate.color}</p>
+              </div>
+              <button
+                className="preview-modal-close"
+                type="button"
+                onClick={() => setPreviewTemplate(null)}
+                aria-label="Close preview"
+              >
+                ×
+              </button>
+            </div>
+            <div className="preview-player-shell">
+              <Player
+                component={TemplateMotionPreview}
+                inputProps={{ template: previewTemplate }}
+                durationInFrames={90}
+                compositionWidth={540}
+                compositionHeight={960}
+                fps={30}
+                loop
+                autoPlay
+                controls
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+            <div className="preview-modal-footer">
+              <span>3-second animated style preview</span>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => {
+                  handleDesignChange(previewTemplate);
+                  setPreviewTemplate(null);
+                }}
+              >
+                {selectedDesign === previewTemplate.id ? "Keep selected" : "Select this design"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
-  )
+  );
 }
