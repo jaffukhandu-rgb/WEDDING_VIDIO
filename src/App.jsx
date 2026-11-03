@@ -157,14 +157,13 @@ export default function App() {
     <main className={"app-shell" + (isWeddingGallery ? " app-shell-wedding" : "")}>
       {isWeddingGallery ? (
         <WeddingTemplateGallery
-          designs={visibleDesigns}
+          designs={designs}
           selectedDesign={selectedDesign}
           selectedDesignData={selectedDesignData}
           isDesignConfirmed={isDesignConfirmed}
           sortMode={sortMode}
           setSortMode={setSortMode}
           onBack={handleBackToOccasions}
-          onStyleFilterChange={setStyleFilter}
           onDesignChange={handleDesignChange}
           onContinue={handleDesignContinue}
           onPreviewSelect={handlePreviewSelect}
