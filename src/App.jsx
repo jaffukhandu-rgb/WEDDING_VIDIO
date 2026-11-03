@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Player } from "@remotion/player";
 import {
   COLOR_FILTER_OPTIONS,
-  CULTURE_OCCASIONS,
-  CULTURE_OPTIONS,
   OCCASIONS,
   STYLE_FILTER_OPTIONS,
   getTemplatesForOccasion,
@@ -41,8 +39,6 @@ function readTemplateUsage() {
 
 export default function App() {
   const [selectedOccasion, setSelectedOccasion] = useState(null);
-  const [selectedCulture, setSelectedCulture] = useState(null);
-  const [isCultureStepComplete, setIsCultureStepComplete] = useState(false);
   const [selectedDesign, setSelectedDesign] = useState(null);
   const [isDesignConfirmed, setIsDesignConfirmed] = useState(false);
 
@@ -52,12 +48,10 @@ export default function App() {
   const [templateUsage, setTemplateUsage] = useState(readTemplateUsage);
   const [previewTemplate, setPreviewTemplate] = useState(null);
 
-  const needsCultureStep = CULTURE_OCCASIONS.includes(selectedOccasion);
-  const cultureKey = selectedCulture || "general";
 
   const designs = useMemo(
-    () => getTemplatesForOccasion(selectedOccasion, cultureKey),
-    [selectedOccasion, cultureKey],
+    () => getTemplatesForOccasion(selectedOccasion, null),
+    [selectedOccasion],
   );
 
   const visibleDesigns = useMemo(() => {
@@ -87,16 +81,10 @@ export default function App() {
   const selectedOccasionData = OCCASIONS.find(
     (occasion) => occasion.id === selectedOccasion,
   );
-  const selectedCultureData = CULTURE_OPTIONS.find(
-    (culture) => culture.id === selectedCulture,
-  );
-  const effectiveCultureData = selectedCultureData || CULTURE_OPTIONS[0];
   const selectedDesignData = designs.find(
     (design) => design.id === selectedDesign,
   );
-  const canShowDesigns =
-    Boolean(selectedOccasion) &&
-    (!needsCultureStep || isCultureStepComplete);
+  const canShowDesigns = Boolean(selectedOccasion);
 
   useEffect(() => {
     try {
@@ -132,24 +120,6 @@ export default function App() {
 
   const handleOccasionChange = (occasionId) => {
     setSelectedOccasion(occasionId);
-    setSelectedCulture(null);
-    setIsCultureStepComplete(false);
-    setSelectedDesign(null);
-    setIsDesignConfirmed(false);
-    resetGalleryControls();
-  };
-
-  const handleCultureChange = (cultureId) => {
-    setSelectedCulture(cultureId);
-    setIsCultureStepComplete(true);
-    setSelectedDesign(null);
-    setIsDesignConfirmed(false);
-    resetGalleryControls();
-  };
-
-  const handleSkipCulture = () => {
-    setSelectedCulture(null);
-    setIsCultureStepComplete(true);
     setSelectedDesign(null);
     setIsDesignConfirmed(false);
     resetGalleryControls();
@@ -233,70 +203,6 @@ export default function App() {
         </div>
       </section>
 
-      {selectedOccasion && needsCultureStep && (
-        <section
-          className="culture-section culture-section-reveal"
-          aria-labelledby="culture-heading"
-        >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Step 02 · Optional</p>
-              <h2 id="culture-heading">Choose your cultural style</h2>
-            </div>
-            <p className="heading-note">
-              Personalise wedding and festival designs. You can skip this step.
-            </p>
-          </div>
-
-          <div className="culture-grid">
-            {CULTURE_OPTIONS.map((culture) => {
-              const isSelected = selectedCulture === culture.id;
-
-              return (
-                <button
-                  className={"culture-card " + (isSelected ? "is-selected" : "")}
-                  key={culture.id}
-                  type="button"
-                  onClick={() => handleCultureChange(culture.id)}
-                  aria-pressed={isSelected}
-                >
-                  <span className="culture-card-top">
-                    <span className="culture-icon" aria-hidden="true">
-                      {culture.id === "general" ? "✦" :
-                        culture.id === "islamic" ? "☾" :
-                        culture.id === "hindu" ? "ॐ" :
-                        culture.id === "christian" ? "✝" :
-                        culture.id === "sikh" ? "ੴ" :
-                        culture.id === "jain" ? "अ" :
-                        culture.id === "bohra" ? "۞" : "+"}
-                    </span>
-                    <span className="selection-indicator" aria-hidden="true">
-                      {isSelected ? "✓" : ""}
-                    </span>
-                  </span>
-                  <span className="culture-copy">
-                    <strong>{culture.name}</strong>
-                    <small>
-                      {culture.id === "general"
-                        ? "A contemporary look without specific religious styling."
-                        : culture.id === "other"
-                          ? "A flexible style for other traditions and preferences."
-                          : "Explore designs tailored to this cultural style."}
-                    </small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="culture-actions">
-            <button className="text-button" type="button" onClick={handleSkipCulture}>
-              Skip for now <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        </section>
-      )}
-
       {canShowDesigns && (
         <section
           className="design-section design-section-reveal"
@@ -305,42 +211,19 @@ export default function App() {
           <div className="section-heading design-heading">
             <div>
               <p className="eyebrow">
-                Step 03 · {selectedOccasionData?.name}
-                {needsCultureStep ? " · " + effectiveCultureData?.name : ""}
+                Step 02 · {selectedOccasionData?.name}
               </p>
               <h2 id="design-heading">Find your perfect design</h2>
             </div>
             <div className="design-heading-meta">
               <p className="heading-note">
-                {needsCultureStep
-                  ? "Seven styles tailored for your " +
-                    selectedOccasionData?.name.toLowerCase() +
-                    " and " +
-                    effectiveCultureData?.name.toLowerCase() +
-                    " preference."
-                  : "Seven distinct design directions for your event."}
+"Seven professional design directions for your event."
               </p>
               <span className="template-count">
                 {visibleDesigns.length} of {designs.length} designs
               </span>
             </div>
           </div>
-
-          {needsCultureStep && (
-            <div className="design-context">
-              <span>
-                Occasion <strong>{selectedOccasionData?.name}</strong>
-              </span>
-              <span>
-                Cultural style <strong>{effectiveCultureData?.name}</strong>
-              </span>
-              {selectedCulture === null && (
-                <span className="context-hint">
-                  General designs selected because you skipped culture.
-                </span>
-              )}
-            </div>
-          )}
 
           <div className="gallery-toolbar" aria-label="Template filters">
             <label className="filter-control">
@@ -470,7 +353,6 @@ export default function App() {
           <div className="continue-row">
             <span className="selection-summary">
               {selectedOccasionData?.name}
-              {needsCultureStep ? " · " + effectiveCultureData?.name : ""}
               {" · "}
               <strong>{selectedDesignData?.name || "Choose a design"}</strong>
             </span>
