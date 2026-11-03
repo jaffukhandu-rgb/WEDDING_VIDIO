@@ -36,7 +36,7 @@ const createTemplate = (
   id,
   name,
   description,
-  themeClass: \`theme-\${theme}\`,
+  themeClass: `theme-${theme}`,
   motif,
   previewTitle,
   previewSubtitle,
@@ -243,7 +243,7 @@ export default function App() {
 
             return (
               <button
-                className={\`occasion-card \${isSelected ? 'is-selected' : ''}\`}
+                className={`occasion-card ${isSelected ? 'is-selected' : ''}`}
                 key={occasion.id}
                 type="button"
                 onClick={() => handleOccasionChange(occasion.id)}
@@ -277,7 +277,7 @@ export default function App() {
 
               return (
                 <button
-                  className={\`culture-card \${isSelected ? 'is-selected' : ''}\`}
+                  className={`culture-card ${isSelected ? 'is-selected' : ''}`}
                   key={culture.id}
                   type="button"
                   onClick={() => handleCultureChange(culture.id)}
@@ -310,13 +310,13 @@ export default function App() {
             <div>
               <p className="eyebrow">
                 Step 03 · {selectedOccasionData?.name}
-                {needsCultureStep ? \` · \${effectiveCultureData?.name}\` : ''}
+                {needsCultureStep ? ` · ${effectiveCultureData?.name}` : ''}
               </p>
               <h2 id="design-heading">Choose your design</h2>
             </div>
             <p className="heading-note">
               {needsCultureStep
-                ? \`Templates curated for \${selectedOccasionData?.name.toLowerCase()} and \${effectiveCultureData?.name.toLowerCase()} style.\`
+                ? `Templates curated for ${selectedOccasionData?.name.toLowerCase()} and ${effectiveCultureData?.name.toLowerCase()} style.`
                 : 'Choose a visual theme for your event video.'}
             </p>
           </div>
@@ -345,13 +345,13 @@ export default function App() {
 
               return (
                 <button
-                  className={\`design-card \${design.className || ''} \${isSelected ? 'is-selected' : ''}\`}
+                  className={`design-card ${design.className || ''} ${isSelected ? 'is-selected' : ''}`}
                   key={design.id}
                   type="button"
                   onClick={() => handleDesignChange(design.id)}
                   aria-pressed={isSelected}
                 >
-                  <span className={\`design-preview template-preview \${design.themeClass || ''}\`}>
+                  <span className={`design-preview template-preview ${design.themeClass || ''}`}>
                     <span className="template-content">
                       <span className="template-motif" aria-hidden="true">{previewMotif}</span>
                       <span className="preview-kicker">
@@ -380,7 +380,7 @@ export default function App() {
           <div className="continue-row">
             <span className="selection-summary">
               {selectedOccasionData?.name}
-              {needsCultureStep ? \` · \${effectiveCultureData?.name}\` : ''}
+              {needsCultureStep ? ` · ${effectiveCultureData?.name}` : ''}
               {' · '}
               <strong>{selectedDesignData?.name || 'Choose a design'}</strong>
             </span>
