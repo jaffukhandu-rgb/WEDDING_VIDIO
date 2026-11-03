@@ -7,6 +7,8 @@ import {
   getTemplatesForOccasion,
 } from "./data/templateCatalog.js";
 import { TemplateMotionPreview } from "./components/TemplateMotionPreview.jsx";
+import { WeddingTemplateGallery } from "./components/WeddingTemplateGallery.jsx";
+import { WeddingTemplateMotionPreview } from "./components/WeddingTemplateMotionPreview.jsx";
 import { TemplateArtwork } from "./components/TemplateArtwork.jsx";
 
 const SORT_OPTIONS = [
@@ -142,8 +144,34 @@ export default function App() {
     setPreviewTemplate(design);
   };
 
+  const handleBackToOccasions = () => {
+    setSelectedOccasion(null);
+    setSelectedDesign(null);
+    setIsDesignConfirmed(false);
+    resetGalleryControls();
+  };
+
+  const isWeddingGallery = selectedOccasion === "wedding";
+
   return (
-    <main className="app-shell">
+    <main className={"app-shell" + (isWeddingGallery ? " app-shell-wedding" : "")}>
+      {isWeddingGallery ? (
+        <WeddingTemplateGallery
+          designs={visibleDesigns}
+          selectedDesign={selectedDesign}
+          selectedDesignData={selectedDesignData}
+          isDesignConfirmed={isDesignConfirmed}
+          templateUsage={templateUsage}
+          sortMode={sortMode}
+          setSortMode={setSortMode}
+          onBack={handleBackToOccasions}
+          onStyleFilterChange={setStyleFilter}
+          onDesignChange={handleDesignChange}
+          onContinue={handleDesignContinue}
+          onPreviewSelect={handlePreviewSelect}
+        />
+      ) : (
+        <>
       <section className="hero-section">
         <div className="hero-glow hero-glow-one" />
         <div className="hero-glow hero-glow-two" />
@@ -375,6 +403,8 @@ export default function App() {
           )}
         </section>
       )}
+        </>
+      )}
 
       {previewTemplate && (
         <div
@@ -406,7 +436,11 @@ export default function App() {
             </div>
             <div className="preview-player-shell">
               <Player
-                component={TemplateMotionPreview}
+                component={
+                  previewTemplate.occasionId === "wedding"
+                    ? WeddingTemplateMotionPreview
+                    : TemplateMotionPreview
+                }
                 inputProps={{ template: previewTemplate }}
                 durationInFrames={90}
                 compositionWidth={540}
