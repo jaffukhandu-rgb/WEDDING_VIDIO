@@ -390,7 +390,7 @@ export default function App() {
               disabled={!selectedDesignData}
               onClick={handleDesignContinue}
             >
-              {isDesignConfirmed ? 'Design selected ✓' : 'Continue'}
+              {isDesignConfirmed ? 'Design confirmed ✓' : 'Confirm design'}
               {!isDesignConfirmed && <span aria-hidden="true"> →</span>}
             </button>
           </div>
