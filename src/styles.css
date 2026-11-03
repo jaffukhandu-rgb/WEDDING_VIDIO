@@ -1894,3 +1894,31 @@ h1 span { color: #bfa36d; }
   .wa-stationery-candle { width: 27px; }
   .wa-stationery-wax-seal { width: 42px; height: 42px; }
 }
+
+/* Match the portrait 9:16 invitation-video format in the reference reels. */
+.wedding-template-art-button {
+  aspect-ratio: 9 / 16;
+}
+.wedding-preview-duration {
+  left: auto;
+  right: 14px;
+  bottom: auto;
+  top: 14px;
+  width: 34px;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0;
+}
+.wedding-preview-duration i { font-size: 12px; }
+.wedding-preview-action { display: none; }
+@media (max-width: 1180px) {
+  .wedding-template-art-button { aspect-ratio: 9 / 16; }
+}
+@media (max-width: 700px) {
+  .wedding-template-art-button { aspect-ratio: 9 / 16; }
+}
+@media (max-width: 520px) {
+  .wedding-template-art-button { aspect-ratio: 9 / 16; }
+}
