@@ -9,6 +9,7 @@ import {
   getTemplatesForOccasion,
 } from "./data/templateCatalog.js";
 import { TemplateMotionPreview } from "./components/TemplateMotionPreview.jsx";
+import { TemplateArtwork } from "./components/TemplateArtwork.jsx";
 
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
@@ -407,26 +408,10 @@ export default function App() {
                     onClick={() => handlePreviewSelect(design)}
                     aria-label={"Play animated preview of " + design.name}
                   >
-                    <span className="art-glow" aria-hidden="true" />
-                    <span className="art-orbit art-orbit-one" aria-hidden="true" />
-                    <span className="art-orbit art-orbit-two" aria-hidden="true" />
-                    <span className="art-border" aria-hidden="true" />
-                    <span className="art-content">
-                      <span className="art-motif" aria-hidden="true">
-                        {design.motif}
-                      </span>
-                      <span className="art-kicker">{design.styleName}</span>
-                      <strong>{design.previewTitle}</strong>
-                      <span className="art-divider" />
-                      <small>{design.previewSubtitle}</small>
-                      <span className="art-detail">{design.detailLine}</span>
-                    </span>
+                    <TemplateArtwork template={design} />
                     <span className="preview-play" aria-hidden="true">
                       <span>▶</span>
                       Preview
-                    </span>
-                    <span className="art-footer-mark" aria-hidden="true">
-                      EVENT FILM · {selectedOccasionData?.name.toUpperCase()}
                     </span>
                   </button>
 
