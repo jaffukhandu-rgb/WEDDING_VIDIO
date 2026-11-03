@@ -8,9 +8,20 @@ export function TemplateArtwork({ template }) {
       ? "https://images.unsplash.com/photo-1757098737757-828619fb8e6c?auto=format&fit=crop&w=1400&q=85"
       : styleId === "heritage" && isWedding
         ? "https://images.unsplash.com/photo-1722952934708-749c22eb2e58?auto=format&fit=crop&w=1400&q=85"
+        : styleId === "floral" && (isWedding || template.occasionId === "engagement" || template.occasionId === "anniversary")
+          ? "https://images.unsplash.com/photo-1769812343775-85a27e6a076c?auto=format&fit=crop&w=1400&q=85"
+          : styleId === "glass" && template.occasionId === "corporate"
+            ? "https://images.unsplash.com/photo-1617381519438-e92c226b236b?auto=format&fit=crop&w=1400&q=85"
+            : template.imageUrl;
+
+  const imageAlt =
+    styleId === "royal" && isWedding
+      ? "Ornate golden columns in a grand Mysuru Palace wedding hall"
+      : styleId === "floral" && (isWedding || template.occasionId === "engagement" || template.occasionId === "anniversary")
+        ? "Elegant wedding reception table with white floral arrangements"
         : styleId === "glass" && template.occasionId === "corporate"
-          ? "https://images.unsplash.com/photo-1617381519438-e92c226b236b?auto=format&fit=crop&w=1400&q=85"
-          : template.imageUrl;
+          ? "Modern blue glass building facade with geometric reflections"
+          : template.imageAlt;
 
   const eventLabel = isWedding
     ? "THE WEDDING CELEBRATION"
@@ -31,7 +42,7 @@ export function TemplateArtwork({ template }) {
       <img
         className="template-art-photo"
         src={imageUrl}
-        alt={template.imageAlt || ""}
+        alt={imageAlt || ""}
         loading="lazy"
         decoding="async"
       />
