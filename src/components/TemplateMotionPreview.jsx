@@ -548,7 +548,8 @@ export function TemplateMotionPreview({ template }) {
     );
   }
 
-  return (
+  if (styleId === "floral") {
+    return (
     <AbsoluteFill
       style={{
         background: "linear-gradient(145deg, #f4e8e4, #e8d5d0)",
@@ -597,5 +598,8 @@ export function TemplateMotionPreview({ template }) {
         ❀
       </div>
     </AbsoluteFill>
-  );
+    );
+  }
+
+  return null;
 }
