@@ -8,7 +8,7 @@ const WEDDING_FILTERS = [
   { value: "glass", label: "Glassmorphism" },
   { value: "heritage", label: "Traditional" },
   { value: "floral", label: "Artistic" },
-  { value: "editorial", label: "Modern" },
+  { value: "editorial", label: "Stationery" },
   { value: "three-d", label: "Vintage" },
 ];
 
