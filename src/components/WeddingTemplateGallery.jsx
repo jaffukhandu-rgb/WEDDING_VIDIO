@@ -18,22 +18,11 @@ const SORT_OPTIONS = [
   { value: "name", label: "Name: A–Z" },
 ];
 
-const PREVIEW_LENGTHS = {
-  royal: "0:38",
-  glass: "0:32",
-  "three-d": "0:40",
-  cinematic: "0:36",
-  floral: "0:42",
-  heritage: "0:37",
-  editorial: "0:30",
-};
-
 export function WeddingTemplateGallery({
   designs,
   selectedDesign,
   selectedDesignData,
   isDesignConfirmed,
-  templateUsage,
   sortMode,
   setSortMode,
   onBack,
@@ -213,7 +202,7 @@ export function WeddingTemplateGallery({
                     <WeddingTemplateArtwork template={design} />
                     <span className="wedding-preview-duration">
                       <i aria-hidden="true">▶</i>
-                      {PREVIEW_LENGTHS[design.styleId] || "0:35"}
+                      Preview
                     </span>
                     <span className="wedding-preview-action">Preview design</span>
                   </button>
