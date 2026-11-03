@@ -112,7 +112,7 @@ const OCCASION_COPY = {
       "Cinematic Dreams",
       "Destination Vows",
       "Traditional Heritage",
-      "Modern Luxury",
+      "Luxury Stationery",
     ],
     styleNames: [
       "Royal Palace",
@@ -121,7 +121,7 @@ const OCCASION_COPY = {
       "Cinematic Dreams",
       "Destination Artistry",
       "Traditional Heritage",
-      "Modern Luxury",
+      "Luxury Stationery",
     ],
     categories: [
       "Royal",
@@ -130,7 +130,7 @@ const OCCASION_COPY = {
       "Cinematic",
       "Artistic",
       "Traditional",
-      "Modern",
+      "Stationery",
     ],
     colorNames: [
       "Amethyst & Gold",
@@ -148,7 +148,7 @@ const OCCASION_COPY = {
       "Moonlit architecture, lantern glow and film-inspired typography.",
       "An illustrated destination map with a scenic route and personal touches.",
       "A ceremonial pavilion, heritage ornament and rich festive colour.",
-      "Minimal arches, delicate botanical linework and refined editorial type.",
+      "A framed keepsake invitation on a warm tabletop with wax seal, candlelight and botanical details.",
     ],
     previewTitles: [
       "The Wedding",
@@ -157,7 +157,7 @@ const OCCASION_COPY = {
       "Our Wedding",
       "Destination Wedding",
       "Wedding Invitation",
-      "A Timeless Union",
+      "The Invitation",
     ],
     previewSubtitles: [
       "An invitation fit for a fairytale",
@@ -166,7 +166,7 @@ const OCCASION_COPY = {
       "A night written in the stars",
       "Love takes us somewhere beautiful",
       "Tradition woven into every detail",
-      "A refined celebration of love",
+      "A beautiful beginning, thoughtfully presented",
     ],
     detailLines: [
       "Palace arches · gilded borders · velvet tones",
@@ -175,7 +175,7 @@ const OCCASION_COPY = {
       "Moonlit palace · lantern glow · film-like pacing",
       "Illustrated map · scenic journey · destination story",
       "Ceremonial arch · ornate patterns · warm gold",
-      "Minimal arches · fine gold lines · editorial type",
+      "Ivory invitation · wax seal · candlelight · botanical styling",
     ],
     motifs: ["♛", "✧", "✒", "✦", "⌖", "❀", "◇"],
     title: "The Wedding",
