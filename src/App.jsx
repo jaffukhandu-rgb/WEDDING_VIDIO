@@ -144,33 +144,8 @@ export default function App() {
     setPreviewTemplate(design);
   };
 
-  const handleBackToOccasions = () => {
-    setSelectedOccasion(null);
-    setSelectedDesign(null);
-    setIsDesignConfirmed(false);
-    resetGalleryControls();
-  };
-
-  const isWeddingGallery = selectedOccasion === "wedding";
-
   return (
-    <main className={"app-shell" + (isWeddingGallery ? " app-shell-wedding" : "")}>
-      {isWeddingGallery ? (
-        <WeddingTemplateGallery
-          designs={designs}
-          selectedDesign={selectedDesign}
-          selectedDesignData={selectedDesignData}
-          isDesignConfirmed={isDesignConfirmed}
-          templateUsage={templateUsage}
-          sortMode={sortMode}
-          setSortMode={setSortMode}
-          onBack={handleBackToOccasions}
-          onDesignChange={handleDesignChange}
-          onContinue={handleDesignContinue}
-          onPreviewSelect={handlePreviewSelect}
-        />
-      ) : (
-        <>
+    <main className="app-shell">
       <section className="hero-section">
         <div className="hero-glow hero-glow-one" />
         <div className="hero-glow hero-glow-two" />
@@ -230,7 +205,22 @@ export default function App() {
         </div>
       </section>
 
-      {canShowDesigns && (
+      {selectedOccasion === "wedding" && (
+        <WeddingTemplateGallery
+          designs={designs}
+          selectedDesign={selectedDesign}
+          selectedDesignData={selectedDesignData}
+          isDesignConfirmed={isDesignConfirmed}
+          templateUsage={templateUsage}
+          sortMode={sortMode}
+          setSortMode={setSortMode}
+          onDesignChange={handleDesignChange}
+          onContinue={handleDesignContinue}
+          onPreviewSelect={handlePreviewSelect}
+        />
+      )}
+
+      {canShowDesigns && selectedOccasion !== "wedding" && (
         <section
           className="design-section design-section-reveal"
           aria-labelledby="design-heading"
@@ -401,8 +391,6 @@ export default function App() {
             </p>
           )}
         </section>
-      )}
-        </>
       )}
 
       {previewTemplate && (
