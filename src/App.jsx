@@ -163,9 +163,7 @@ export default function App() {
     setSelectedDesign(design.id);
     setIsDesignConfirmed(false);
     setTemplateUsage((current) => {
-      if (current[design.id]) return current;
-
-      return { ...current, [design.id]: 1 };
+      return { ...current, [design.id]: (current[design.id] || 0) + 1 };
     });
   };
 
@@ -176,7 +174,6 @@ export default function App() {
 
   const handlePreviewSelect = (design) => {
     setPreviewTemplate(design);
-    handleDesignChange(design);
   };
 
   return (
@@ -421,7 +418,7 @@ export default function App() {
                     <span className="art-border" aria-hidden="true" />
                     <span className="art-content">
                       <span className="art-motif" aria-hidden="true">
-                        {design.styleMotif}
+                        {design.motif}
                       </span>
                       <span className="art-kicker">{design.styleName}</span>
                       <strong>{design.previewTitle}</strong>
