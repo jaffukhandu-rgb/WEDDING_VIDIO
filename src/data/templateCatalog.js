@@ -101,6 +101,178 @@ export const TEMPLATE_STYLES = [
   },
 ];
 
+
+export const WEDDING_TEMPLATE_STYLES = [
+  {
+    id: "royal",
+    name: "Royal Palace",
+    category: "Royal",
+    color: "Burgundy & Gold",
+    colorId: "gold",
+    colors: { background: "#241019", middle: "#5b2938", accent: "#d7b46f", ink: "#fff0cf", soft: "#f3dba9" },
+    motif: "♛",
+    description: "A grand palace reveal with gilded arches, velvet tones and a ceremonial title sequence.",
+    previewTitle: "The Royal Wedding",
+    previewSubtitle: "An invitation to a grand celebration",
+    detailLine: "Palace arrival · royal announcement · golden finale",
+    featuredRank: 1,
+  },
+  {
+    id: "glass",
+    name: "Glassmorphic Elegance",
+    category: "Glass",
+    color: "Pearl & Ice",
+    colorId: "blue",
+    colors: { background: "#172a31", middle: "#456a70", accent: "#d6e7e4", ink: "#f6ffff", soft: "#dceeed" },
+    motif: "✧",
+    description: "Layered translucent panels, refracted light and a floating glass invitation.",
+    previewTitle: "Two Souls",
+    previewSubtitle: "One beautiful story",
+    detailLine: "Crystal reveal · floating glass · luminous close",
+    featuredRank: 2,
+  },
+  {
+    id: "three-d",
+    name: "Vintage Storybook",
+    category: "Vintage",
+    color: "Antique Parchment",
+    colorId: "amber",
+    colors: { background: "#34251b", middle: "#876b4c", accent: "#d9bd8c", ink: "#fff4dc", soft: "#ead8b7" },
+    motif: "✒",
+    description: "An heirloom paper invitation with letterpress typography and a wax-seal reveal.",
+    previewTitle: "Save the Date",
+    previewSubtitle: "A day to remember, forever",
+    detailLine: "Parchment opening · handwritten type · wax seal",
+    featuredRank: 3,
+  },
+  {
+    id: "cinematic",
+    name: "Cinematic Dreams",
+    category: "Cinematic",
+    color: "Midnight & Champagne",
+    colorId: "blue",
+    colors: { background: "#080f1b", middle: "#24364d", accent: "#d5b77b", ink: "#f8f2e5", soft: "#e6d4ad" },
+    motif: "✦",
+    description: "A film-like sequence with moving spotlights, atmospheric depth and dramatic titles.",
+    previewTitle: "Our Wedding",
+    previewSubtitle: "A night written in the stars",
+    detailLine: "Opening credits · spotlight reveal · cinematic end",
+    featuredRank: 4,
+  },
+  {
+    id: "floral",
+    name: "Destination Vows",
+    category: "Destination",
+    color: "Coastal Sage",
+    colorId: "sage",
+    colors: { background: "#d5d0b9", middle: "#88a7a1", accent: "#8c6848", ink: "#293a37", soft: "#e9e1c9" },
+    motif: "⌖",
+    description: "An illustrated journey with a moving route, coastal scenery and venue reveal.",
+    previewTitle: "A Destination Wedding",
+    previewSubtitle: "Love takes us somewhere beautiful",
+    detailLine: "Journey map · scenic reveal · venue announcement",
+    featuredRank: 5,
+  },
+  {
+    id: "heritage",
+    name: "Traditional Heritage",
+    category: "Heritage",
+    color: "Ruby & Antique Gold",
+    colorId: "terracotta",
+    colors: { background: "#321321", middle: "#762d42", accent: "#e4bd77", ink: "#fff0d9", soft: "#f0d1a0" },
+    motif: "❀",
+    description: "A ceremonial mandap reveal with floral strings, carved borders and warm gold.",
+    previewTitle: "A Sacred Celebration",
+    previewSubtitle: "Tradition woven into every detail",
+    detailLine: "Ceremonial arch · floral shower · elegant finale",
+    featuredRank: 6,
+  },
+  {
+    id: "editorial",
+    name: "Luxury Stationery",
+    category: "Stationery",
+    color: "Ivory & Walnut",
+    colorId: "ivory",
+    colors: { background: "#3b2a20", middle: "#806044", accent: "#d7c29b", ink: "#fff9ed", soft: "#e7d8bd" },
+    motif: "❦",
+    description: "A physical keepsake invitation with paper layers, candlelight and an embossed seal.",
+    previewTitle: "The Invitation",
+    previewSubtitle: "A beautiful beginning, thoughtfully presented",
+    detailLine: "Stationery reveal · wax seal · candlelit close",
+    featuredRank: 7,
+  },
+  {
+    id: "garden",
+    name: "Garden Romance",
+    category: "Garden",
+    color: "Sage & Blush",
+    colorId: "rose",
+    colors: { background: "#23332b", middle: "#637b61", accent: "#e7c5b7", ink: "#fff8ed", soft: "#f0d9cd" },
+    motif: "❀",
+    description: "A romantic garden arch with hand-drawn botanicals and drifting petals.",
+    previewTitle: "A Garden of Love",
+    previewSubtitle: "Where our forever begins",
+    detailLine: "Botanical arch · drifting petals · garden finale",
+    featuredRank: 8,
+  },
+  {
+    id: "celestial",
+    name: "Celestial Vows",
+    category: "Celestial",
+    color: "Navy & Starlight",
+    colorId: "blue",
+    colors: { background: "#0c1427", middle: "#293b61", accent: "#d8c8a2", ink: "#f8f4e9", soft: "#e8dfc8" },
+    motif: "☾",
+    description: "A celestial invitation with constellation paths, orbiting rings and a moonlit name reveal.",
+    previewTitle: "Written in the Stars",
+    previewSubtitle: "Two paths, one constellation",
+    detailLine: "Star field · orbital reveal · moonlit ending",
+    featuredRank: 9,
+  },
+  {
+    id: "art-deco",
+    name: "Art Deco Affair",
+    category: "Art Deco",
+    color: "Emerald & Gold",
+    colorId: "green",
+    colors: { background: "#102b27", middle: "#1d5146", accent: "#d8b46f", ink: "#fff4d8", soft: "#ead7a9" },
+    motif: "◆",
+    description: "A geometric 1920s-inspired invitation with stepped frames and metallic fan motifs.",
+    previewTitle: "An Evening of Elegance",
+    previewSubtitle: "A celebration in timeless style",
+    detailLine: "Geometric fan · gold linework · grand reveal",
+    featuredRank: 10,
+  },
+  {
+    id: "mediterranean",
+    name: "Mediterranean Escape",
+    category: "Coastal",
+    color: "Terracotta & Cream",
+    colorId: "amber",
+    colors: { background: "#4a2d25", middle: "#bd795d", accent: "#e5c99d", ink: "#fff5e8", soft: "#f0dfc4" },
+    motif: "☼",
+    description: "Sun-washed arches, terracotta architecture and olive branches frame the invitation.",
+    previewTitle: "Meet Us by the Sea",
+    previewSubtitle: "A celebration under the sun",
+    detailLine: "Coastal architecture · olive details · sunset close",
+    featuredRank: 11,
+  },
+  {
+    id: "monogram",
+    name: "Modern Monogram",
+    category: "Minimal",
+    color: "Black & Ivory",
+    colorId: "ivory",
+    colors: { background: "#101112", middle: "#252625", accent: "#c9aa6c", ink: "#f7f2e8", soft: "#ded2ba" },
+    motif: "A&R",
+    description: "A restrained luxury film with an animated monogram, fine rules and confident typography.",
+    previewTitle: "A & R",
+    previewSubtitle: "A new chapter begins",
+    detailLine: "Monogram animation · editorial type · quiet finale",
+    featuredRank: 12,
+  },
+];
+
 const OCCASION_COPY = {
   wedding: {
     imageUrl: null,
@@ -272,32 +444,38 @@ export function getTemplatesForOccasion(occasionId, cultureId) {
   if (!occasion) return [];
 
   const isCulturalOccasion = CULTURE_OCCASIONS.includes(occasionId);
+  const templateStyles =
+    occasionId === "wedding" ? WEDDING_TEMPLATE_STYLES : TEMPLATE_STYLES;
   const selectedCulture = cultureId || "general";
   const culturalCopy = isCulturalOccasion
     ? (CULTURE_COPY[selectedCulture] || CULTURE_COPY.general)[occasionId]
     : null;
 
-  return TEMPLATE_STYLES.map((style, index) => {
-    const name = occasion.names[index] || style.name;
-    const baseTitle = culturalCopy ? culturalCopy.title : occasion.title;
-    const baseSubtitle = culturalCopy ? culturalCopy.subtitle : occasion.subtitle;
-    const baseMotif = culturalCopy ? culturalCopy.motif : occasion.motif;
+  return templateStyles.map((style, index) => {
+    const name = style.weddingName || occasion.names[index] || style.name;
+    const baseTitle = culturalCopy
+      ? culturalCopy.title
+      : style.previewTitle || occasion.title;
+    const baseSubtitle = culturalCopy
+      ? culturalCopy.subtitle
+      : style.previewSubtitle || occasion.subtitle;
+    const baseMotif = culturalCopy ? culturalCopy.motif : style.motif;
     const details = culturalCopy
       ? culturalCopy.details
-      : style.description;
+      : style.detailLine || style.description;
 
     return {
       id: occasionId + "-" + selectedCulture + "-" + style.id,
       occasionId,
       cultureId: isCulturalOccasion ? selectedCulture : null,
       name,
-      description: occasion.descriptions?.[index] || style.description,
+      description: style.weddingDescription || occasion.descriptions?.[index] || style.description,
       imageUrl: occasion.imageUrl,
       imageAlt: occasion.imageAlt,
       styleId: style.id,
-      styleName: occasion.styleNames?.[index] || style.name,
-      category: occasion.categories?.[index] || style.category,
-      color: occasion.colorNames?.[index] || style.color,
+      styleName: style.name,
+      category: style.category,
+      color: style.color,
       colorId: style.colorId,
       colors: style.colors,
       motif: occasion.motifs?.[index] || baseMotif,
