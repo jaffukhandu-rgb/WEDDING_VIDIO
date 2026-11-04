@@ -1,0 +1,326 @@
+/* Five additional original Wedding poster compositions used in the 12-template gallery. */
+.wedding-artwork--garden {
+  color: #f9f0e5;
+  background:
+    radial-gradient(ellipse at 50% 48%, rgba(205, 177, 141, .34), transparent 45%),
+    linear-gradient(155deg, #24392d, #435b46 58%, #18251e);
+}
+.wa-garden-glow {
+  position: absolute;
+  top: 10%;
+  left: 22%;
+  width: 56%;
+  height: 60%;
+  border-radius: 50%;
+  background: rgba(242, 204, 179, .23);
+  filter: blur(38px);
+}
+.wa-garden-arch {
+  position: absolute;
+  z-index: 1;
+  top: 9%;
+  left: 15%;
+  right: 15%;
+  height: 72%;
+  border: 2px solid rgba(224, 196, 150, .82);
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  box-shadow: 0 0 0 8px rgba(235, 211, 173, .055), inset 0 0 32px rgba(238, 215, 187, .08);
+}
+.wa-garden-arch-inner {
+  position: absolute;
+  inset: 6% 6% 0;
+  border: 1px solid rgba(240, 215, 184, .5);
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+}
+.wa-garden-vine {
+  position: absolute;
+  z-index: 3;
+  top: 12%;
+  width: 24%;
+  height: 68%;
+  fill: rgba(158, 181, 135, .25);
+  stroke: #bcc69a;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wa-garden-vine-left { left: 1%; transform: rotate(-7deg); }
+.wa-garden-vine-right { right: 1%; transform: scaleX(-1) rotate(-7deg); }
+.wa-garden-blooms {
+  position: absolute;
+  z-index: 4;
+  inset: 15% 8% 28%;
+  pointer-events: none;
+}
+.wa-garden-blooms i {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 3px dotted #f1c9b6;
+  border-radius: 50%;
+  background: radial-gradient(circle, #eed0b4 0 25%, #d68f91 28% 58%, transparent 60%);
+  filter: drop-shadow(0 0 8px rgba(244, 190, 167, .28));
+}
+.wa-garden-blooms i:nth-child(1) { left: 13%; top: 16%; }
+.wa-garden-blooms i:nth-child(2) { left: 26%; top: 34%; width: 18px; height: 18px; }
+.wa-garden-blooms i:nth-child(3) { right: 17%; top: 12%; }
+.wa-garden-blooms i:nth-child(4) { right: 25%; top: 39%; width: 18px; height: 18px; }
+.wa-garden-blooms i:nth-child(5) { left: 10%; bottom: 20%; }
+.wa-garden-blooms i:nth-child(6) { right: 9%; bottom: 17%; }
+.wa-garden-blooms i:nth-child(7) { left: 49%; top: 3%; width: 11px; height: 11px; }
+.wa-garden-copy,
+.wa-celestial-copy,
+.wa-deco-copy,
+.wa-mediterranean-copy,
+.wa-monogram-copy {
+  position: absolute;
+  z-index: 6;
+  left: 10%;
+  right: 10%;
+  top: 34%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.wa-garden-copy strong,
+.wa-celestial-copy strong,
+.wa-deco-copy strong,
+.wa-mediterranean-copy strong {
+  display: block;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(21px, 2.25vw, 37px);
+  font-weight: 500;
+  line-height: 1.04;
+}
+.wa-garden-copy .wa-eyebrow { color: #e9c9a3; }
+.wa-garden-copy > span:not(.wa-eyebrow) { color: #f1dfca; font-family: Georgia, serif; font-size: clamp(10px, .9vw, 14px); font-style: italic; }
+.wa-garden-copy i,
+.wa-celestial-copy i,
+.wa-deco-copy i,
+.wa-mediterranean-copy i { width: 48px; height: 1px; background: var(--wa-accent); }
+.wa-garden-copy small,
+.wa-celestial-copy small,
+.wa-deco-copy small,
+.wa-mediterranean-copy small { color: var(--wa-soft); font-size: 6px; letter-spacing: .16em; }
+
+/* Celestial Vows: navy astronomical artwork with a designed constellation. */
+.wedding-artwork--celestial {
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(68, 91, 137, .35), transparent 48%),
+    linear-gradient(150deg, #0a1224, #182747 56%, #080e1a);
+}
+.wa-celestial-moon {
+  position: absolute;
+  top: 9%;
+  right: 16%;
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 28%, #fff9e7, #d9c99f 72%, #8d8d99);
+  box-shadow: 0 0 32px rgba(232, 216, 174, .25), 0 0 80px rgba(171, 177, 201, .12);
+}
+.wa-celestial-halo {
+  position: absolute;
+  width: 64%;
+  aspect-ratio: 1;
+  top: 4%;
+  left: 18%;
+  border: 1px solid rgba(225, 210, 173, .28);
+  border-radius: 50%;
+  box-shadow: 0 0 48px rgba(199, 188, 157, .08);
+}
+.wa-celestial-orbit {
+  position: absolute;
+  border: 1px solid rgba(220, 204, 170, .43);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.wa-celestial-orbit-one { width: 85%; height: 34%; top: 30%; left: 7%; transform: rotate(-24deg); }
+.wa-celestial-orbit-two { width: 78%; height: 28%; top: 38%; left: 11%; transform: rotate(32deg); border-style: dashed; opacity: .5; }
+.wa-celestial-constellation {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: #f2e5c7;
+  stroke: rgba(225, 213, 187, .5);
+  stroke-width: 1.5;
+}
+.wa-celestial-constellation circle { filter: drop-shadow(0 0 7px rgba(255, 232, 189, .7)); }
+.wa-celestial-copy { top: 42%; }
+.wa-celestial-copy .wa-eyebrow { color: #d9c59b; }
+.wa-celestial-copy strong { color: #fff5dd; text-shadow: 0 4px 22px rgba(0,0,0,.4); }
+.wa-celestial-copy > span:not(.wa-eyebrow) { color: #d8d6d6; font-family: Georgia, serif; font-size: clamp(10px, .9vw, 14px); font-style: italic; }
+.wa-celestial-copy small { color: #c2b99f; }
+
+/* Art Deco: strict symmetry, fan rays and stepped metallic frames. */
+.wedding-artwork--art-deco {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(47, 105, 85, .38), transparent 52%),
+    linear-gradient(155deg, #0b211d, #164238 56%, #071a17);
+}
+.wa-deco-sunburst {
+  position: absolute;
+  top: -14%;
+  left: 17%;
+  width: 66%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(219, 187, 121, .34);
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -45deg, rgba(215, 184, 120, .1) 0deg 1deg, transparent 1deg 10deg);
+  mask-image: linear-gradient(180deg, #000, transparent 85%);
+}
+.wa-deco-frame {
+  position: absolute;
+  z-index: 2;
+  left: 7%;
+  right: 7%;
+  border: 1px solid rgba(218, 184, 116, .85);
+  pointer-events: none;
+}
+.wa-deco-frame-outer { top: 5%; bottom: 5%; }
+.wa-deco-frame-inner { top: 8%; bottom: 8%; left: 10%; right: 10%; border-width: 2px; opacity: .68; }
+.wa-deco-fan {
+  position: absolute;
+  top: 7%;
+  left: 7%;
+  width: 86%;
+  height: 54%;
+  fill: none;
+  stroke: #d6b574;
+  stroke-width: 3;
+  opacity: .75;
+}
+.wa-deco-copy { top: 35%; }
+.wa-deco-copy .wa-eyebrow { color: #e5c88e; }
+.wa-deco-copy strong { color: #fff1cc; letter-spacing: .02em; }
+.wa-deco-copy > span:not(.wa-eyebrow) { color: #d9c8a5; font-family: Georgia, serif; font-size: clamp(10px, .9vw, 14px); font-style: italic; }
+.wa-deco-copy small { color: #c6b083; }
+
+/* Mediterranean: warm sun-washed architecture, sea horizon and olive branches. */
+.wedding-artwork--mediterranean {
+  background:
+    linear-gradient(180deg, #e9c99c 0%, #cf9870 48%, #78918a 49%, #314a49 100%);
+  color: #4b3129;
+}
+.wa-mediterranean-sun {
+  position: absolute;
+  top: 10%;
+  left: 34%;
+  width: 32%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff1cb, #e6b982 75%, #bd815f);
+  box-shadow: 0 0 55px rgba(255, 221, 171, .45);
+}
+.wa-mediterranean-horizon {
+  position: absolute;
+  z-index: 1;
+  top: 49%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 240, 211, .68);
+  box-shadow: 0 9px 24px rgba(255, 239, 214, .25);
+}
+.wa-mediterranean-arch {
+  position: absolute;
+  z-index: 2;
+  bottom: 11%;
+  width: 48%;
+  height: 59%;
+  border-radius: 50% 50% 0 0;
+  border: 12px solid #f1dfc3;
+  border-bottom: 0;
+  box-shadow: inset 0 0 0 5px rgba(131, 82, 58, .15);
+}
+.wa-mediterranean-arch-back { left: 6%; transform: scale(.84); transform-origin: bottom left; opacity: .72; }
+.wa-mediterranean-arch-front { right: 9%; background: linear-gradient(180deg, rgba(255,241,212,.12), rgba(68,52,44,.72)); }
+.wa-mediterranean-window {
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: 0;
+  height: 80%;
+  border: 2px solid rgba(255, 235, 205, .8);
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+}
+.wa-mediterranean-olive {
+  position: absolute;
+  z-index: 4;
+  top: 30%;
+  width: 22%;
+  height: 55%;
+  fill: rgba(87, 107, 76, .28);
+  stroke: #526a4d;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wa-mediterranean-olive-left { left: 1%; transform: rotate(-9deg); }
+.wa-mediterranean-olive-right { right: 1%; transform: scaleX(-1) rotate(-9deg); }
+.wa-mediterranean-copy {
+  top: 30%;
+  z-index: 6;
+  color: #fff7e7;
+  text-shadow: 0 3px 14px rgba(55, 38, 30, .35);
+}
+.wa-mediterranean-copy .wa-eyebrow { color: #fff0d1; }
+.wa-mediterranean-copy strong { color: #fff9eb; }
+.wa-mediterranean-copy > span:not(.wa-eyebrow) { color: #fff0d9; font-family: Georgia, serif; font-size: clamp(10px, .9vw, 14px); font-style: italic; }
+.wa-mediterranean-copy i { background: #f1d7a7; }
+.wa-mediterranean-copy small { color: #fff0d0; }
+
+/* Modern Monogram: black/ivory restraint with typographic hierarchy. */
+.wedding-artwork--monogram {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(201, 170, 108, .1), transparent 52%),
+    #101112;
+  color: #f6f1e8;
+}
+.wa-monogram-border {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid rgba(201, 170, 108, .75);
+}
+.wa-monogram-border-outer { inset: 5%; }
+.wa-monogram-border-inner { inset: 8%; border-color: rgba(201, 170, 108, .35); }
+.wa-monogram-rule {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #c9aa6c, transparent);
+}
+.wa-monogram-rule-top { top: 24%; }
+.wa-monogram-rule-bottom { bottom: 24%; }
+.wa-monogram-mark {
+  position: absolute;
+  top: 26%;
+  left: 0;
+  right: 0;
+  color: #e7d6b2;
+  font-family: Georgia, serif;
+  font-size: clamp(50px, 6vw, 84px);
+  text-align: center;
+  letter-spacing: -.05em;
+}
+.wa-monogram-mark i { color: #c9aa6c; font-size: .6em; font-style: normal; }
+.wa-monogram-copy {
+  top: 49%;
+  gap: 9px;
+}
+.wa-monogram-copy .wa-eyebrow { color: #c9aa6c; }
+.wa-monogram-copy strong {
+  color: #f7f2e8;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(22px, 2.2vw, 36px);
+  font-weight: 500;
+}
+.wa-monogram-copy > span:not(.wa-eyebrow) { color: #c9c1b3; font-family: Georgia, serif; font-size: clamp(9px,.9vw,13px); font-style: italic; }
+.wa-monogram-copy small { color: #8e836e; font-size: 6px; letter-spacing: .18em; }
