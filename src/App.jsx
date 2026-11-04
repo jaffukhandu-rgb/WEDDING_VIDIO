@@ -429,7 +429,9 @@ export default function App() {
                     : TemplateMotionPreview
                 }
                 inputProps={{ template: previewTemplate }}
-                durationInFrames={90}
+                durationInFrames={
+                  previewTemplate.occasionId === "wedding" ? 900 : 90
+                }
                 compositionWidth={540}
                 compositionHeight={960}
                 fps={30}
@@ -440,7 +442,11 @@ export default function App() {
               />
             </div>
             <div className="preview-modal-footer">
-              <span>3-second animated style preview</span>
+              <span>
+                  {previewTemplate.occasionId === "wedding"
+                    ? "30-second animated wedding invitation"
+                    : "3-second animated style preview"}
+                </span>
               <button
                 className="primary-button"
                 type="button"
