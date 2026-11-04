@@ -1,3 +1,5 @@
+import "../styles/wedding-template-artwork.css";
+
 const SCENE_COPY = {
   royal: {
     eyebrow: "A ROYAL BEGINNING",
@@ -40,6 +42,36 @@ const SCENE_COPY = {
     title: "The Invitation",
     subtitle: "A beautiful beginning, thoughtfully presented",
     footer: "A KEEPSAKE IN PRINT",
+  },
+  garden: {
+    eyebrow: "A GARDEN OF LOVE",
+    title: "The Garden Wedding",
+    subtitle: "Where our forever begins",
+    footer: "IN FULL BLOOM",
+  },
+  celestial: {
+    eyebrow: "WRITTEN IN THE STARS",
+    title: "Celestial Vows",
+    subtitle: "Two paths, one constellation",
+    footer: "A LOVE BEYOND THE STARS",
+  },
+  "art-deco": {
+    eyebrow: "AN EVENING OF ELEGANCE",
+    title: "The Grand Affair",
+    subtitle: "A celebration in timeless style",
+    footer: "ESTABLISHED IN ELEGANCE",
+  },
+  mediterranean: {
+    eyebrow: "MEET US BY THE SEA",
+    title: "Mediterranean Wedding",
+    subtitle: "A celebration under the sun",
+    footer: "AMORE · ALWAYS",
+  },
+  monogram: {
+    eyebrow: "A NEW CHAPTER BEGINS",
+    title: "A & R",
+    subtitle: "An invitation to celebrate",
+    footer: "SIMPLY · BEAUTIFULLY · FOREVER",
   },
 };
 
@@ -342,6 +374,117 @@ export function WeddingTemplateArtwork({ template, frame = null }) {
             <small>{copy.footer}</small>
           </div>
           <div className="wa-heritage-border" />
+        </>
+      )}
+
+      {styleId === "garden" && (
+        <>
+          <div className="wa-garden-glow" />
+          <div className="wa-garden-arch">
+            <div className="wa-garden-arch-inner" />
+          </div>
+          <svg className="wa-garden-vine wa-garden-vine-left" viewBox="0 0 180 360" role="presentation" aria-hidden="true">
+            <path d="M20 350C65 260 30 145 155 12" />
+            <path d="M45 280q-38-20-31-58q42 8 31 58ZM55 235q44-5 55-44q-48-3-55 44ZM91 156q-41-18-34-57q44 10 34 57ZM119 94q42-9 47-47q-43 1-47 47Z" />
+          </svg>
+          <svg className="wa-garden-vine wa-garden-vine-right" viewBox="0 0 180 360" role="presentation" aria-hidden="true">
+            <path d="M20 350C65 260 30 145 155 12" />
+            <path d="M45 280q-38-20-31-58q42 8 31 58ZM55 235q44-5 55-44q-48-3-55 44ZM91 156q-41-18-34-57q44 10 34 57ZM119 94q42-9 47-47q-43 1-47 47Z" />
+          </svg>
+          <div className="wa-garden-blooms"><i /><i /><i /><i /><i /><i /><i /></div>
+          <div className="wa-garden-copy wa-copy">
+            <span className="wa-eyebrow">{copy.eyebrow}</span>
+            <strong>{copy.title}</strong>
+            <span>{copy.subtitle}</span>
+            <i />
+            <small>THE CELEBRATION OF A LIFETIME</small>
+          </div>
+          <span className="wa-scene-footer">{copy.footer}</span>
+        </>
+      )}
+
+      {styleId === "celestial" && (
+        <>
+          <div className="wa-celestial-moon" />
+          <div className="wa-celestial-halo" />
+          <div className="wa-celestial-orbit wa-celestial-orbit-one" />
+          <div className="wa-celestial-orbit wa-celestial-orbit-two" />
+          <svg className="wa-celestial-constellation" viewBox="0 0 900 600" role="presentation" aria-hidden="true">
+            <path d="M110 170L245 105L344 214L485 125L610 236L765 135M180 360L320 300L455 395L595 320L760 390" />
+            <g><circle cx="110" cy="170" r="6"/><circle cx="245" cy="105" r="8"/><circle cx="344" cy="214" r="5"/><circle cx="485" cy="125" r="7"/><circle cx="610" cy="236" r="5"/><circle cx="765" cy="135" r="6"/><circle cx="180" cy="360" r="5"/><circle cx="320" cy="300" r="6"/><circle cx="455" cy="395" r="5"/><circle cx="595" cy="320" r="6"/><circle cx="760" cy="390" r="5"/></g>
+          </svg>
+          <div className="wa-celestial-copy wa-copy">
+            <span className="wa-eyebrow">{copy.eyebrow}</span>
+            <strong>{copy.title}</strong>
+            <span>{copy.subtitle}</span>
+            <i />
+            <small>UNDER ONE INFINITE SKY</small>
+          </div>
+          <span className="wa-scene-footer">{copy.footer}</span>
+        </>
+      )}
+
+      {styleId === "art-deco" && (
+        <>
+          <div className="wa-deco-sunburst" />
+          <div className="wa-deco-frame wa-deco-frame-outer" />
+          <div className="wa-deco-frame wa-deco-frame-inner" />
+          <svg className="wa-deco-fan" viewBox="0 0 900 440" role="presentation" aria-hidden="true">
+            <path d="M450 420V30M450 420L120 105M450 420L215 42M450 420L330 12M450 420L570 12M450 420L685 42M450 420L780 105" />
+            <path d="M120 105Q450-115 780 105M215 42Q450-100 685 42" />
+          </svg>
+          <div className="wa-deco-copy wa-copy">
+            <span className="wa-eyebrow">{copy.eyebrow}</span>
+            <strong>{copy.title}</strong>
+            <span>{copy.subtitle}</span>
+            <i />
+            <small>AN INVITATION IN PURE ART DECO STYLE</small>
+          </div>
+          <span className="wa-scene-footer">{copy.footer}</span>
+        </>
+      )}
+
+      {styleId === "mediterranean" && (
+        <>
+          <div className="wa-mediterranean-sun" />
+          <div className="wa-mediterranean-horizon" />
+          <div className="wa-mediterranean-arch wa-mediterranean-arch-back" />
+          <div className="wa-mediterranean-arch wa-mediterranean-arch-front">
+            <div className="wa-mediterranean-window" />
+          </div>
+          <svg className="wa-mediterranean-olive wa-mediterranean-olive-left" viewBox="0 0 180 360" role="presentation" aria-hidden="true">
+            <path d="M20 350C65 260 30 145 155 12" />
+            <path d="M45 280q-38-20-31-58q42 8 31 58ZM55 235q44-5 55-44q-48-3-55 44ZM91 156q-41-18-34-57q44 10 34 57ZM119 94q42-9 47-47q-43 1-47 47Z" />
+          </svg>
+          <svg className="wa-mediterranean-olive wa-mediterranean-olive-right" viewBox="0 0 180 360" role="presentation" aria-hidden="true">
+            <path d="M20 350C65 260 30 145 155 12" />
+            <path d="M45 280q-38-20-31-58q42 8 31 58ZM55 235q44-5 55-44q-48-3-55 44ZM91 156q-41-18-34-57q44 10 34 57ZM119 94q42-9 47-47q-43 1-47 47Z" />
+          </svg>
+          <div className="wa-mediterranean-copy wa-copy">
+            <span className="wa-eyebrow">{copy.eyebrow}</span>
+            <strong>{copy.title}</strong>
+            <span>{copy.subtitle}</span>
+            <i />
+            <small>A CELEBRATION BY THE SEA</small>
+          </div>
+          <span className="wa-scene-footer">{copy.footer}</span>
+        </>
+      )}
+
+      {styleId === "monogram" && (
+        <>
+          <div className="wa-monogram-border wa-monogram-border-outer" />
+          <div className="wa-monogram-border wa-monogram-border-inner" />
+          <div className="wa-monogram-rule wa-monogram-rule-top" />
+          <div className="wa-monogram-rule wa-monogram-rule-bottom" />
+          <div className="wa-monogram-mark">A <i>&</i> R</div>
+          <div className="wa-monogram-copy wa-copy">
+            <span className="wa-eyebrow">{copy.eyebrow}</span>
+            <strong>{copy.title}</strong>
+            <span>{copy.subtitle}</span>
+            <small>TOGETHER WITH THEIR FAMILIES</small>
+          </div>
+          <span className="wa-scene-footer">{copy.footer}</span>
         </>
       )}
 
