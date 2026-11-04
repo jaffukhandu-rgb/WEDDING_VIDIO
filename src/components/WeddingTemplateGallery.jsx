@@ -83,9 +83,9 @@ export function WeddingTemplateGallery({
               <span>♥</span>
             </span>
             <div className="wedding-heading-copy">
-              <p className="wedding-eyebrow">CURATED WEDDING COLLECTION</p>
+              <p className="wedding-eyebrow">12 ANIMATED WEDDING FILMS</p>
               <h1 id="wedding-gallery-title">Wedding Templates</h1>
-              <p>Choose a beautiful design for your wedding invitation video</p>
+              <p>Choose a professionally animated 30-second wedding invitation video</p>
             </div>
           </div>
 
