@@ -1,16 +1,14 @@
 import { useMemo, useState } from "react";
 import { WeddingTemplateArtwork } from "./WeddingTemplateArtwork.jsx";
+import { WEDDING_TEMPLATE_STYLES } from "../data/templateCatalog.js";
 import "../styles/wedding-gallery-theme.css";
 
 const WEDDING_FILTERS = [
   { value: "all", label: "All Templates" },
-  { value: "royal", label: "Royal" },
-  { value: "cinematic", label: "Cinematic" },
-  { value: "glass", label: "Glassmorphism" },
-  { value: "heritage", label: "Traditional" },
-  { value: "floral", label: "Artistic" },
-  { value: "editorial", label: "Stationery" },
-  { value: "three-d", label: "Vintage" },
+  ...WEDDING_TEMPLATE_STYLES.map((style) => ({
+    value: style.id,
+    label: style.category,
+  })),
 ];
 
 const SORT_OPTIONS = [
@@ -171,12 +169,12 @@ export function WeddingTemplateGallery({
                     className="wedding-template-art-button"
                     type="button"
                     onClick={() => onPreviewSelect(design)}
-                    aria-label={"Preview " + design.name}
+                    aria-label={"Play 30-second video preview of " + design.name}
                   >
                     <WeddingTemplateArtwork template={design} />
                     <span className="wedding-preview-duration">
                       <i aria-hidden="true">▶</i>
-                      Preview
+                      30s Video
                     </span>
                   </button>
 
