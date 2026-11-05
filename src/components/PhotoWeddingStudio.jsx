@@ -136,20 +136,6 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
     }
   }, [template.styleId]);
 
-  const completePositions = [
-    ...positions,
-    ...Array.from(
-      { length: Math.max(0, MAX_PHOTOS - positions.length) },
-      (_, index) => ({
-        left: (5 + index * 15) + "%",
-        top: "78%",
-        width: "13%",
-        height: "10%",
-        zIndex: 5,
-      }),
-    ),
-  ];
-
   const titleOpacity = interpolate(frame % 150, [0, 24, 118, 149], [0, 1, 1, 0], {
     extrapolateRight: "clamp",
   });
@@ -171,12 +157,12 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
             : "radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.10), transparent 65%)",
         }}
       />
-      {completePositions.map((position, index) => (
+      {positions.map((position, index) => (
         <PhotoFrame
           key={index}
-          src={photo(index)}
+          src={photo((index + scene * positions.length) % MAX_PHOTOS)}
           index={index}
-          label={PHOTO_SLOTS[index]}
+          label={PHOTO_SLOTS[(index + scene * positions.length) % MAX_PHOTOS]}
           style={{
             ...position,
             top: position.top,
