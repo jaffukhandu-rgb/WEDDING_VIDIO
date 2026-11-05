@@ -322,14 +322,18 @@ export function WeddingTemplateGallery({
             disabled={!selectedDesignData}
             onClick={onContinue}
           >
-            {isDesignConfirmed ? "Design confirmed ✓" : "Continue to details"}
+            {isDesignConfirmed
+              ? "Design confirmed ✓"
+              : selectedDesignData?.isPhotoTemplate
+                ? "Continue to Your Photos"
+                : "Continue to details"}
             {!isDesignConfirmed && <span aria-hidden="true">→</span>}
           </button>
         </div>
 
         {isDesignConfirmed && (
           <p className="wedding-confirmation" role="status">
-            ✓ {selectedDesignData?.name} is selected. Your next step will be Event Details.
+            ✓ {selectedDesignData?.name} is selected. {selectedDesignData?.isPhotoTemplate ? "Add your photos below to personalise the 30-second film." : "Your next step will be Event Details."}
           </p>
         )}
       </div>
