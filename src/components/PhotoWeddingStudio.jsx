@@ -22,49 +22,106 @@ const MAX_PHOTOS = PHOTO_SLOTS.length;
 const DURATION_FRAMES = 900;
 const FPS = 30;
 
-function PhotoFrame({ src, index, style, label }) {
-  const frame = useCurrentFrame();
-  const reveal = interpolate(frame, [index * 18, index * 18 + 22], [0, 1], {
+function PhotoFrame({
+  src,
+  previousSrc,
+  index,
+  style,
+  label,
+  frameType,
+  sceneFrame,
+}) {
+  const reveal = interpolate(sceneFrame, [0, 18], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const imageFade = interpolate(sceneFrame, [0, 12, 28], [0, 0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const drift = Math.sin((sceneFrame / 35) + index) * 3;
+  const isPolaroid = frameType === "polaroid";
+  const frameBackground =
+    frameType === "gallery" ? "#f4ead8" :
+    frameType === "journal" ? "#e9ddc6" :
+    frameType === "golden" ? "#d5b77b" :
+    "#fffaf1";
 
   return (
     <div
       style={{
         position: "absolute",
         overflow: "hidden",
-        background: "rgba(255,255,255,.12)",
-        border: "5px solid rgba(255,250,240,.92)",
+        boxSizing: "border-box",
+        padding: isPolaroid ? "7px 7px 27px" : frameType === "gallery" ? 7 : 5,
+        border: frameType === "golden" ? "2px solid #d7b56f" : "1px solid rgba(255,250,240,.92)",
+        background: frameBackground,
         boxShadow: "0 18px 48px rgba(0,0,0,.28)",
         opacity: reveal,
         ...style,
-        transform: (style.transform || "") + " translateY(" + ((1 - reveal) * 34) + "px) scale(" + (.94 + reveal * .06) + ")",
+        transform:
+          (style.transform || "") +
+          " translateY(" + ((1 - reveal) * 28 + drift) + "px) scale(" + (.96 + reveal * .04) + ")",
       }}
     >
+      {previousSrc && (
+        <Img
+          src={previousSrc}
+          style={{
+            position: "absolute",
+            inset: isPolaroid ? "7px 7px 27px" : 5,
+            width: "calc(100% - " + (isPolaroid ? 14 : 10) + "px)",
+            height: "calc(100% - " + (isPolaroid ? 34 : 10) + "px)",
+            objectFit: "cover",
+            opacity: 1 - imageFade,
+          }}
+        />
+      )}
       {src ? (
         <Img
           src={src}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{
+            position: "absolute",
+            inset: isPolaroid ? "7px 7px 27px" : 5,
+            width: "calc(100% - " + (isPolaroid ? 14 : 10) + "px)",
+            height: "calc(100% - " + (isPolaroid ? 34 : 10) + "px)",
+            objectFit: "cover",
+            opacity: previousSrc ? imageFade : 1,
+          }}
         />
-      ) : (
+      ) : !previousSrc ? (
         <div
           style={{
-            width: "100%",
-            height: "100%",
+            position: "absolute",
+            inset: isPolaroid ? "7px 7px 27px" : 5,
             display: "grid",
             placeItems: "center",
-            color: "rgba(255,255,255,.76)",
+            color: "rgba(255,255,255,.82)",
             fontFamily: "Georgia,serif",
-            fontSize: 17,
+            fontSize: 15,
             textAlign: "center",
             padding: 12,
             boxSizing: "border-box",
-            background: "linear-gradient(145deg, rgba(255,255,255,.16), rgba(0,0,0,.18))",
+            background: "linear-gradient(145deg, #b9a58b, #6f5b48)",
           }}
         >
           {label}
         </div>
+      ) : null}
+      {isPolaroid && (
+        <span
+          style={{
+            position: "absolute",
+            right: 4,
+            bottom: 5,
+            left: 4,
+            color: "#69543d",
+            font: "italic 9px Georgia,serif",
+            textAlign: "center",
+          }}
+        >
+          {label}
+        </span>
       )}
     </div>
   );
@@ -72,74 +129,96 @@ function PhotoFrame({ src, index, style, label }) {
 
 export function PhotoWeddingMotionPreview({ template, photos = [] }) {
   const frame = useCurrentFrame();
-  const scene = Math.floor(frame / 150);
-    const names = template.previewTitle || "Our Wedding";
+  const scene = Math.min(5, Math.floor(frame / 150));
+  const sceneFrame = frame % 150;
+  const title = template.previewTitle || "Our Wedding";
   const subtitle = template.previewSubtitle || "A story made for two";
   const accent = template.colors?.accent || "#d8bd88";
-  const light = template.styleId === "photo-editorial" || template.styleId === "photo-cover";
+  const light = ["photo-polaroid", "photo-editorial", "photo-gallery"].includes(template.styleId);
   const photo = (index) => photos[index] || null;
+  const sceneTitles = [
+    title,
+    "The moments we treasure",
+    "Two hearts, one journey",
+    "A day to remember",
+    "Forever begins here",
+    "With love, always",
+  ];
 
   const positions = useMemo(() => {
     switch (template.styleId) {
-      case "photo-cover":
+      case "photo-polaroid":
         return [
-          { left: "12%", top: "12%", width: "76%", height: "48%", zIndex: 2 },
-          { left: "9%", top: "55%", width: "35%", height: "23%", zIndex: 3 },
-          { left: "53%", top: "59%", width: "35%", height: "23%", zIndex: 3 },
+          { left: "10%", top: "14%", width: "42%", height: "31%", transform: "rotate(-7deg)" },
+          { left: "51%", top: "18%", width: "38%", height: "29%", transform: "rotate(6deg)" },
+          { left: "27%", top: "49%", width: "48%", height: "34%", transform: "rotate(-2deg)" },
         ];
       case "photo-cinematic":
         return [
-          { left: "9%", top: "13%", width: "82%", height: "55%" },
-          { left: "14%", top: "65%", width: "30%", height: "19%" },
-          { left: "56%", top: "65%", width: "30%", height: "19%" },
+          { left: "7%", top: "10%", width: "86%", height: "59%" },
+          { left: "10%", top: "68%", width: "25%", height: "17%" },
+          { left: "38%", top: "68%", width: "25%", height: "17%" },
+          { left: "66%", top: "68%", width: "25%", height: "17%" },
         ];
       case "photo-album":
         return [
-          { left: "8%", top: "16%", width: "39%", height: "31%" },
-          { left: "53%", top: "16%", width: "39%", height: "31%" },
-          { left: "8%", top: "52%", width: "39%", height: "31%" },
-          { left: "53%", top: "52%", width: "39%", height: "31%" },
+          { left: "7%", top: "14%", width: "41%", height: "32%" },
+          { left: "52%", top: "14%", width: "41%", height: "32%" },
+          { left: "7%", top: "51%", width: "41%", height: "32%" },
+          { left: "52%", top: "51%", width: "41%", height: "32%" },
         ];
       case "photo-editorial":
         return [
-          { left: "13%", top: "11%", width: "74%", height: "51%" },
-          { left: "8%", top: "62%", width: "27%", height: "19%" },
-          { left: "38%", top: "65%", width: "27%", height: "19%" },
-          { left: "68%", top: "62%", width: "24%", height: "19%" },
+          { left: "13%", top: "10%", width: "74%", height: "52%" },
+          { left: "7%", top: "64%", width: "27%", height: "18%" },
+          { left: "37%", top: "67%", width: "27%", height: "18%" },
+          { left: "67%", top: "64%", width: "26%", height: "18%" },
         ];
       case "photo-journey":
         return [
-          { left: "10%", top: "13%", width: "57%", height: "34%" },
-          { left: "37%", top: "42%", width: "53%", height: "34%" },
-          { left: "9%", top: "69%", width: "24%", height: "16%" },
+          { left: "8%", top: "12%", width: "56%", height: "32%", transform: "rotate(-3deg)" },
+          { left: "36%", top: "39%", width: "56%", height: "32%", transform: "rotate(3deg)" },
+          { left: "9%", top: "68%", width: "35%", height: "17%", transform: "rotate(-2deg)" },
         ];
-      case "photo-canvas":
+      case "photo-gallery":
         return [
-          { left: "24%", top: "22%", width: "52%", height: "39%", zIndex: 4 },
-          { left: "5%", top: "12%", width: "30%", height: "22%", transform: "rotate(-8deg)" },
-          { left: "65%", top: "12%", width: "30%", height: "22%", transform: "rotate(8deg)" },
-          { left: "8%", top: "61%", width: "29%", height: "22%", transform: "rotate(6deg)" },
-          { left: "64%", top: "61%", width: "29%", height: "22%", transform: "rotate(-6deg)" },
+          { left: "8%", top: "14%", width: "25%", height: "29%" },
+          { left: "37%", top: "9%", width: "26%", height: "31%" },
+          { left: "67%", top: "14%", width: "25%", height: "29%" },
+          { left: "8%", top: "51%", width: "25%", height: "29%" },
+          { left: "37%", top: "48%", width: "26%", height: "31%" },
+          { left: "67%", top: "51%", width: "25%", height: "29%" },
         ];
       case "photo-journal":
         return [
-          { left: "10%", top: "12%", width: "80%", height: "37%" },
-          { left: "12%", top: "53%", width: "35%", height: "27%" },
-          { left: "53%", top: "53%", width: "35%", height: "27%" },
+          { left: "10%", top: "11%", width: "80%", height: "38%" },
+          { left: "10%", top: "54%", width: "36%", height: "27%", transform: "rotate(-3deg)" },
+          { left: "54%", top: "54%", width: "36%", height: "27%", transform: "rotate(3deg)" },
         ];
+      case "photo-golden":
       default:
         return [
-          { left: "12%", top: "12%", width: "76%", height: "48%" },
-          { left: "8%", top: "58%", width: "39%", height: "25%" },
-          { left: "53%", top: "58%", width: "39%", height: "25%" },
+          { left: "10%", top: "13%", width: "80%", height: "47%" },
+          { left: "8%", top: "62%", width: "38%", height: "23%" },
+          { left: "54%", top: "62%", width: "38%", height: "23%" },
         ];
     }
   }, [template.styleId]);
 
-  const titleOpacity = interpolate(frame % 150, [0, 24, 118, 149], [0, 1, 1, 0], {
+  const titleOpacity = interpolate(sceneFrame, [0, 20, 125, 149], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const title = scene === 0 ? "A story made for two" : scene === 4 ? "Forever begins here" : names;
+  const sceneFade = interpolate(sceneFrame, [0, 14, 136, 149], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const frameType =
+    template.styleId === "photo-polaroid" ? "polaroid" :
+    template.styleId === "photo-gallery" ? "gallery" :
+    template.styleId === "photo-journal" ? "journal" :
+    template.styleId === "photo-golden" ? "golden" :
+    "standard";
 
   return (
     <AbsoluteFill
@@ -152,24 +231,31 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
     >
       <AbsoluteFill
         style={{
-          background: template.styleId === "photo-cinematic"
-            ? "radial-gradient(ellipse at 50% 35%, rgba(216,189,136,.24), transparent 58%)"
-            : "radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.10), transparent 65%)",
+          opacity: sceneFade,
+          background:
+            template.styleId === "photo-cinematic"
+              ? "radial-gradient(ellipse at 50% 35%, rgba(216,189,136,.3), transparent 58%)"
+              : template.styleId === "photo-gallery"
+                ? "radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.24), transparent 68%)"
+                : "radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.10), transparent 65%)",
         }}
       />
-      {positions.map((position, index) => (
-        <PhotoFrame
-          key={index}
-          src={photo((index + scene * positions.length) % MAX_PHOTOS)}
-          index={index}
-          label={PHOTO_SLOTS[(index + scene * positions.length) % MAX_PHOTOS]}
-          style={{
-            ...position,
-            top: position.top,
-            transform: (position.transform || "") + " translateY(" + (Math.sin((frame / 35) + index) * 3) + "px)",
-          }}
-        />
-      ))}
+      {positions.map((position, index) => {
+        const photoIndex = (index + scene * positions.length) % MAX_PHOTOS;
+        const previousIndex = (index + (scene - 1) * positions.length + MAX_PHOTOS) % MAX_PHOTOS;
+        return (
+          <PhotoFrame
+            key={index}
+            src={photo(photoIndex)}
+            previousSrc={scene > 0 ? photo(previousIndex) : null}
+            index={index}
+            label={PHOTO_SLOTS[photoIndex]}
+            frameType={frameType}
+            sceneFrame={sceneFrame}
+            style={position}
+          />
+        );
+      })}
       <div
         style={{
           position: "absolute",
@@ -178,6 +264,7 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
           bottom: "5%",
           textAlign: "center",
           opacity: titleOpacity,
+          transform: "translateY(" + ((1 - titleOpacity) * 16) + "px)",
           textShadow: light ? "none" : "0 3px 24px rgba(0,0,0,.55)",
           zIndex: 10,
         }}
@@ -185,7 +272,7 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
         <div style={{ color: accent, fontFamily: "Arial,sans-serif", fontSize: 11, letterSpacing: 4, marginBottom: 10 }}>
           {template.name.toUpperCase()}
         </div>
-        <div style={{ fontSize: 35, lineHeight: 1.12 }}>{title}</div>
+        <div style={{ fontSize: 35, lineHeight: 1.12 }}>{sceneTitles[scene]}</div>
         <div style={{ fontSize: 16, fontStyle: "italic", marginTop: 9, opacity: .82 }}>{subtitle}</div>
       </div>
       <div
