@@ -25,7 +25,6 @@ const FPS = 30;
 function PhotoFrame({
   src,
   previousSrc,
-  index,
   style,
   label,
   frameType,
@@ -248,7 +247,6 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
             key={index}
             src={photo(photoIndex)}
             previousSrc={scene > 0 ? photo(previousIndex) : null}
-            index={index}
             label={PHOTO_SLOTS[photoIndex]}
             frameType={frameType}
             sceneFrame={sceneFrame}
