@@ -9,11 +9,10 @@ import {
 } from "remotion";
 import {
   WEDDING_VIDEO_DURATION_FRAMES,
+  WEDDING_VIDEO_SCENE_COUNT,
   WEDDING_VIDEO_SCENE_FRAMES,
 } from "../data/weddingVideoConfig.js";
 import "../styles/vintage-storybook-video.css";
-
-const TOTAL_SCENES = 5;
 
 const clamp = (value, input, output) =>
   interpolate(value, input, output, {
@@ -598,7 +597,7 @@ export function VintageStorybookMotionPreview({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const sceneIndex = Math.min(
-    TOTAL_SCENES - 1,
+    WEDDING_VIDEO_SCENE_COUNT - 1,
     Math.floor(frame / WEDDING_VIDEO_SCENE_FRAMES),
   );
   const sceneFrame = frame - sceneIndex * WEDDING_VIDEO_SCENE_FRAMES;
