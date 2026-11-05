@@ -186,7 +186,7 @@
 
 .vintage-envelope-body {
   position: absolute;
-  z-index: 4;
+  z-index: auto;
   left: 0;
   right: 0;
   bottom: 0;
