@@ -38,8 +38,8 @@ function PhotoFrame({ src, index, style, label }) {
         border: "5px solid rgba(255,250,240,.92)",
         boxShadow: "0 18px 48px rgba(0,0,0,.28)",
         opacity: reveal,
-        transform: (style.transform || "") + " translateY(" + ((1 - reveal) * 34) + "px) scale(" + (.94 + reveal * .06) + ")",
         ...style,
+        transform: (style.transform || "") + " translateY(" + ((1 - reveal) * 34) + "px) scale(" + (.94 + reveal * .06) + ")",
       }}
     >
       {src ? (
@@ -73,8 +73,7 @@ function PhotoFrame({ src, index, style, label }) {
 export function PhotoWeddingMotionPreview({ template, photos = [] }) {
   const frame = useCurrentFrame();
   const scene = Math.floor(frame / 150);
-  const progress = (frame % 150) / 150;
-  const names = template.previewTitle || "Our Wedding";
+    const names = template.previewTitle || "Our Wedding";
   const subtitle = template.previewSubtitle || "A story made for two";
   const accent = template.colors?.accent || "#d8bd88";
   const light = template.styleId === "photo-editorial" || template.styleId === "photo-cover";
@@ -252,7 +251,7 @@ export function PhotoWeddingStudio({ template }) {
     if (!files.length) return;
 
     const file = files[0];
-    if (!file.type.startsWith("image/")) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setError("Please choose an image file.");
       event.target.value = "";
       return;
@@ -305,7 +304,7 @@ export function PhotoWeddingStudio({ template }) {
                 <input
                   ref={(node) => { inputRefs.current[index] = node; }}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={(event) => handleFiles(event, index)}
                   aria-label={"Upload " + label}
                   hidden
