@@ -9,6 +9,12 @@ import {
 import { TemplateMotionPreview } from "./components/TemplateMotionPreview.jsx";
 import { WeddingTemplateGallery } from "./components/WeddingTemplateGallery.jsx";
 import { WeddingTemplateMotionPreview } from "./components/WeddingTemplateMotionPreview.jsx";
+import { VintageStorybookMotionPreview } from "./components/VintageStorybookMotionPreview.jsx";
+import {
+  VINTAGE_STORYBOOK_PREVIEW_PROPS,
+  WEDDING_VIDEO_DURATION_FRAMES,
+  WEDDING_VIDEO_FPS,
+} from "./data/weddingVideoConfig.js";
 import { TemplateArtwork } from "./components/TemplateArtwork.jsx";
 
 const SORT_OPTIONS = [
@@ -425,16 +431,32 @@ export default function App() {
               <Player
                 component={
                   previewTemplate.occasionId === "wedding"
-                    ? WeddingTemplateMotionPreview
+                    ? previewTemplate.styleId === "three-d"
+                      ? VintageStorybookMotionPreview
+                      : WeddingTemplateMotionPreview
                     : TemplateMotionPreview
                 }
-                inputProps={{ template: previewTemplate }}
+                inputProps={
+                  previewTemplate.occasionId === "wedding" &&
+                  previewTemplate.styleId === "three-d"
+                    ? {
+                        template: previewTemplate,
+                        ...VINTAGE_STORYBOOK_PREVIEW_PROPS,
+                      }
+                    : { template: previewTemplate }
+                }
                 durationInFrames={
-                  previewTemplate.occasionId === "wedding" ? 900 : 90
+                  previewTemplate.occasionId === "wedding"
+                    ? WEDDING_VIDEO_DURATION_FRAMES
+                    : 90
                 }
                 compositionWidth={540}
                 compositionHeight={960}
-                fps={30}
+                fps={
+                  previewTemplate.occasionId === "wedding"
+                    ? WEDDING_VIDEO_FPS
+                    : 30
+                }
                 loop
                 autoPlay
                 controls
