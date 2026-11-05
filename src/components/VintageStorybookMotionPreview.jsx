@@ -141,7 +141,7 @@ function WaxSeal({ monogram, style = {}, small = false }) {
   );
 }
 
-function OpeningScene({ frame, fps, monogram }) {
+function OpeningScene({ frame, fps }) {
   const envelopeSpring = spring({
     frame: Math.max(0, frame - 4),
     fps,
@@ -329,7 +329,6 @@ function CoupleRevealScene({
   );
   const nameFontSize = fitFontSize(longestName, 59, 16, 255);
   const showNames = namesPresent.length > 0;
-  const showFallback = !showNames;
 
   return (
     <AbsoluteFill className="vintage-scene vintage-scene--couple">
