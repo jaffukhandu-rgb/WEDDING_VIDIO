@@ -9,7 +9,6 @@ import {
 } from "remotion";
 import {
   WEDDING_VIDEO_DURATION_FRAMES,
-  WEDDING_VIDEO_FPS,
   WEDDING_VIDEO_SCENE_FRAMES,
 } from "../data/weddingVideoConfig.js";
 import "../styles/vintage-storybook-video.css";
@@ -141,7 +140,7 @@ function WaxSeal({ monogram, style = {}, small = false }) {
   );
 }
 
-function OpeningScene({ frame, fps }) {
+function OpeningScene({ frame, fps, monogram }) {
   const envelopeSpring = spring({
     frame: Math.max(0, frame - 4),
     fps,
@@ -207,7 +206,7 @@ function OpeningScene({ frame, fps }) {
             className="vintage-envelope-seal-anchor"
             style={{ opacity: sealOpacity, transform: "scale(" + (0.9 + sealSpring * 0.1) + ")" }}
           >
-            <WaxSeal monogram="✦" />
+            <WaxSeal monogram={monogram} />
             <span
               className="vintage-wax-crack"
               style={{ opacity: crackOpacity }}
@@ -384,10 +383,10 @@ function CoupleRevealScene({
   );
 }
 
-function SaveTheDateScene({ frame, eventDate }) {
+function SaveTheDateScene({ frame, eventDate, fps }) {
   const press = spring({
     frame: Math.max(0, frame - 54),
-    fps: WEDDING_VIDEO_FPS,
+    fps,
     config: { damping: 9, stiffness: 185, mass: 0.68 },
   });
   const stampDrop = interpolate(press, [0, 0.55, 0.82, 1], [-72, 10, -4, 0]);
@@ -428,10 +427,10 @@ function SaveTheDateScene({ frame, eventDate }) {
   );
 }
 
-function VenueMapIllustration({ frame }) {
+function VenueMapIllustration({ frame, fps }) {
   const pathProgress = spring({
     frame: Math.max(0, frame - 22),
-    fps: WEDDING_VIDEO_FPS,
+    fps,
     config: { damping: 25, stiffness: 45, mass: 1 },
   });
   const dashOffset = interpolate(pathProgress, [0, 1], [620, 0]);
@@ -475,6 +474,7 @@ function VenueMapIllustration({ frame }) {
 
 function InvitationVenueScene({
   frame,
+  fps,
   eventTime,
   venueName,
   venueCity,
@@ -483,7 +483,7 @@ function InvitationVenueScene({
 }) {
   const routeOpacity = spring({
     frame: Math.max(0, frame - 12),
-    fps: WEDDING_VIDEO_FPS,
+    fps,
     config: { damping: 20, stiffness: 55 },
   });
   const venue = String(venueName || "").trim();
@@ -507,7 +507,7 @@ function InvitationVenueScene({
         className="vintage-map-panel"
         style={{ opacity: routeOpacity }}
       >
-        <VenueMapIllustration frame={frame} />
+        <VenueMapIllustration frame={frame} fps={fps} />
       </div>
 
       <div className="vintage-invitation-scroll">
@@ -536,10 +536,10 @@ function InvitationVenueScene({
   );
 }
 
-function ClosingScene({ frame, monogram }) {
+function ClosingScene({ frame, monogram, fps }) {
   const stamp = spring({
     frame: Math.max(0, frame - 48),
-    fps: WEDDING_VIDEO_FPS,
+    fps,
     config: { damping: 11, stiffness: 160, mass: 0.8 },
   });
   const burn = clamp(frame, [36, 170], [0.12, 0.72]);
@@ -638,12 +638,14 @@ export function VintageStorybookMotionPreview({
       <SaveTheDateScene
         frame={sceneFrame}
         eventDate={eventDate}
+        fps={fps}
       />
     );
   } else if (sceneIndex === 3) {
     scene = (
       <InvitationVenueScene
         frame={sceneFrame}
+        fps={fps}
         eventTime={eventTime}
         venueName={venueName}
         venueCity={venueCity}
@@ -656,6 +658,7 @@ export function VintageStorybookMotionPreview({
       <ClosingScene
         frame={sceneFrame}
         monogram={resolvedMonogram}
+        fps={fps}
       />
     );
   }
