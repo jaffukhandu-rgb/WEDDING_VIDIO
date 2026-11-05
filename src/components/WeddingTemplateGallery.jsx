@@ -83,7 +83,7 @@ export function WeddingTemplateGallery({
               <span>♥</span>
             </span>
             <div className="wedding-heading-copy">
-              <p className="wedding-eyebrow">12 ANIMATED WEDDING FILMS</p>
+              <p className="wedding-eyebrow">20 ANIMATED WEDDING FILMS · 8 PHOTO-FIRST DESIGNS</p>
               <h1 id="wedding-gallery-title">Wedding Templates</h1>
               <p>Choose a professionally animated 30-second wedding invitation video</p>
             </div>
@@ -171,7 +171,24 @@ export function WeddingTemplateGallery({
                     onClick={() => onPreviewSelect(design)}
                     aria-label={"Play 30-second video preview of " + design.name}
                   >
-                    <WeddingTemplateArtwork template={design} />
+                    {design.isPhotoTemplate ? (
+                      <div
+                        className="photo-template-card-art"
+                        style={{
+                          background: design.colors.background,
+                          color: design.colors.ink,
+                          "--photo-card-accent": design.colors.accent,
+                        }}
+                      >
+                        <span className="photo-card-kicker">YOUR PHOTOS</span>
+                        <span className="photo-card-frame photo-card-frame-main">Add your portrait</span>
+                        <span className="photo-card-frame photo-card-frame-small photo-card-frame-left">Your moment</span>
+                        <span className="photo-card-frame photo-card-frame-small photo-card-frame-right">Your memory</span>
+                        <span className="photo-card-title">{design.name}</span>
+                      </div>
+                    ) : (
+                      <WeddingTemplateArtwork template={design} />
+                    )}
                     <span className="wedding-preview-duration">
                       <i aria-hidden="true">▶</i>
                       30s Video
