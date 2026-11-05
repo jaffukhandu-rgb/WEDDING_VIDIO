@@ -693,3 +693,124 @@
   .photo-card-gallery-wall { gap: 5px; }
   .photo-card-album-spread { left: 5%; right: 5%; }
 }
+
+
+/* Five Indian wedding invitation directions inspired by the supplied reel. */
+.photo-template-card-art--indian-typewriter {
+  background: radial-gradient(ellipse at center, #f4e5c5, #c9a879) !important;
+  color: #57371f !important;
+}
+.indian-card-typewriter {
+  position: absolute; inset: 7%;
+  border: 1px solid rgba(107,70,35,.58);
+  box-shadow: inset 0 0 0 6px rgba(255,249,228,.38);
+}
+.indian-card-paper-title {
+  position: absolute; top: 14%; left: 0; right: 0;
+  color: #7b3824; text-align: center;
+  font: 700 28px/.92 Georgia,serif; letter-spacing: .08em;
+  text-shadow: 0 1px rgba(255,255,255,.7);
+}
+.indian-card-type-machine {
+  position: absolute; left: 17%; right: 17%; bottom: 12%; height: 26%;
+  border: 4px solid #5a4531; border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(90deg,#3b332b,#b8a17a 18%,#d7c39e 50%,#79644a);
+  box-shadow: 0 12px 20px rgba(62,40,20,.3);
+}
+.indian-card-type-machine i {
+  position: absolute; top: 10%; left: 12%; right: 12%; height: 30%;
+  background: #27221e; border-radius: 3px;
+}
+.indian-card-type-machine b {
+  position: absolute; bottom: 9%; left: 18%; right: 18%; height: 25%;
+  background: repeating-linear-gradient(90deg,#c7a979 0 4px,#40362b 4px 7px);
+}
+.indian-card-seal {
+  position: absolute; bottom: 7%; left: 46%;
+  display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: 50%; color: #f3d5a2; background: #9e3e30;
+  box-shadow: 0 2px 8px rgba(50,20,12,.3);
+}
+
+.photo-template-card-art--indian-royal-mandap {
+  background: radial-gradient(ellipse at 50% 28%,#7f3f21,#32140e 75%) !important;
+}
+.indian-card-royal { position: absolute; inset: 8%; }
+.indian-card-royal-arch {
+  position: absolute; inset: 5% 10% 0;
+  border: 4px double #e2bd73; border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  box-shadow: inset 0 0 0 7px rgba(226,189,115,.12), 0 0 25px rgba(230,181,89,.2);
+}
+.indian-card-royal-copy {
+  position: absolute; top: 35%; left: 0; right: 0;
+  color: #f4d89d; text-align: center;
+  font: 27px/.98 Georgia,serif; letter-spacing: .06em;
+  text-shadow: 0 2px 12px rgba(0,0,0,.4);
+}
+.indian-card-diya-row {
+  position: absolute; bottom: 6%; left: 0; right: 0;
+  color: #f3c56d; text-align: center; font-size: 21px;
+  text-shadow: 0 0 16px #f2a64a;
+}
+
+.photo-template-card-art--indian-mehndi-floral {
+  background: linear-gradient(145deg,#28553b,#163a2a) !important;
+}
+.indian-card-mehndi { position: absolute; inset: 7%; border: 2px solid #e7bd68; border-radius: 45% 45% 8px 8px; }
+.indian-card-garland,.indian-card-floral-base {
+  position: absolute; left: 0; right: 0; color: #efc36e;
+  text-align: center; font-size: 21px; letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.indian-card-garland { top: 8%; }
+.indian-card-floral-base { bottom: 6%; color: #e6a34e; }
+.indian-card-mehndi-copy {
+  position: absolute; top: 33%; left: 0; right: 0;
+  color: #fff0cf; text-align: center;
+  font: 700 30px/.98 Georgia,serif;
+}
+.indian-card-mehndi-copy i { color: #f0c46e; font-weight: 400; }
+
+.photo-template-card-art--indian-rose-arch {
+  background: radial-gradient(ellipse at 50% 38%,#681b31,#210811 76%) !important;
+}
+.indian-card-rose { position: absolute; inset: 7%; }
+.indian-card-rose-arch {
+  position: absolute; inset: 4% 9% 0;
+  border: 3px solid #d8b06d; border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  box-shadow: 0 0 0 6px rgba(216,176,109,.1), inset 0 0 22px rgba(216,176,109,.12);
+}
+.indian-card-rose-monogram {
+  position: absolute; top: 35%; left: 0; right: 0;
+  color: #f5d9a7; text-align: center;
+  font: 36px Georgia,serif; text-shadow: 0 0 16px rgba(245,217,167,.35);
+}
+.indian-card-rose-monogram i { color: #d84c63; font-size: 21px; }
+.indian-card-rose-label {
+  position: absolute; bottom: 12%; left: 0; right: 0;
+  color: #e8c58a; text-align: center;
+  font: 8px Arial,sans-serif; letter-spacing: 2px;
+}
+
+.photo-template-card-art--indian-rustic-save-date {
+  background: linear-gradient(145deg,#76502f,#2f1c12) !important;
+}
+.indian-card-rustic {
+  position: absolute; inset: 7%;
+  border: 9px solid #6d4729;
+  outline: 1px solid #d6b783; outline-offset: -13px;
+  background: repeating-linear-gradient(3deg,rgba(255,255,255,.025) 0 3px,rgba(0,0,0,.045) 3px 6px);
+  box-shadow: inset 0 0 0 1px rgba(230,198,143,.7), 0 12px 22px rgba(0,0,0,.2);
+}
+.indian-card-rustic-copy {
+  position: absolute; top: 27%; left: 0; right: 0;
+  color: #f1dfba; text-align: center;
+  font: 700 28px/.98 Georgia,serif; letter-spacing: .1em;
+  text-shadow: 0 2px 3px rgba(0,0,0,.45);
+}
+.indian-card-rustic-leaves {
+  position: absolute; bottom: 14%; left: 0; right: 0;
+  color: #c5aa77; text-align: center; font-size: 22px;
+}
