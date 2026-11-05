@@ -306,18 +306,19 @@ function PhotoPrint({ photos }) {
 
 function CoupleRevealScene({
   frame,
+  fps,
   partner1Name,
   partner2Name,
   photos,
 }) {
   const nameReveal = spring({
     frame: Math.max(0, frame - 24),
-    fps: 30,
+    fps,
     config: { damping: 22, stiffness: 70, mass: 0.9 },
   });
   const photoReveal = spring({
     frame: Math.max(0, frame - 38),
-    fps: 30,
+    fps,
     config: { damping: 18, stiffness: 90, mass: 0.8 },
   });
   const namesPresent = [partner1Name, partner2Name].filter(Boolean);
@@ -627,6 +628,7 @@ export function VintageStorybookMotionPreview({
     scene = (
       <CoupleRevealScene
         frame={sceneFrame}
+        fps={fps}
         partner1Name={partner1Name}
         partner2Name={partner2Name}
         photos={photos}
