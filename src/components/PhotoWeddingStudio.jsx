@@ -130,6 +130,66 @@ function PhotoFrame({
 function PhotoStyleDecor({ styleId, accent, sceneFrame, scene }) {
   const shimmer = 0.5 + Math.sin(sceneFrame / 18) * 0.2;
 
+  if (styleId === "indian-typewriter") {
+    return (
+      <>
+        <div style={{ position: "absolute", inset: "5%", border: "1px solid rgba(118,75,38,.55)", boxShadow: "inset 0 0 0 7px rgba(255,248,226,.32)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: "9%", left: "12%", right: "12%", height: "1px", background: accent }} />
+        <div style={{ position: "absolute", top: "11%", left: 0, right: 0, textAlign: "center", color: accent, font: "italic 10px Georgia,serif", letterSpacing: 3 }}>AN INVITATION</div>
+        <div style={{ position: "absolute", bottom: "13%", left: "15%", right: "15%", height: "21%", borderRadius: "5px 5px 2px 2px", background: "linear-gradient(90deg,#47382c,#88735a 12%,#d7c6a5 20%,#c6b28e 80%,#74604a)", boxShadow: "0 13px 25px rgba(54,35,20,.32)" }}>
+          <div style={{ position: "absolute", top: "10%", left: "12%", right: "12%", height: "30%", borderRadius: 4, background: "linear-gradient(90deg,#4b4238,#29241f)" }} />
+          <div style={{ position: "absolute", bottom: "12%", left: "18%", right: "18%", height: "30%", borderRadius: 8, background: "repeating-linear-gradient(90deg,#b89a6d 0 4px,#40372d 4px 7px)" }} />
+        </div>
+        <div style={{ position: "absolute", bottom: "8%", left: "45%", width: "10%", height: "4%", borderRadius: "50%", background: "#a44735", boxShadow: "0 0 0 3px rgba(164,71,53,.22)" }} />
+      </>
+    );
+  }
+
+  if (styleId === "indian-royal-mandap") {
+    return (
+      <>
+        <div style={{ position: "absolute", top: "10%", left: "12%", right: "12%", bottom: "9%", border: "3px double " + accent, borderRadius: "48% 48% 3% 3%", boxShadow: "inset 0 0 0 8px rgba(229,189,114,.12), 0 0 28px rgba(229,189,114,.15)" }} />
+        <div style={{ position: "absolute", top: "14%", left: "18%", right: "18%", height: "22%", border: "2px solid " + accent, borderRadius: "50% 50% 0 0", borderBottom: 0 }} />
+        {[0,1,2,3,4,5,6].map((item) => <span key={item} style={{ position: "absolute", top: "10%", left: (18 + item * 10) + "%", width: 7, height: 16, borderRadius: "50%", background: item % 2 ? "#d94f35" : "#f0c56d", boxShadow: "0 0 12px rgba(240,197,109,.45)" }} />)}
+        {[0,1,2,3].map((item) => <span key={item} style={{ position: "absolute", bottom: "9%", left: (20 + item * 20) + "%", width: 15, height: 26, borderRadius: "50% 50% 35% 35%", background: "radial-gradient(circle at 50% 20%,#fff0bd,#d98b32 65%,#8a351c)", boxShadow: "0 0 20px rgba(240,177,77,.5)" }} />)}
+      </>
+    );
+  }
+
+  if (styleId === "indian-mehndi-floral") {
+    return (
+      <>
+        <div style={{ position: "absolute", inset: "5%", border: "2px solid " + accent, borderRadius: "45% 45% 8px 8px", boxShadow: "inset 0 0 0 6px rgba(255,220,150,.12)" }} />
+        <div style={{ position: "absolute", top: "6%", left: "10%", right: "10%", height: "16%", borderRadius: "50%", borderTop: "3px solid #e4ad4d" }} />
+        {[0,1,2,3,4,5,6,7,8].map((item) => <span key={item} style={{ position: "absolute", top: (9 + Math.sin(item / 8 * Math.PI) * 8) + "%", left: (8 + item * 10.5) + "%", width: 11, height: 17, borderRadius: "80% 0 80% 0", transform: "rotate(" + (item % 2 ? 35 : -35) + "deg)", background: item % 3 ? "#d9a94f" : "#d65b42", boxShadow: "0 2px 8px rgba(0,0,0,.15)" }} />)}
+        <div style={{ position: "absolute", bottom: "8%", left: "12%", right: "12%", height: "1px", background: accent }} />
+      </>
+    );
+  }
+
+  if (styleId === "indian-rose-arch") {
+    return (
+      <>
+        <div style={{ position: "absolute", top: "9%", left: "12%", right: "12%", bottom: "8%", border: "3px solid " + accent, borderRadius: "50% 50% 0 0", boxShadow: "0 0 0 7px rgba(224,182,110,.12), inset 0 0 28px rgba(224,182,110,.12)" }} />
+        {[0,1,2,3,4,5,6,7,8,9,10,11].map((item) => <span key={item} style={{ position: "absolute", top: (10 + Math.sin(item / 11 * Math.PI) * 8) + "%", left: (10 + item * 7.2) + "%", width: 17, height: 17, borderRadius: "50% 50% 45% 45%", background: "radial-gradient(circle at 35% 30%,#ffb0a4,#a91d39 68%,#5c1024)", boxShadow: "0 2px 9px rgba(0,0,0,.35)" }} />)}
+        <div style={{ position: "absolute", top: "33%", left: "38%", width: "24%", aspectRatio: "1", display: "grid", placeItems: "center", border: "1px solid " + accent, borderRadius: "50%", color: accent, font: "italic 25px Georgia,serif", background: "rgba(32,7,15,.72)" }}>A ♥ R</div>
+        <div style={{ position: "absolute", bottom: "10%", left: "10%", right: "10%", height: "1px", background: accent }} />
+      </>
+    );
+  }
+
+  if (styleId === "indian-rustic-save-date") {
+    return (
+      <>
+        <div style={{ position: "absolute", inset: "7%", border: "8px solid #69452b", boxShadow: "inset 0 0 0 2px #d2b47c, inset 0 0 0 7px rgba(63,39,22,.4), 0 0 0 1px #d2b47c", background: "repeating-linear-gradient(3deg,rgba(255,255,255,.025) 0 3px,rgba(0,0,0,.04) 3px 6px)" }} />
+        <div style={{ position: "absolute", top: "18%", left: "15%", right: "15%", height: "1px", background: accent }} />
+        <div style={{ position: "absolute", top: "20%", left: 0, right: 0, textAlign: "center", color: accent, font: "italic 11px Georgia,serif", letterSpacing: 2 }}>TOGETHER WITH THEIR FAMILIES</div>
+        {[0,1,2,3,4,5].map((item) => <span key={item} style={{ position: "absolute", top: (25 + item * 7) + "%", left: item % 2 ? "12%" : "84%", width: 9, height: 15, borderRadius: "90% 0 90% 0", transform: "rotate(" + (item % 2 ? 35 : -35) + "deg)", background: "#82906a" }} />)}
+        <div style={{ position: "absolute", bottom: "13%", left: "20%", right: "20%", height: "1px", background: accent }} />
+      </>
+    );
+  }
+
   if (styleId === "photo-cinematic") {
     return (
       <>
@@ -320,8 +380,13 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
   const title = template.previewTitle || "Our Wedding";
   const subtitle = template.previewSubtitle || "A story made for two";
   const accent = template.colors?.accent || "#d8bd88";
-  const light = ["photo-polaroid", "photo-album", "photo-editorial", "photo-gallery", "photo-journey", "photo-journal"].includes(template.styleId);
+  const light = ["photo-polaroid", "photo-album", "photo-editorial", "photo-gallery", "photo-journey", "photo-journal", "indian-typewriter"].includes(template.styleId);
   const backgroundByStyle = {
+    "indian-typewriter": "linear-gradient(145deg, #f1dfbb, #c8a979)",
+    "indian-royal-mandap": "radial-gradient(ellipse at 50% 30%, #7b3a20, #32150f 72%)",
+    "indian-mehndi-floral": "linear-gradient(145deg, #315a3c, #183b2b)",
+    "indian-rose-arch": "radial-gradient(ellipse at 50% 40%, #5b1427, #210811 75%)",
+    "indian-rustic-save-date": "linear-gradient(145deg, #654326, #2e1c12)",
     "photo-polaroid": "linear-gradient(140deg, #e5dac5, #c3b297)",
     "photo-cinematic": "#111720",
     "photo-album": "linear-gradient(90deg, #eee4d1 0%, #e3d4b9 49%, #d4c2a4 50%, #eee4d1 100%)",
@@ -359,6 +424,7 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
     template.styleId === "photo-journal" ? "journal" :
     template.styleId === "photo-golden" ? "golden" :
     template.styleId === "photo-cinematic" ? "cinematic" :
+    template.styleId === "indian-typewriter" ? "polaroid" :
     "standard";
 
   return (
