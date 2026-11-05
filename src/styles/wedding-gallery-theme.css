@@ -419,3 +419,44 @@
   .photo-template-card-art { min-height: 220px; }
   .photo-card-title { font-size: 19px; }
 }
+
+
+/* Photo-first template card treatments */
+.photo-template-card-art--photo-polaroid .photo-card-frame {
+  border: 7px solid #fffaf1;
+  background: #fffaf1;
+  box-shadow: 0 13px 24px rgba(30, 22, 16, .24);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-main {
+  transform: rotate(-4deg);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-left {
+  transform: rotate(-9deg);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-right {
+  transform: rotate(8deg);
+}
+.photo-template-card-art--photo-gallery .photo-card-frame {
+  border: 6px solid #f4ead8;
+  background: #f4ead8;
+  box-shadow: 0 9px 20px rgba(30, 22, 16, .2);
+}
+.photo-template-card-art--photo-gallery .photo-card-frame-main {
+  top: 25%;
+  width: 43%;
+  height: 39%;
+}
+.photo-template-card-art--photo-gallery .photo-card-frame-left {
+  top: 22%;
+  left: 12%;
+  width: 25%;
+  height: 23%;
+  transform: rotate(-3deg);
+}
+.photo-template-card-art--photo-gallery .photo-card-frame-right {
+  top: 22%;
+  right: 12%;
+  width: 25%;
+  height: 23%;
+  transform: rotate(3deg);
+}
