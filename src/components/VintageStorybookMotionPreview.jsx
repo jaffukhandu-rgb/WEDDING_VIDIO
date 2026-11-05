@@ -9,6 +9,7 @@ import {
 } from "remotion";
 import {
   WEDDING_VIDEO_DURATION_FRAMES,
+  WEDDING_VIDEO_FPS,
   WEDDING_VIDEO_SCENE_FRAMES,
 } from "../data/weddingVideoConfig.js";
 import "../styles/vintage-storybook-video.css";
@@ -322,12 +323,11 @@ function CoupleRevealScene({
     config: { damping: 18, stiffness: 90, mass: 0.8 },
   });
   const namesPresent = [partner1Name, partner2Name].filter(Boolean);
-  const nameFontSize = fitFontSize(
-    namesPresent.join(" & "),
-    59,
-    25,
-    255,
+  const longestName = namesPresent.reduce(
+    (longest, name) => name.length > longest.length ? name : longest,
+    "",
   );
+  const nameFontSize = fitFontSize(longestName, 59, 16, 255);
   const showNames = namesPresent.length > 0;
   const showFallback = !showNames;
 
@@ -388,13 +388,13 @@ function CoupleRevealScene({
 function SaveTheDateScene({ frame, eventDate }) {
   const press = spring({
     frame: Math.max(0, frame - 54),
-    fps: 30,
+    fps: WEDDING_VIDEO_FPS,
     config: { damping: 9, stiffness: 185, mass: 0.68 },
   });
   const stampDrop = interpolate(press, [0, 0.55, 0.82, 1], [-72, 10, -4, 0]);
   const stampScale = interpolate(press, [0, 0.7, 0.88, 1], [1.3, 0.95, 1.03, 1]);
   const dateText = String(eventDate || "").trim() || "DATE TO BE ANNOUNCED";
-  const dateSize = fitFontSize(dateText, 52, 22, 440);
+  const dateSize = fitFontSize(dateText, 52, 18, 440);
 
   return (
     <AbsoluteFill className="vintage-scene vintage-scene--date">
@@ -432,7 +432,7 @@ function SaveTheDateScene({ frame, eventDate }) {
 function VenueMapIllustration({ frame }) {
   const pathProgress = spring({
     frame: Math.max(0, frame - 22),
-    fps: 30,
+    fps: WEDDING_VIDEO_FPS,
     config: { damping: 25, stiffness: 45, mass: 1 },
   });
   const dashOffset = interpolate(pathProgress, [0, 1], [620, 0]);
@@ -484,7 +484,7 @@ function InvitationVenueScene({
 }) {
   const routeOpacity = spring({
     frame: Math.max(0, frame - 12),
-    fps: 30,
+    fps: WEDDING_VIDEO_FPS,
     config: { damping: 20, stiffness: 55 },
   });
   const venue = String(venueName || "").trim();
@@ -496,7 +496,7 @@ function InvitationVenueScene({
   const messageSize = fitFontSize(
     message || "REQUEST THE PLEASURE OF YOUR COMPANY",
     23,
-    15,
+    12,
     430,
   );
 
@@ -540,7 +540,7 @@ function InvitationVenueScene({
 function ClosingScene({ frame, monogram }) {
   const stamp = spring({
     frame: Math.max(0, frame - 48),
-    fps: 30,
+    fps: WEDDING_VIDEO_FPS,
     config: { damping: 11, stiffness: 160, mass: 0.8 },
   });
   const burn = clamp(frame, [36, 170], [0.12, 0.72]);
