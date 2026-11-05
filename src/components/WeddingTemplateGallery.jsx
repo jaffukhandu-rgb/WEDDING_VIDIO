@@ -17,6 +17,90 @@ const SORT_OPTIONS = [
   { value: "name", label: "Name: A–Z" },
 ];
 
+
+function PhotoTemplateCardArt({ design }) {
+  const className = "photo-template-card-art photo-template-card-art--" + design.styleId;
+  const frame = (label, extra = "") => (
+    <span className={"photo-card-frame " + extra}>{label}</span>
+  );
+
+  return (
+    <div
+      className={className}
+      style={{
+        background: design.colors.background,
+        color: design.colors.ink,
+        "--photo-card-accent": design.colors.accent,
+      }}
+    >
+      <span className="photo-card-kicker">YOUR PHOTOS</span>
+      {design.styleId === "photo-polaroid" && (
+        <div className="photo-card-polaroid-stack">
+          {frame("Our moment", "photo-card-frame-main")}
+          {frame("Together", "photo-card-frame-small photo-card-frame-left")}
+          {frame("Forever", "photo-card-frame-small photo-card-frame-right")}
+        </div>
+      )}
+      {design.styleId === "photo-cinematic" && (
+        <div className="photo-card-filmstrip">
+          {Array.from({ length: 3 }, (_, index) => (
+            <span className="photo-card-film-frame" key={index}>
+              <i />
+            </span>
+          ))}
+        </div>
+      )}
+      {design.styleId === "photo-album" && (
+        <div className="photo-card-album-spread">
+          <span className="photo-card-album-page">{frame("Our vows")}</span>
+          <span className="photo-card-album-page">{frame("Our day")}</span>
+          <i className="photo-card-album-spine" />
+        </div>
+      )}
+      {design.styleId === "photo-editorial" && (
+        <div className="photo-card-editorial-layout">
+          {frame("The day", "photo-card-editorial-image")}
+          <span className="photo-card-editorial-heading">A LOVE<br />STORY</span>
+          <span className="photo-card-editorial-copy">THE WEDDING EDITION · NO. 01</span>
+        </div>
+      )}
+      {design.styleId === "photo-journey" && (
+        <div className="photo-card-journey-layout">
+          <i className="photo-card-journey-line" />
+          {["01", "02", "03"].map((step, index) => (
+            <span className={"photo-card-journey-photo photo-card-journey-photo--" + (index + 1)} key={step}>
+              <b>{step}</b>
+            </span>
+          ))}
+        </div>
+      )}
+      {design.styleId === "photo-gallery" && (
+        <div className="photo-card-gallery-wall">
+          {Array.from({ length: 6 }, (_, index) => (
+            <span className="photo-card-gallery-frame" key={index} />
+          ))}
+        </div>
+      )}
+      {design.styleId === "photo-journal" && (
+        <div className="photo-card-journal-page">
+          {frame("A favourite memory", "photo-card-journal-image")}
+          <span className="photo-card-journal-note">dear diary…</span>
+          <span className="photo-card-journal-lines" />
+        </div>
+      )}
+      {design.styleId === "photo-golden" && (
+        <div className="photo-card-golden-layout">
+          {frame("Golden hour", "photo-card-golden-hero")}
+          {frame("Always", "photo-card-golden-small photo-card-golden-small--left")}
+          {frame("Us", "photo-card-golden-small photo-card-golden-small--right")}
+          <i className="photo-card-golden-flare" />
+        </div>
+      )}
+      <span className="photo-card-title">{design.name}</span>
+    </div>
+  );
+}
+
 export function WeddingTemplateGallery({
   designs,
   selectedDesign,
@@ -172,20 +256,7 @@ export function WeddingTemplateGallery({
                     aria-label={"Play 30-second video preview of " + design.name}
                   >
                     {design.isPhotoTemplate ? (
-                      <div
-                        className={"photo-template-card-art photo-template-card-art--" + design.styleId}
-                        style={{
-                          background: design.colors.background,
-                          color: design.colors.ink,
-                          "--photo-card-accent": design.colors.accent,
-                        }}
-                      >
-                        <span className="photo-card-kicker">YOUR PHOTOS</span>
-                        <span className="photo-card-frame photo-card-frame-main">Add your portrait</span>
-                        <span className="photo-card-frame photo-card-frame-small photo-card-frame-left">Your moment</span>
-                        <span className="photo-card-frame photo-card-frame-small photo-card-frame-right">Your memory</span>
-                        <span className="photo-card-title">{design.name}</span>
-                      </div>
+                      <PhotoTemplateCardArt design={design} />
                     ) : (
                       <WeddingTemplateArtwork template={design} />
                     )}
