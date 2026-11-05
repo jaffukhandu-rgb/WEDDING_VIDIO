@@ -315,6 +315,34 @@ function PhotoStyleDecor({ styleId, accent, sceneFrame, scene }) {
 
 function getPhotoLayout(styleId) {
   switch (styleId) {
+    case "indian-typewriter":
+      return [
+        { left: "12%", top: "15%", width: "76%", height: "48%" },
+        { left: "20%", top: "66%", width: "60%", height: "17%", transform: "rotate(-2deg)" },
+      ];
+    case "indian-royal-mandap":
+      return [
+        { left: "15%", top: "20%", width: "70%", height: "43%" },
+        { left: "8%", top: "65%", width: "36%", height: "19%", transform: "rotate(-3deg)" },
+        { left: "56%", top: "65%", width: "36%", height: "19%", transform: "rotate(3deg)" },
+      ];
+    case "indian-mehndi-floral":
+      return [
+        { left: "23%", top: "21%", width: "54%", height: "38%" },
+        { left: "7%", top: "57%", width: "32%", height: "23%", transform: "rotate(-5deg)" },
+        { left: "61%", top: "57%", width: "32%", height: "23%", transform: "rotate(5deg)" },
+      ];
+    case "indian-rose-arch":
+      return [
+        { left: "18%", top: "18%", width: "64%", height: "52%" },
+        { left: "8%", top: "68%", width: "27%", height: "16%", transform: "rotate(-4deg)" },
+        { left: "65%", top: "68%", width: "27%", height: "16%", transform: "rotate(4deg)" },
+      ];
+    case "indian-rustic-save-date":
+      return [
+        { left: "14%", top: "19%", width: "72%", height: "48%" },
+        { left: "24%", top: "69%", width: "52%", height: "15%", transform: "rotate(-1deg)" },
+      ];
     case "photo-polaroid":
       return [
         { left: "8%", top: "13%", width: "42%", height: "31%", transform: "rotate(-7deg)" },
