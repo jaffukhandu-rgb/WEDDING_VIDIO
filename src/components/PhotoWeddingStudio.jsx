@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Player } from "@remotion/player";
 import {
   AbsoluteFill,
@@ -38,7 +38,7 @@ function PhotoFrame({ src, index, style, label }) {
         border: "5px solid rgba(255,250,240,.92)",
         boxShadow: "0 18px 48px rgba(0,0,0,.28)",
         opacity: reveal,
-        transform: "translateY(" + ((1 - reveal) * 34) + "px) scale(" + (.94 + reveal * .06) + ")",
+        transform: (style.transform || "") + " translateY(" + ((1 - reveal) * 34) + "px) scale(" + (.94 + reveal * .06) + ")",
         ...style,
       }}
     >
@@ -223,8 +223,13 @@ export function PhotoWeddingStudio({ template }) {
   const [photos, setPhotos] = useState([]);
   const [error, setError] = useState("");
   const inputRefs = useRef([]);
+  const photoUrlsRef = useRef({});
 
-  const photoCount = photos.length;
+  useEffect(() => () => {
+    Object.values(photoUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  const photoCount = photos.filter(Boolean).length;
   const canPreview = photoCount > 0;
 
   const handleFiles = (event, slotIndex) => {
@@ -245,9 +250,11 @@ export function PhotoWeddingStudio({ template }) {
     }
 
     const nextUrl = URL.createObjectURL(file);
+    const previousUrl = photoUrlsRef.current[slotIndex];
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    photoUrlsRef.current[slotIndex] = nextUrl;
     setPhotos((current) => {
       const next = [...current];
-      if (next[slotIndex]) URL.revokeObjectURL(next[slotIndex]);
       next[slotIndex] = nextUrl;
       return next;
     });
@@ -255,9 +262,11 @@ export function PhotoWeddingStudio({ template }) {
   };
 
   const removePhoto = (slotIndex) => {
+    const previousUrl = photoUrlsRef.current[slotIndex];
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    delete photoUrlsRef.current[slotIndex];
     setPhotos((current) => {
       const next = [...current];
-      if (next[slotIndex]) URL.revokeObjectURL(next[slotIndex]);
       next[slotIndex] = null;
       return next;
     });
