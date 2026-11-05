@@ -29,6 +29,7 @@ function PhotoFrame({
   label,
   frameType,
   sceneFrame,
+  index,
 }) {
   const reveal = interpolate(sceneFrame, [0, 18], [0, 1], {
     extrapolateLeft: "clamp",
@@ -248,6 +249,7 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
             src={photo(photoIndex)}
             previousSrc={scene > 0 ? photo(previousIndex) : null}
             label={PHOTO_SLOTS[photoIndex]}
+            index={index}
             frameType={frameType}
             sceneFrame={sceneFrame}
             style={position}
