@@ -10,6 +10,7 @@ import { TemplateMotionPreview } from "./components/TemplateMotionPreview.jsx";
 import { WeddingTemplateGallery } from "./components/WeddingTemplateGallery.jsx";
 import { WeddingTemplateMotionPreview } from "./components/WeddingTemplateMotionPreview.jsx";
 import { VintageStorybookMotionPreview } from "./components/VintageStorybookMotionPreview.jsx";
+import { PhotoWeddingStudio, PhotoWeddingMotionPreview } from "./components/PhotoWeddingStudio.jsx";
 import {
   VINTAGE_STORYBOOK_PREVIEW_PROPS,
   WEDDING_VIDEO_DURATION_FRAMES,
@@ -226,6 +227,15 @@ export default function App() {
         />
       )}
 
+      {selectedOccasion === "wedding" &&
+        isDesignConfirmed &&
+        selectedDesignData?.isPhotoTemplate && (
+          <PhotoWeddingStudio
+            key={selectedDesignData.id}
+            template={selectedDesignData}
+          />
+        )}
+
       {canShowDesigns && selectedOccasion !== "wedding" && (
         <section
           className="design-section design-section-reveal"
@@ -430,20 +440,24 @@ export default function App() {
             <div className="preview-player-shell">
               <Player
                 component={
-                  previewTemplate.occasionId === "wedding"
-                    ? previewTemplate.styleId === "three-d"
-                      ? VintageStorybookMotionPreview
-                      : WeddingTemplateMotionPreview
-                    : TemplateMotionPreview
+                  previewTemplate.isPhotoTemplate
+                    ? PhotoWeddingMotionPreview
+                    : previewTemplate.occasionId === "wedding"
+                      ? previewTemplate.styleId === "three-d"
+                        ? VintageStorybookMotionPreview
+                        : WeddingTemplateMotionPreview
+                      : TemplateMotionPreview
                 }
                 inputProps={
-                  previewTemplate.occasionId === "wedding" &&
-                  previewTemplate.styleId === "three-d"
-                    ? {
-                        template: previewTemplate,
-                        ...VINTAGE_STORYBOOK_PREVIEW_PROPS,
-                      }
-                    : { template: previewTemplate }
+                  previewTemplate.isPhotoTemplate
+                    ? { template: previewTemplate, photos: [] }
+                    : previewTemplate.occasionId === "wedding" &&
+                      previewTemplate.styleId === "three-d"
+                      ? {
+                          template: previewTemplate,
+                          ...VINTAGE_STORYBOOK_PREVIEW_PROPS,
+                        }
+                      : { template: previewTemplate }
                 }
                 durationInFrames={
                   previewTemplate.occasionId === "wedding"
