@@ -17,6 +17,125 @@ const SORT_OPTIONS = [
   { value: "name", label: "Name: A–Z" },
 ];
 
+
+function PhotoTemplateCardArt({ design }) {
+  const className = "photo-template-card-art photo-template-card-art--" + design.styleId;
+  const frame = (label, extra = "") => (
+    <span className={"photo-card-frame " + extra}>{label}</span>
+  );
+
+  return (
+    <div
+      className={className}
+      style={{
+        background: design.colors.background,
+        color: design.colors.ink,
+        "--photo-card-accent": design.colors.accent,
+      }}
+    >
+      <span className="photo-card-kicker">YOUR PHOTOS</span>
+      {design.styleId === "photo-polaroid" && (
+        <div className="photo-card-polaroid-stack">
+          {frame("Our moment", "photo-card-frame-main")}
+          {frame("Together", "photo-card-frame-small photo-card-frame-left")}
+          {frame("Forever", "photo-card-frame-small photo-card-frame-right")}
+        </div>
+      )}
+      {design.styleId === "photo-cinematic" && (
+        <div className="photo-card-filmstrip">
+          {Array.from({ length: 3 }, (_, index) => (
+            <span className="photo-card-film-frame" key={index}>
+              <i />
+            </span>
+          ))}
+        </div>
+      )}
+      {design.styleId === "photo-album" && (
+        <div className="photo-card-album-spread">
+          <span className="photo-card-album-page">{frame("Our vows")}</span>
+          <span className="photo-card-album-page">{frame("Our day")}</span>
+          <i className="photo-card-album-spine" />
+        </div>
+      )}
+      {design.styleId === "photo-editorial" && (
+        <div className="photo-card-editorial-layout">
+          {frame("The day", "photo-card-editorial-image")}
+          <span className="photo-card-editorial-heading">A LOVE<br />STORY</span>
+          <span className="photo-card-editorial-copy">THE WEDDING EDITION · NO. 01</span>
+        </div>
+      )}
+      {design.styleId === "photo-journey" && (
+        <div className="photo-card-journey-layout">
+          <i className="photo-card-journey-line" />
+          {["01", "02", "03"].map((step, index) => (
+            <span className={"photo-card-journey-photo photo-card-journey-photo--" + (index + 1)} key={step}>
+              <b>{step}</b>
+            </span>
+          ))}
+        </div>
+      )}
+      {design.styleId === "photo-gallery" && (
+        <div className="photo-card-gallery-wall">
+          {Array.from({ length: 6 }, (_, index) => (
+            <span className="photo-card-gallery-frame" key={index} />
+          ))}
+        </div>
+      )}
+      {design.styleId === "photo-journal" && (
+        <div className="photo-card-journal-page">
+          {frame("A favourite memory", "photo-card-journal-image")}
+          <span className="photo-card-journal-note">dear diary…</span>
+          <span className="photo-card-journal-lines" />
+        </div>
+      )}
+      {design.styleId === "indian-typewriter" && (
+        <div className="indian-card-typewriter">
+          <span className="indian-card-paper-title">SAVE<br />THE DATE</span>
+          <span className="indian-card-type-machine"><i /><b /></span>
+          <span className="indian-card-seal">✦</span>
+        </div>
+      )}
+      {design.styleId === "indian-royal-mandap" && (
+        <div className="indian-card-royal">
+          <span className="indian-card-royal-arch" />
+          <span className="indian-card-royal-copy">THE ROYAL<br />WEDDING</span>
+          <span className="indian-card-diya-row">✦　✦　✦</span>
+        </div>
+      )}
+      {design.styleId === "indian-mehndi-floral" && (
+        <div className="indian-card-mehndi">
+          <span className="indian-card-garland">❀　❁　❀　❁　❀</span>
+          <span className="indian-card-mehndi-copy">Mehndi<br /><i>Mubarak</i></span>
+          <span className="indian-card-floral-base">❀　✿　❀</span>
+        </div>
+      )}
+      {design.styleId === "indian-rose-arch" && (
+        <div className="indian-card-rose">
+          <span className="indian-card-rose-arch" />
+          <span className="indian-card-rose-monogram">A <i>♥</i> R</span>
+          <span className="indian-card-rose-label">TWO HEARTS · ONE PROMISE</span>
+        </div>
+      )}
+      {design.styleId === "indian-rustic-save-date" && (
+        <div className="indian-card-rustic">
+          <span className="indian-card-rustic-border" />
+          <span className="indian-card-rustic-copy">SAVE<br />THE DATE</span>
+          <span className="indian-card-rustic-leaves">❧　❦　❧</span>
+        </div>
+      )}
+      {design.styleId === "photo-golden" && (
+        <div className="photo-card-golden-layout">
+          {frame("Golden hour", "photo-card-golden-hero")}
+          {frame("Always", "photo-card-golden-small photo-card-golden-small--left")}
+          {frame("Us", "photo-card-golden-small photo-card-golden-small--right")}
+          <i className="photo-card-golden-flare" />
+        </div>
+      )}
+      <span className="photo-card-title">{design.name}</span>
+    </div>
+  );
+}
+
 export function WeddingTemplateGallery({
   designs,
   selectedDesign,
@@ -83,7 +202,7 @@ export function WeddingTemplateGallery({
               <span>♥</span>
             </span>
             <div className="wedding-heading-copy">
-              <p className="wedding-eyebrow">12 ANIMATED WEDDING FILMS</p>
+              <p className="wedding-eyebrow">20 ANIMATED WEDDING FILMS · 8 PHOTO-FIRST DESIGNS</p>
               <h1 id="wedding-gallery-title">Wedding Templates</h1>
               <p>Choose a professionally animated 30-second wedding invitation video</p>
             </div>
@@ -171,7 +290,11 @@ export function WeddingTemplateGallery({
                     onClick={() => onPreviewSelect(design)}
                     aria-label={"Play 30-second video preview of " + design.name}
                   >
-                    <WeddingTemplateArtwork template={design} />
+                    {design.isPhotoTemplate ? (
+                      <PhotoTemplateCardArt design={design} />
+                    ) : (
+                      <WeddingTemplateArtwork template={design} />
+                    )}
                     <span className="wedding-preview-duration">
                       <i aria-hidden="true">▶</i>
                       30s Video
@@ -234,14 +357,18 @@ export function WeddingTemplateGallery({
             disabled={!selectedDesignData}
             onClick={onContinue}
           >
-            {isDesignConfirmed ? "Design confirmed ✓" : "Continue to details"}
+            {isDesignConfirmed
+              ? "Design confirmed ✓"
+              : selectedDesignData?.isPhotoTemplate
+                ? "Continue to Your Photos"
+                : "Continue to details"}
             {!isDesignConfirmed && <span aria-hidden="true">→</span>}
           </button>
         </div>
 
         {isDesignConfirmed && (
           <p className="wedding-confirmation" role="status">
-            ✓ {selectedDesignData?.name} is selected. Your next step will be Event Details.
+            ✓ {selectedDesignData?.name} is selected. {selectedDesignData?.isPhotoTemplate ? "Add your photos below to personalise the 30-second film." : "Your next step will be Event Details."}
           </p>
         )}
       </div>

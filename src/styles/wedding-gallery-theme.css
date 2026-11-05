@@ -359,3 +359,458 @@
   .wedding-template-card-content { padding: 11px; }
   .wedding-continue-row { align-items: stretch; flex-direction: column; }
 }
+
+
+.photo-template-card-art {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 22px;
+  box-sizing: border-box;
+  isolation: isolate;
+}
+.photo-template-card-art::before,
+.photo-template-card-art::after {
+  position: absolute;
+  z-index: -1;
+  content: "";
+  border: 1px solid var(--photo-card-accent);
+  opacity: .42;
+}
+.photo-template-card-art::before { inset: 7%; }
+.photo-template-card-art::after { inset: 10%; opacity: .2; }
+.photo-card-kicker {
+  position: absolute;
+  top: 13%;
+  color: var(--photo-card-accent);
+  font: 700 9px/1 Arial, sans-serif;
+  letter-spacing: .22em;
+}
+.photo-card-frame {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 5px solid rgba(255,250,240,.9);
+  background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(255,255,255,.04));
+  box-shadow: 0 12px 28px rgba(0,0,0,.24);
+  color: currentColor;
+  font: italic 12px Georgia, serif;
+}
+.photo-card-frame-main { top: 24%; width: 54%; height: 43%; }
+.photo-card-frame-small { top: 54%; width: 25%; height: 23%; font-size: 9px; }
+.photo-card-frame-left { left: 10%; transform: rotate(-7deg); }
+.photo-card-frame-right { right: 10%; transform: rotate(7deg); }
+.photo-card-title {
+  position: absolute;
+  right: 8%;
+  bottom: 10%;
+  left: 8%;
+  color: var(--photo-card-accent);
+  font: 24px/1.1 Georgia, serif;
+  text-align: center;
+}
+@media (max-width: 520px) {
+  .photo-template-card-art { min-height: 220px; }
+  .photo-card-title { font-size: 19px; }
+}
+
+
+/* Photo-first template card treatments */
+.photo-template-card-art--photo-polaroid .photo-card-frame {
+  border: 7px solid #fffaf1;
+  background: #fffaf1;
+  box-shadow: 0 13px 24px rgba(30, 22, 16, .24);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-main {
+  transform: rotate(-4deg);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-left {
+  transform: rotate(-9deg);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-right {
+  transform: rotate(8deg);
+}
+.photo-template-card-art--photo-gallery .photo-card-frame {
+  border: 6px solid #f4ead8;
+  background: #f4ead8;
+  box-shadow: 0 9px 20px rgba(30, 22, 16, .2);
+}
+.photo-template-card-art--photo-gallery .photo-card-frame-main {
+  top: 25%;
+  width: 43%;
+  height: 39%;
+}
+.photo-template-card-art--photo-gallery .photo-card-frame-left {
+  top: 22%;
+  left: 12%;
+  width: 25%;
+  height: 23%;
+  transform: rotate(-3deg);
+}
+.photo-template-card-art--photo-gallery .photo-card-frame-right {
+  top: 22%;
+  right: 12%;
+  width: 25%;
+  height: 23%;
+  transform: rotate(3deg);
+}
+
+
+/* Reference-led artwork for each photo-first wedding template card. */
+.photo-template-card-art {
+  isolation: isolate;
+  min-height: 280px;
+}
+.photo-template-card-art::before,
+.photo-template-card-art::after {
+  z-index: -1;
+}
+.photo-card-frame {
+  overflow: hidden;
+  border: 5px solid #fffaf1;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.18), rgba(255,255,255,.02)),
+    linear-gradient(135deg, #c8b59c, #796b5a);
+  color: rgba(255,255,255,.92);
+}
+.photo-card-frame::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(135deg, rgba(255,255,255,.18), transparent 42%, rgba(0,0,0,.18));
+  pointer-events: none;
+}
+.photo-card-title {
+  z-index: 7;
+  text-shadow: 0 2px 12px rgba(0,0,0,.25);
+}
+
+/* 1. Polaroid scrapbook */
+.photo-template-card-art--photo-polaroid {
+  background: linear-gradient(145deg, #e9dfcf, #c4b49d) !important;
+  color: #6d5137 !important;
+}
+.photo-card-polaroid-stack { position: absolute; inset: 12% 8% 20%; }
+.photo-template-card-art--photo-polaroid .photo-card-frame {
+  border: 8px solid #fffaf1;
+  border-bottom-width: 22px;
+  background: linear-gradient(145deg, #d5c6b2, #9b8972);
+  box-shadow: 0 12px 25px rgba(47,34,23,.25);
+  color: #6e533a;
+  font: italic 10px Georgia,serif;
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-main {
+  top: 0; left: 25%; width: 52%; height: 78%; transform: rotate(-4deg);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-left {
+  top: 42%; left: 2%; width: 31%; height: 43%; transform: rotate(-10deg);
+}
+.photo-template-card-art--photo-polaroid .photo-card-frame-right {
+  top: 39%; right: 1%; width: 31%; height: 43%; transform: rotate(9deg);
+}
+
+/* 2. Cinematic film strip */
+.photo-template-card-art--photo-cinematic {
+  background: linear-gradient(145deg, #101a28, #27384a) !important;
+}
+.photo-card-filmstrip {
+  position: absolute;
+  top: 23%; left: 5%; right: 5%; height: 55%;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+  padding: 17px 7px;
+  border-top: 10px solid #0b0b0d;
+  border-bottom: 10px solid #0b0b0d;
+  background: #0b0b0d;
+  box-shadow: 0 18px 35px rgba(0,0,0,.35);
+}
+.photo-card-filmstrip::before,
+.photo-card-filmstrip::after {
+  position: absolute; left: 0; right: 0; height: 7px; content: "";
+  background: repeating-linear-gradient(90deg, #f3ead6 0 10px, transparent 10px 20px);
+}
+.photo-card-filmstrip::before { top: -9px; }
+.photo-card-filmstrip::after { bottom: -9px; }
+.photo-card-film-frame {
+  position: relative; display: block; overflow: hidden;
+  background: linear-gradient(145deg, #7d7469, #35404b 55%, #b79a72);
+  border: 1px solid rgba(255,255,255,.13);
+}
+.photo-card-film-frame i {
+  position: absolute; inset: 0;
+  background: linear-gradient(160deg, rgba(255,255,255,.22), transparent 50%, rgba(0,0,0,.22));
+}
+
+/* 3. Open wedding album */
+.photo-template-card-art--photo-album {
+  background: linear-gradient(90deg, #ece1cc, #d5c1a2 49%, #c7b08e 50%, #eee4d2) !important;
+  color: #654b33 !important;
+}
+.photo-card-album-spread {
+  position: absolute; top: 22%; left: 7%; right: 7%; bottom: 20%;
+  display: grid; grid-template-columns: 1fr 1fr;
+  background: #f6eedf; box-shadow: 0 18px 32px rgba(47,33,19,.25);
+  transform: perspective(700px) rotateX(3deg);
+}
+.photo-card-album-page {
+  position: relative; display: block; margin: 8px 4px;
+  background: linear-gradient(145deg, #fffaf1, #e7d9c1);
+  border: 1px solid rgba(125,91,57,.2);
+}
+.photo-card-album-page .photo-card-frame {
+  position: absolute; inset: 12% 8% 25%;
+  width: 84%; height: 63%;
+  border: 5px solid #fffaf1;
+  background: linear-gradient(145deg, #b7a38a, #76644e);
+}
+.photo-card-album-spine {
+  position: absolute; top: 0; bottom: 0; left: 49%;
+  width: 2%; background: linear-gradient(90deg, rgba(68,44,25,.22), rgba(255,255,255,.65), rgba(68,44,25,.22));
+}
+
+/* 4. Editorial magazine spread */
+.photo-template-card-art--photo-editorial {
+  background: linear-gradient(145deg, #f0ece4, #d7cfc1) !important;
+  color: #392f25 !important;
+}
+.photo-card-editorial-layout {
+  position: absolute; top: 23%; left: 8%; right: 8%; bottom: 20%;
+}
+.photo-card-editorial-image {
+  top: 0; left: 0; width: 50%; height: 88%;
+  border: 5px solid #fffaf2;
+  background: linear-gradient(145deg, #b4a18a, #665543);
+}
+.photo-card-editorial-heading {
+  position: absolute; top: 19%; right: 0; width: 44%;
+  color: #4b392a; font: 28px/.92 Georgia,serif; letter-spacing: -.04em;
+}
+.photo-card-editorial-copy {
+  position: absolute; right: 0; bottom: 5%; width: 44%;
+  color: #8f7759; font: 7px Arial,sans-serif; letter-spacing: 1.5px;
+}
+
+/* 5. Relationship timeline */
+.photo-template-card-art--photo-journey {
+  background: linear-gradient(145deg, #dce3d8, #aebeb0) !important;
+  color: #34463c !important;
+}
+.photo-card-journey-layout {
+  position: absolute; top: 21%; left: 8%; right: 8%; bottom: 18%;
+}
+.photo-card-journey-line {
+  position: absolute; left: 15%; top: 6%; bottom: 6%; width: 2px;
+  background: linear-gradient(180deg, transparent, #9a805e, #9a805e, transparent);
+}
+.photo-card-journey-photo {
+  position: absolute; display: block; width: 57%; height: 28%;
+  border: 5px solid #fffaf0; background: linear-gradient(145deg, #a9b09e, #647568);
+  box-shadow: 0 8px 17px rgba(41,57,46,.2);
+}
+.photo-card-journey-photo b {
+  position: absolute; left: -24px; top: 50%; transform: translateY(-50%);
+  color: #795d3e; font: 700 9px Arial,sans-serif;
+}
+.photo-card-journey-photo--1 { top: 0; left: 25%; transform: rotate(-2deg); }
+.photo-card-journey-photo--2 { top: 34%; left: 31%; transform: rotate(2deg); }
+.photo-card-journey-photo--3 { top: 68%; left: 20%; transform: rotate(-1deg); }
+
+/* 6. Gallery wall */
+.photo-template-card-art--photo-gallery {
+  background: linear-gradient(145deg, #e4e1d8, #c9c5b9) !important;
+  color: #5d5549 !important;
+}
+.photo-card-gallery-wall {
+  position: absolute; top: 23%; left: 8%; right: 8%; bottom: 19%;
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 8px;
+}
+.photo-card-gallery-frame {
+  display: block; border: 5px solid #f7f0e3;
+  background: linear-gradient(145deg, #b9a891, #756c5d);
+  box-shadow: 0 7px 14px rgba(44,39,31,.2);
+}
+.photo-card-gallery-frame:nth-child(2),
+.photo-card-gallery-frame:nth-child(5) { transform: translateY(-5px); }
+
+/* 7. Memory journal */
+.photo-template-card-art--photo-journal {
+  background: repeating-linear-gradient(0deg, #d8c8a9 0 2px, #d2c09d 2px 4px) !important;
+  color: #5e4931 !important;
+}
+.photo-card-journal-page {
+  position: absolute; top: 23%; left: 10%; right: 10%; bottom: 19%;
+  border: 1px solid rgba(115,83,49,.35);
+  background: linear-gradient(145deg, #f1e7d4, #d9c8a8);
+  box-shadow: 0 15px 27px rgba(43,31,20,.23);
+}
+.photo-card-journal-image {
+  top: 12%; left: 8%; width: 84%; height: 55%;
+  border: 5px solid #fffaf0;
+  background: linear-gradient(145deg, #ae9b7e, #75634d);
+}
+.photo-card-journal-note {
+  position: absolute; bottom: 8%; left: 10%;
+  color: #795d3b; font: italic 12px Georgia,serif; transform: rotate(-3deg);
+}
+.photo-card-journal-lines {
+  position: absolute; right: 8%; bottom: 10%; width: 35%; height: 20%;
+  background: repeating-linear-gradient(180deg, transparent 0 5px, rgba(128,101,67,.4) 5px 6px);
+}
+
+/* 8. Golden-hour photo film */
+.photo-template-card-art--photo-golden {
+  background: radial-gradient(ellipse at 75% 18%, #87633a, transparent 40%), linear-gradient(145deg, #211a13, #5b4327 62%, #17130f) !important;
+}
+.photo-card-golden-layout {
+  position: absolute; top: 21%; left: 8%; right: 8%; bottom: 19%;
+}
+.photo-template-card-art--photo-golden .photo-card-frame {
+  border: 2px solid #d8b56f;
+  background: linear-gradient(145deg, #aa9069, #54422f);
+  box-shadow: 0 10px 24px rgba(0,0,0,.32), 0 0 0 3px rgba(231,196,126,.12);
+}
+.photo-card-golden-hero {
+  top: 0; left: 12%; width: 76%; height: 65%;
+}
+.photo-card-golden-small {
+  top: 70%; width: 36%; height: 25%;
+}
+.photo-card-golden-small--left { left: 7%; }
+.photo-card-golden-small--right { right: 7%; }
+.photo-card-golden-flare {
+  position: absolute; top: -9%; right: 0; width: 46%; aspect-ratio: 1;
+  border-radius: 50%; background: radial-gradient(circle, rgba(255,220,154,.35), transparent 70%);
+  filter: blur(5px);
+}
+
+@media (max-width: 520px) {
+  .photo-card-editorial-heading { font-size: 23px; }
+  .photo-card-gallery-wall { gap: 5px; }
+  .photo-card-album-spread { left: 5%; right: 5%; }
+}
+
+
+/* Five Indian wedding invitation directions inspired by the supplied reel. */
+.photo-template-card-art--indian-typewriter {
+  background: radial-gradient(ellipse at center, #f4e5c5, #c9a879) !important;
+  color: #57371f !important;
+}
+.indian-card-typewriter {
+  position: absolute; inset: 7%;
+  border: 1px solid rgba(107,70,35,.58);
+  box-shadow: inset 0 0 0 6px rgba(255,249,228,.38);
+}
+.indian-card-paper-title {
+  position: absolute; top: 14%; left: 0; right: 0;
+  color: #7b3824; text-align: center;
+  font: 700 28px/.92 Georgia,serif; letter-spacing: .08em;
+  text-shadow: 0 1px rgba(255,255,255,.7);
+}
+.indian-card-type-machine {
+  position: absolute; left: 17%; right: 17%; bottom: 12%; height: 26%;
+  border: 4px solid #5a4531; border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(90deg,#3b332b,#b8a17a 18%,#d7c39e 50%,#79644a);
+  box-shadow: 0 12px 20px rgba(62,40,20,.3);
+}
+.indian-card-type-machine i {
+  position: absolute; top: 10%; left: 12%; right: 12%; height: 30%;
+  background: #27221e; border-radius: 3px;
+}
+.indian-card-type-machine b {
+  position: absolute; bottom: 9%; left: 18%; right: 18%; height: 25%;
+  background: repeating-linear-gradient(90deg,#c7a979 0 4px,#40362b 4px 7px);
+}
+.indian-card-seal {
+  position: absolute; bottom: 7%; left: 46%;
+  display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: 50%; color: #f3d5a2; background: #9e3e30;
+  box-shadow: 0 2px 8px rgba(50,20,12,.3);
+}
+
+.photo-template-card-art--indian-royal-mandap {
+  background: radial-gradient(ellipse at 50% 28%,#7f3f21,#32140e 75%) !important;
+}
+.indian-card-royal { position: absolute; inset: 8%; }
+.indian-card-royal-arch {
+  position: absolute; inset: 5% 10% 0;
+  border: 4px double #e2bd73; border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  box-shadow: inset 0 0 0 7px rgba(226,189,115,.12), 0 0 25px rgba(230,181,89,.2);
+}
+.indian-card-royal-copy {
+  position: absolute; top: 35%; left: 0; right: 0;
+  color: #f4d89d; text-align: center;
+  font: 27px/.98 Georgia,serif; letter-spacing: .06em;
+  text-shadow: 0 2px 12px rgba(0,0,0,.4);
+}
+.indian-card-diya-row {
+  position: absolute; bottom: 6%; left: 0; right: 0;
+  color: #f3c56d; text-align: center; font-size: 21px;
+  text-shadow: 0 0 16px #f2a64a;
+}
+
+.photo-template-card-art--indian-mehndi-floral {
+  background: linear-gradient(145deg,#28553b,#163a2a) !important;
+}
+.indian-card-mehndi { position: absolute; inset: 7%; border: 2px solid #e7bd68; border-radius: 45% 45% 8px 8px; }
+.indian-card-garland,.indian-card-floral-base {
+  position: absolute; left: 0; right: 0; color: #efc36e;
+  text-align: center; font-size: 21px; letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.indian-card-garland { top: 8%; }
+.indian-card-floral-base { bottom: 6%; color: #e6a34e; }
+.indian-card-mehndi-copy {
+  position: absolute; top: 33%; left: 0; right: 0;
+  color: #fff0cf; text-align: center;
+  font: 700 30px/.98 Georgia,serif;
+}
+.indian-card-mehndi-copy i { color: #f0c46e; font-weight: 400; }
+
+.photo-template-card-art--indian-rose-arch {
+  background: radial-gradient(ellipse at 50% 38%,#681b31,#210811 76%) !important;
+}
+.indian-card-rose { position: absolute; inset: 7%; }
+.indian-card-rose-arch {
+  position: absolute; inset: 4% 9% 0;
+  border: 3px solid #d8b06d; border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  box-shadow: 0 0 0 6px rgba(216,176,109,.1), inset 0 0 22px rgba(216,176,109,.12);
+}
+.indian-card-rose-monogram {
+  position: absolute; top: 35%; left: 0; right: 0;
+  color: #f5d9a7; text-align: center;
+  font: 36px Georgia,serif; text-shadow: 0 0 16px rgba(245,217,167,.35);
+}
+.indian-card-rose-monogram i { color: #d84c63; font-size: 21px; }
+.indian-card-rose-label {
+  position: absolute; bottom: 12%; left: 0; right: 0;
+  color: #e8c58a; text-align: center;
+  font: 8px Arial,sans-serif; letter-spacing: 2px;
+}
+
+.photo-template-card-art--indian-rustic-save-date {
+  background: linear-gradient(145deg,#76502f,#2f1c12) !important;
+}
+.indian-card-rustic {
+  position: absolute; inset: 7%;
+  border: 9px solid #6d4729;
+  outline: 1px solid #d6b783; outline-offset: -13px;
+  background: repeating-linear-gradient(3deg,rgba(255,255,255,.025) 0 3px,rgba(0,0,0,.045) 3px 6px);
+  box-shadow: inset 0 0 0 1px rgba(230,198,143,.7), 0 12px 22px rgba(0,0,0,.2);
+}
+.indian-card-rustic-copy {
+  position: absolute; top: 27%; left: 0; right: 0;
+  color: #f1dfba; text-align: center;
+  font: 700 28px/.98 Georgia,serif; letter-spacing: .1em;
+  text-shadow: 0 2px 3px rgba(0,0,0,.45);
+}
+.indian-card-rustic-leaves {
+  position: absolute; bottom: 14%; left: 0; right: 0;
+  color: #c5aa77; text-align: center; font-size: 22px;
+}
