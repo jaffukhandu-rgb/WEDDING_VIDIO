@@ -88,6 +88,41 @@ function PhotoTemplateCardArt({ design }) {
           <span className="photo-card-journal-lines" />
         </div>
       )}
+      {design.styleId === "indian-typewriter" && (
+        <div className="indian-card-typewriter">
+          <span className="indian-card-paper-title">SAVE<br />THE DATE</span>
+          <span className="indian-card-type-machine"><i /><b /></span>
+          <span className="indian-card-seal">✦</span>
+        </div>
+      )}
+      {design.styleId === "indian-royal-mandap" && (
+        <div className="indian-card-royal">
+          <span className="indian-card-royal-arch" />
+          <span className="indian-card-royal-copy">THE ROYAL<br />WEDDING</span>
+          <span className="indian-card-diya-row">✦　✦　✦</span>
+        </div>
+      )}
+      {design.styleId === "indian-mehndi-floral" && (
+        <div className="indian-card-mehndi">
+          <span className="indian-card-garland">❀　❁　❀　❁　❀</span>
+          <span className="indian-card-mehndi-copy">Mehndi<br /><i>Mubarak</i></span>
+          <span className="indian-card-floral-base">❀　✿　❀</span>
+        </div>
+      )}
+      {design.styleId === "indian-rose-arch" && (
+        <div className="indian-card-rose">
+          <span className="indian-card-rose-arch" />
+          <span className="indian-card-rose-monogram">A <i>♥</i> R</span>
+          <span className="indian-card-rose-label">TWO HEARTS · ONE PROMISE</span>
+        </div>
+      )}
+      {design.styleId === "indian-rustic-save-date" && (
+        <div className="indian-card-rustic">
+          <span className="indian-card-rustic-border" />
+          <span className="indian-card-rustic-copy">SAVE<br />THE DATE</span>
+          <span className="indian-card-rustic-leaves">❧　❦　❧</span>
+        </div>
+      )}
       {design.styleId === "photo-golden" && (
         <div className="photo-card-golden-layout">
           {frame("Golden hour", "photo-card-golden-hero")}
