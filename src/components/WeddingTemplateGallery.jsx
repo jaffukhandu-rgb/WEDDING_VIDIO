@@ -173,7 +173,7 @@ export function WeddingTemplateGallery({
                   >
                     {design.isPhotoTemplate ? (
                       <div
-                        className="photo-template-card-art"
+                        className={"photo-template-card-art photo-template-card-art--" + design.styleId}
                         style={{
                           background: design.colors.background,
                           color: design.colors.ink,
