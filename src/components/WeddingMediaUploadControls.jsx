@@ -15,7 +15,9 @@ const actionStyle = {
   borderRadius: 999,
   background: "#171819",
   color: "#f6f3ec",
-  font: "600 12px inherit",
+  fontFamily: "inherit",
+  fontSize: 12,
+  fontWeight: 600,
   cursor: "pointer",
 };
 
@@ -23,6 +25,7 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
   const [photos, setPhotos] = useState([]);
   const [videos, setVideos] = useState([]);
   const [musicUrl, setMusicUrl] = useState("");
+  const [message, setMessage] = useState("");
   const urlsRef = useRef(new Set());
 
   useEffect(() => () => {
@@ -42,7 +45,14 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
       ["image/jpeg", "image/png", "image/webp"].includes(file.type) &&
       file.size <= MAX_PHOTO_BYTES
     );
-    const next = [...photos, ...valid.map((file) => createAsset(file, "image"))].slice(0, MAX_PHOTOS);
+    const remaining = Math.max(0, MAX_PHOTOS - photos.length);
+    const accepted = valid.slice(0, remaining);
+    if (accepted.length !== files.length) {
+      setMessage("Some photos were skipped. Use JPG, PNG or WebP files up to 10 MB each, with a maximum of 6.");
+    } else {
+      setMessage("");
+    }
+    const next = [...photos, ...accepted.map((file) => createAsset(file, "image"))];
     setPhotos(next);
     onChange?.({ photos: next, videos, musicUrl });
     event.target.value = "";
@@ -54,7 +64,14 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
       ["video/mp4", "video/webm"].includes(file.type) &&
       file.size <= MAX_VIDEO_BYTES
     );
-    const next = [...videos, ...valid.map((file) => createAsset(file, "video"))].slice(0, MAX_VIDEOS);
+    const remaining = Math.max(0, MAX_VIDEOS - videos.length);
+    const accepted = valid.slice(0, remaining);
+    if (accepted.length !== files.length) {
+      setMessage("Some videos were skipped. Use MP4 or WebM files up to 50 MB each, with a maximum of 2.");
+    } else {
+      setMessage("");
+    }
+    const next = [...videos, ...accepted.map((file) => createAsset(file, "video"))];
     setVideos(next);
     onChange?.({ photos, videos: next, musicUrl });
     event.target.value = "";
@@ -122,6 +139,7 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
           <input type="file" accept="audio/*" onChange={handleMusic} hidden />
         </label>
       </div>
+      {message && <p role="alert" style={{ margin: 0, color: "#e5a19a", fontSize: 11 }}>{message}</p>}
       <div style={{ color: "#8f8a82", fontSize: 11, lineHeight: 1.6 }}>
         {showPhotos ? "Photos: JPG, PNG or WebP · up to 6 · 10 MB each. " : ""}
         Videos: MP4 or WebM · up to 2 · 50 MB each. Music: audio files.
