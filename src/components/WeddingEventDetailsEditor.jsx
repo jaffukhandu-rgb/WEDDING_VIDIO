@@ -7,16 +7,6 @@ import {
   WEDDING_VIDEO_FPS,
 } from "../data/weddingVideoConfig.js";
 
-const initialDetails = {
-  brideName: "",
-  groomName: "",
-  weddingDate: "",
-  weddingTime: "",
-  venueName: "",
-  venueAddress: "",
-  invitationMessage: "",
-};
-
 const fieldStyle = {
   width: "100%",
   boxSizing: "border-box",
