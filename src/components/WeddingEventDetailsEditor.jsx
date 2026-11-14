@@ -181,7 +181,7 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
         )}
       </aside>
 
-      {template.styleId === "three-d" && (
+      {template.compositionId === "vintage-storybook" && (
         <div style={{ display: "grid", gap: 14, marginTop: 22 }}>
           <label style={labelStyle}>
             Storybook photos (up to 6)
@@ -220,9 +220,9 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
         </div>
         <div style={{ width: "min(100%, 320px)", aspectRatio: "9 / 16", margin: "0 auto", overflow: "hidden", border: "1px solid rgba(201,170,108,.35)", borderRadius: 14, background: "#08090b" }}>
           <Player
-            component={template.styleId === "three-d" ? VintageStorybookMotionPreview : WeddingTemplateMotionPreview}
+            component={template.compositionId === "vintage-storybook" ? VintageStorybookMotionPreview : WeddingTemplateMotionPreview}
             inputProps={
-              template.styleId === "three-d"
+              template.compositionId === "vintage-storybook"
                 ? {
                     template,
                     partner1Name: details.brideName,
