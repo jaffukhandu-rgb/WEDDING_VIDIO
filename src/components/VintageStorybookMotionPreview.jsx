@@ -7,7 +7,6 @@ import {
   useVideoConfig,
 } from "remotion";
 import {
-  WEDDING_VIDEO_DURATION_FRAMES,
   WEDDING_VIDEO_SCENE_COUNT,
   WEDDING_VIDEO_SCENE_FRAMES,
 } from "../data/weddingVideoConfig.js";
