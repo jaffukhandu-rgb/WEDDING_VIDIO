@@ -612,9 +612,9 @@ function OurJourneyComposition({ template, photos }) {
   const phase = frame % 150;
   const lineProgress = interpolate(phase, [0, 110], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const cards = [
-    { left: "12%", top: "17%", width: "58%", height: "21%", rotate: "-3deg" },
-    { left: "30%", top: "42%", width: "58%", height: "21%", rotate: "3deg" },
-    { left: "12%", top: "67%", width: "58%", height: "19%", rotate: "-2deg" },
+    { left: "12%", top: "17%", width: "58%", height: "21%", rotation: "-3deg" },
+    { left: "30%", top: "42%", width: "58%", height: "21%", rotation: "3deg" },
+    { left: "12%", top: "67%", width: "58%", height: "19%", rotation: "-2deg" },
   ];
   return (
     <AbsoluteFill style={{ background: "linear-gradient(145deg,#e4e8dc,#b9c6b8)", color: "#314139", overflow: "hidden" }}>
@@ -630,8 +630,11 @@ function OurJourneyComposition({ template, photos }) {
           frame={phase}
           delay={index * 16}
           style={{
-            ...card,
-            transform: "rotate(" + card.rotate + ") translateX(" + ((1 - lineProgress) * (index % 2 ? 24 : -24)) + "px)",
+            left: card.left,
+            top: card.top,
+            width: card.width,
+            height: card.height,
+            transform: "rotate(" + card.rotation + ") translateX(" + ((1 - lineProgress) * (index % 2 ? 24 : -24)) + "px)",
           }}
         />
       ))}
