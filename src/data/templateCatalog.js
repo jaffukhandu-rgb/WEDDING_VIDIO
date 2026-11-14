@@ -684,6 +684,7 @@ export function getTemplatesForOccasion(occasionId, cultureId) {
       imageUrl: occasion.imageUrl,
       imageAlt: occasion.imageAlt,
       styleId: style.id,
+      compositionId: style.compositionId,
       styleName: style.name,
       category: style.category,
       color: style.color,
