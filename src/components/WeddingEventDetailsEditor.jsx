@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Player } from "@remotion/player";
 import { WeddingTemplateMotionPreview } from "./WeddingTemplateMotionPreview.jsx";
 import { VintageStorybookMotionPreview } from "./VintageStorybookMotionPreview.jsx";
@@ -29,6 +29,49 @@ const labelStyle = {
 
 export function WeddingEventDetailsEditor({ template, details, onDetailsChange }) {
   const [saved, setSaved] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const [musicUrl, setMusicUrl] = useState("");
+  const mediaUrlsRef = useRef([]);
+
+  useEffect(() => () => {
+    mediaUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  const handlePhotoUpload = (event) => {
+    const files = Array.from(event.target.files || []);
+    const validFiles = files.filter((file) =>
+      ["image/jpeg", "image/png", "image/webp"].includes(file.type) &&
+      file.size <= 10 * 1024 * 1024
+    ).slice(0, 6);
+
+    if (validFiles.length !== files.length) {
+      setSaved(false);
+    }
+
+    mediaUrlsRef.current
+      .filter((url) => url !== musicUrl)
+      .forEach((url) => URL.revokeObjectURL(url));
+
+    const nextPhotos = validFiles.map((file) => URL.createObjectURL(file));
+    mediaUrlsRef.current = [...nextPhotos, ...(musicUrl ? [musicUrl] : [])];
+    setPhotos(nextPhotos);
+    event.target.value = "";
+  };
+
+  const handleMusicUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("audio/")) {
+      event.target.value = "";
+      return;
+    }
+
+    if (musicUrl) URL.revokeObjectURL(musicUrl);
+    const nextMusicUrl = URL.createObjectURL(file);
+    mediaUrlsRef.current = [...photos, nextMusicUrl];
+    setMusicUrl(nextMusicUrl);
+    event.target.value = "";
+  };
 
   const updateField = (event) => {
     const { name, value } = event.target;
@@ -138,6 +181,36 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
         )}
       </aside>
 
+      {template.styleId === "three-d" && (
+        <div style={{ display: "grid", gap: 14, marginTop: 22 }}>
+          <label style={labelStyle}>
+            Storybook photos (up to 6)
+            <input
+              style={{ ...fieldStyle, padding: 9 }}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={handlePhotoUpload}
+            />
+            <span style={{ color: "#8f8a82", fontSize: 11, fontWeight: 400 }}>
+              JPG, PNG or WebP · Maximum 10 MB per photo
+            </span>
+          </label>
+          <label style={labelStyle}>
+            Background music
+            <input
+              style={{ ...fieldStyle, padding: 9 }}
+              type="file"
+              accept="audio/*"
+              onChange={handleMusicUpload}
+            />
+            <span style={{ color: "#8f8a82", fontSize: 11, fontWeight: 400 }}>
+              Audio stays in this browser session and is used in the live preview
+            </span>
+          </label>
+        </div>
+      )}
+
       <div style={{ marginTop: 24 }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <h3 style={{ margin: 0, color: "#f6f3ec", fontFamily: "Georgia,serif", fontSize: 22, fontWeight: 500 }}>
@@ -159,6 +232,8 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
                     venueName: details.venueName,
                     venueCity: details.venueAddress,
                     invitationMessage: details.invitationMessage,
+                    photos,
+                    musicUrl,
                   }
                 : { template, eventDetails: details }
             }
