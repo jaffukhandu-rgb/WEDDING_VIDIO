@@ -1,4 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { WeddingMediaLayer } from "./WeddingMediaLayer.jsx";
 
 const SEGMENT_FRAMES = 150;
 const TOTAL_SCENES = 6;
@@ -623,7 +624,7 @@ function ArtDirection({ template, scene, progress, frame }) {
   return <RoyalArchitecture scene={scene} progress={progress} accent={accent} />;
 }
 
-export function WeddingTemplateMotionPreview({ template, eventDetails = {} }) {
+export function WeddingTemplateMotionPreview({ template, eventDetails = {}, photos = [], videos = [], musicUrl = "" }) {
   const frame = useCurrentFrame();
   const colors = template.colors || {};
   const sceneIndex = Math.min(TOTAL_SCENES - 1, Math.floor(frame / SEGMENT_FRAMES));
@@ -703,6 +704,8 @@ export function WeddingTemplateMotionPreview({ template, eventDetails = {} }) {
         accent={accent}
         isLight={isLight}
       />
+
+      <WeddingMediaLayer photos={photos} videos={videos} musicUrl={musicUrl} />
 
       <div
         style={{
