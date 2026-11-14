@@ -641,22 +641,15 @@ function OurJourneyComposition({ template, photos }) {
   );
 }
 
-export function PhotoWeddingMotionPreview({ template, photos = [] }) {
-  const styleId = template.styleId;
-  if (styleId === "photo-polaroid") return <PolaroidMemoryComposition template={template} photos={photos} />;
-  if (styleId === "photo-cinematic") return <CinematicLoveComposition template={template} photos={photos} />;
-  if (styleId === "photo-album") return <ForeverAlbumComposition template={template} photos={photos} />;
-  if (styleId === "photo-editorial") return <EditorialRomanceComposition template={template} photos={photos} />;
-  if (styleId === "photo-journey") return <OurJourneyComposition template={template} photos={photos} />;
-
+function GenericPhotoWeddingComposition({ template, photos }) {
   const frame = useCurrentFrame();
   const scene = Math.min(5, Math.floor(frame / 150));
   const sceneFrame = frame % 150;
   const title = template.previewTitle || "Our Wedding";
   const subtitle = template.previewSubtitle || "A story made for two";
   const accent = template.colors?.accent || "#d8bd88";
-  const light = ["photo-gallery", "photo-journal"].includes(styleId);
-  const layouts = useMemo(() => getPhotoLayout(styleId), [styleId]);
+  const light = ["photo-gallery", "photo-journal"].includes(template.styleId);
+  const layouts = useMemo(() => getPhotoLayout(template.styleId), [template.styleId]);
   const uploadedPhotos = photos.filter(Boolean);
   const photoFor = (slotIndex, sceneIndex) =>
     uploadedPhotos.length ? uploadedPhotos[(slotIndex + sceneIndex * layouts.length) % uploadedPhotos.length] : null;
@@ -671,12 +664,12 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
   };
   return (
     <AbsoluteFill style={{
-      background: backgroundByStyle[styleId] || "#e8dece",
+      background: backgroundByStyle[template.styleId] || "#e8dece",
       color: light ? "#30271f" : template.colors?.ink || "#fff8ec",
       fontFamily: "Georgia,serif",
       overflow: "hidden",
     }}>
-      <PhotoStyleDecor styleId={styleId} accent={accent} sceneFrame={sceneFrame} scene={scene} />
+      <PhotoStyleDecor styleId={template.styleId} accent={accent} sceneFrame={sceneFrame} scene={scene} />
       {layouts.map((position, index) => (
         <AnimatedPhotoPanel
           key={index}
@@ -698,6 +691,23 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
       </div>
     </AbsoluteFill>
   );
+}
+
+export function PhotoWeddingMotionPreview({ template, photos = [] }) {
+  switch (template.styleId) {
+    case "photo-polaroid":
+      return <PolaroidMemoryComposition template={template} photos={photos} />;
+    case "photo-cinematic":
+      return <CinematicLoveComposition template={template} photos={photos} />;
+    case "photo-album":
+      return <ForeverAlbumComposition template={template} photos={photos} />;
+    case "photo-editorial":
+      return <EditorialRomanceComposition template={template} photos={photos} />;
+    case "photo-journey":
+      return <OurJourneyComposition template={template} photos={photos} />;
+    default:
+      return <GenericPhotoWeddingComposition template={template} photos={photos} />;
+  }
 }
 
 export function PhotoWeddingStudio({ template }) {
