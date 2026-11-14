@@ -401,126 +401,301 @@ function getPhotoLayout(styleId) {
   }
 }
 
+function scenePhoto(photos, slot, scene) {
+  const available = photos.filter(Boolean);
+  return available.length ? available[(slot + scene * 2) % available.length] : null;
+}
+
+function AnimatedPhotoPanel({ src, caption, style, frame, delay = 0, polaroid = false }) {
+  const reveal = interpolate(frame, [delay, delay + 22], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <div
+      style={{
+        position: "absolute",
+        overflow: "hidden",
+        boxSizing: "border-box",
+        padding: polaroid ? "8px 8px 30px" : 7,
+        background: polaroid ? "#fffaf1" : "#f8f3e9",
+        border: "1px solid rgba(255,255,255,.7)",
+        boxShadow: "0 18px 42px rgba(28,20,12,.25)",
+        opacity: reveal,
+        ...style,
+        transform: (style.transform || "") +
+          " translateY(" + ((1 - reveal) * 34) + "px) scale(" + (.96 + reveal * .04) + ")",
+      }}
+    >
+      {src ? (
+        <Img src={src} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+      ) : (
+        <div style={{
+          width: "100%", height: "100%", display: "grid", placeItems: "center",
+          background: "linear-gradient(145deg,#cbb99d,#8d765c)", color: "#fff8ed",
+          font: "italic 13px Georgia,serif", textAlign: "center", padding: 10,
+          boxSizing: "border-box",
+        }}>
+          Add your photo
+        </div>
+      )}
+      {caption && (
+        <span style={{
+          position: "absolute", left: 5, right: 5, bottom: polaroid ? 7 : 9,
+          color: "#66513a", textAlign: "center", font: "italic 10px Georgia,serif",
+        }}>{caption}</span>
+      )}
+    </div>
+  );
+}
+
+function PhotoStoryHeading({ template, scene, light = false }) {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame % 150, [0, 18, 128, 149], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const chapterTitles = [
+    template.previewTitle || "Our Wedding",
+    "The moments we treasure",
+    "A story made for two",
+    "Every little forever",
+    "The day we dreamed of",
+    "With love, always",
+  ];
+  return (
+    <div style={{
+      position: "absolute", zIndex: 20, left: "8%", right: "8%", bottom: "6%",
+      textAlign: "center", color: light ? "#3a3025" : "#fff8ed", opacity,
+      textShadow: light ? "none" : "0 3px 20px rgba(0,0,0,.45)",
+    }}>
+      <div style={{ color: template.colors?.accent || "#d8bd88", font: "700 9px Arial,sans-serif", letterSpacing: 3, marginBottom: 8 }}>
+        {template.name.toUpperCase()} · {String(scene + 1).padStart(2, "0")} / 06
+      </div>
+      <div style={{ font: "34px/1.05 Georgia,serif" }}>{chapterTitles[scene]}</div>
+      <div style={{ marginTop: 7, font: "italic 13px Georgia,serif", opacity: .82 }}>
+        {template.previewSubtitle || "A story made for two"}
+      </div>
+    </div>
+  );
+}
+
+function PolaroidMemoryComposition({ template, photos }) {
+  const frame = useCurrentFrame();
+  const scene = Math.min(5, Math.floor(frame / 150));
+  const phase = frame % 150;
+  const drift = Math.sin(phase / 24) * 5;
+  const positions = [
+    { left: "7%", top: "14%", width: "43%", height: "31%", transform: "rotate(-8deg)" },
+    { left: "53%", top: "12%", width: "39%", height: "30%", transform: "rotate(6deg)" },
+    { left: "12%", top: "51%", width: "37%", height: "29%", transform: "rotate(4deg)" },
+    { left: "52%", top: "47%", width: "40%", height: "34%", transform: "rotate(-5deg)" },
+  ];
+  return (
+    <AbsoluteFill style={{ background: "linear-gradient(145deg,#eee4d3,#c8b79d)", color: "#3d3024", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: "4%", border: "1px solid rgba(125,93,58,.42)", boxShadow: "inset 0 0 0 7px rgba(255,250,239,.28)" }} />
+      <div style={{ position: "absolute", top: "7%", left: "10%", color: "#8b6b45", font: "700 9px Arial,sans-serif", letterSpacing: 4 }}>OUR LITTLE SCRAPBOOK</div>
+      {positions.map((position, index) => (
+        <AnimatedPhotoPanel
+          key={index}
+          src={scenePhoto(photos, index, scene)}
+          caption={["our beginning ♡", "the best day", "together", "forever & always"][index]}
+          frame={phase}
+          delay={index * 9}
+          polaroid
+          style={{ ...position, transform: position.transform + " translateY(" + drift + "px)" }}
+        />
+      ))}
+      <div style={{ position: "absolute", top: "43%", left: "43%", width: "18%", height: "7%", background: "rgba(250,239,218,.8)", transform: "rotate(-7deg)", boxShadow: "0 2px 8px rgba(0,0,0,.08)" }} />
+      <PhotoStoryHeading template={template} scene={scene} light />
+      <div style={{ position: "absolute", top: "8%", right: "10%", color: "#8b6b45", font: "italic 11px Georgia,serif" }}>handmade with love</div>
+    </AbsoluteFill>
+  );
+}
+
+function CinematicLoveComposition({ template, photos }) {
+  const frame = useCurrentFrame();
+  const scene = Math.min(5, Math.floor(frame / 150));
+  const phase = frame % 150;
+  const pan = interpolate(phase, [0, 149], [0, -5]);
+  const strip = [0, 1, 2, 3].map((item) => scenePhoto(photos, item + 1, scene));
+  return (
+    <AbsoluteFill style={{ background: "#080d15", color: "#fff8ed", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "10%", background: "#05070a", zIndex: 8 }} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "13%", background: "#05070a", zIndex: 8 }} />
+      <div style={{ position: "absolute", top: "10%", left: "5%", width: "90%", height: "61%", overflow: "hidden", border: "1px solid rgba(218,190,139,.6)", boxShadow: "0 18px 55px rgba(0,0,0,.5)" }}>
+        {scenePhoto(photos, 0, scene) ? (
+          <Img src={scenePhoto(photos, 0, scene)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scale(" + (1.08 + phase / 1500) + ") translateX(" + pan + "%)" }} />
+        ) : <div style={{ height: "100%", display: "grid", placeItems: "center", color: "#d8bd8b", font: "italic 18px Georgia,serif" }}>Your hero photograph</div>}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(0deg,rgba(0,0,0,.42),transparent 58%)" }} />
+      </div>
+      <div style={{ position: "absolute", top: "3.5%", left: 0, right: 0, textAlign: "center", color: "#d8bd8b", font: "700 8px Arial,sans-serif", letterSpacing: 5 }}>A LOVE STORY IN FRAMES</div>
+      <div style={{ position: "absolute", top: "74%", left: "5%", right: "5%", height: "12%", display: "flex", gap: 7 }}>
+        {strip.map((src, index) => (
+          <div key={index} style={{ flex: 1, overflow: "hidden", border: "2px solid #d8bd8b", background: "#26303a", transform: "translateY(" + (Math.sin(phase / 20 + index) * 3) + "px)" }}>
+            {src ? <Img src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+          </div>
+        ))}
+      </div>
+      <div style={{ position: "absolute", top: "9%", left: 0, right: 0, height: 5, zIndex: 10, background: "repeating-linear-gradient(90deg,#e9e0d0 0 11px,transparent 11px 23px)" }} />
+      <div style={{ position: "absolute", bottom: "12%", left: 0, right: 0, height: 5, zIndex: 10, background: "repeating-linear-gradient(90deg,#e9e0d0 0 11px,transparent 11px 23px)" }} />
+      <PhotoStoryHeading template={template} scene={scene} />
+    </AbsoluteFill>
+  );
+}
+
+function ForeverAlbumComposition({ template, photos }) {
+  const frame = useCurrentFrame();
+  const scene = Math.min(5, Math.floor(frame / 150));
+  const phase = frame % 150;
+  const pageReveal = interpolate(phase, [0, 28], [82, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <AbsoluteFill style={{ background: "radial-gradient(ellipse at center,#d5c2a2,#9b8060)", overflow: "hidden", perspective: 1200 }}>
+      <div style={{ position: "absolute", left: "4%", right: "4%", top: "13%", bottom: "16%", display: "flex", borderRadius: 8, background: "#f7efdf", boxShadow: "0 24px 65px rgba(37,24,13,.4)", overflow: "hidden" }}>
+        <div style={{ flex: 1, position: "relative", padding: "7% 5%", background: "linear-gradient(90deg,#f3ead8,#fffaf0)" }}>
+          <div style={{ position: "absolute", inset: "5%", border: "1px solid #d6c4a5" }} />
+          {scenePhoto(photos, 0, scene) ? <Img src={scenePhoto(photos, 0, scene)} style={{ position: "relative", width: "100%", height: "58%", objectFit: "cover", boxShadow: "0 7px 18px rgba(0,0,0,.16)" }} /> : <div style={{ height: "58%", background: "#d8c9ae", display: "grid", placeItems: "center", color: "#80694b" }}>Your favourite photo</div>}
+          <div style={{ marginTop: 12, color: "#80694b", textAlign: "center", font: "italic 13px Georgia,serif" }}>the beginning of forever</div>
+          <div style={{ margin: "12px auto 0", width: "65%", height: 2, background: "#d9c7a7" }} />
+        </div>
+        <div style={{ width: 8, background: "linear-gradient(90deg,#bba27e,#fff7e7,#bba27e)", boxShadow: "0 0 15px rgba(60,42,22,.25)" }} />
+        <div style={{ flex: 1, position: "relative", padding: "7% 5%", background: "linear-gradient(90deg,#fffaf0,#f1e5d0)" }}>
+          <div style={{ position: "absolute", inset: "5%", border: "1px solid #d6c4a5" }} />
+          {scenePhoto(photos, 1, scene) ? <Img src={scenePhoto(photos, 1, scene)} style={{ position: "relative", width: "100%", height: "42%", objectFit: "cover", boxShadow: "0 7px 18px rgba(0,0,0,.16)" }} /> : <div style={{ height: "42%", background: "#d8c9ae", display: "grid", placeItems: "center", color: "#80694b" }}>Your memory</div>}
+          {scenePhoto(photos, 2, scene) ? <Img src={scenePhoto(photos, 2, scene)} style={{ position: "relative", width: "72%", height: "27%", objectFit: "cover", margin: "8% 0 0 13%", border: "5px solid #fffaf0", boxShadow: "0 5px 14px rgba(0,0,0,.14)" }} /> : null}
+          <div style={{ position: "absolute", bottom: "8%", left: "10%", right: "10%", textAlign: "center", color: "#80694b", font: "italic 12px Georgia,serif" }}>a lifetime in little moments</div>
+        </div>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: "50%", width: "50%", background: "rgba(236,222,198,.96)", transformOrigin: "left center", transform: "rotateY(" + pageReveal + "deg)", backfaceVisibility: "hidden", boxShadow: "-8px 0 22px rgba(50,35,18,.16)" }} />
+      </div>
+      <div style={{ position: "absolute", top: "6%", left: 0, right: 0, textAlign: "center", color: "#fff4df", font: "italic 13px Georgia,serif", letterSpacing: 2 }}>OUR WEDDING ALBUM</div>
+      <PhotoStoryHeading template={template} scene={scene} light />
+    </AbsoluteFill>
+  );
+}
+
+function EditorialRomanceComposition({ template, photos }) {
+  const frame = useCurrentFrame();
+  const scene = Math.min(5, Math.floor(frame / 150));
+  const phase = frame % 150;
+  const slide = interpolate(phase, [0, 30], [30, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ background: "#eee8dc", color: "#292720", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: "5%", left: "8%", right: "8%", height: 1, background: "#9c805b" }} />
+      <div style={{ position: "absolute", top: "7%", left: "8%", color: "#8c704f", font: "700 8px Arial,sans-serif", letterSpacing: 4 }}>THE WEDDING EDITION</div>
+      <div style={{ position: "absolute", top: "7%", right: "8%", color: "#8c704f", font: "italic 10px Georgia,serif" }}>VOL. 01 · 2026</div>
+      <div style={{ position: "absolute", top: "16%", left: "8%", width: "57%", height: "55%", overflow: "hidden", background: "#c9bba6", transform: "translateY(" + slide + "px)" }}>
+        {scenePhoto(photos, 0, scene) ? <Img src={scenePhoto(photos, 0, scene)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ height: "100%", display: "grid", placeItems: "center", color: "#fff" }}>Your portrait</div>}
+      </div>
+      <div style={{ position: "absolute", top: "19%", right: "8%", width: "24%", color: "#302b24" }}>
+        <div style={{ font: "italic 30px/1 Georgia,serif", writingMode: "vertical-rl", transform: "rotate(180deg)", height: 230 }}>A LOVE STORY</div>
+        <div style={{ marginTop: 12, color: "#8b704e", font: "700 8px Arial,sans-serif", letterSpacing: 2 }}>THE TWO OF US</div>
+      </div>
+      <div style={{ position: "absolute", top: "74%", left: "8%", right: "8%", display: "flex", gap: 12, height: "13%" }}>
+        {[1, 2].map((slot) => (
+          <div key={slot} style={{ flex: 1, overflow: "hidden", border: "5px solid #fffaf0", boxShadow: "0 5px 15px rgba(0,0,0,.12)" }}>
+            {scenePhoto(photos, slot, scene) ? <Img src={scenePhoto(photos, slot, scene)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+          </div>
+        ))}
+        <div style={{ flex: 1, alignSelf: "center", color: "#8b704e", font: "italic 11px/1.5 Georgia,serif" }}>An elegant collection of moments, made timeless.</div>
+      </div>
+      <PhotoStoryHeading template={template} scene={scene} light />
+    </AbsoluteFill>
+  );
+}
+
+function OurJourneyComposition({ template, photos }) {
+  const frame = useCurrentFrame();
+  const scene = Math.min(5, Math.floor(frame / 150));
+  const phase = frame % 150;
+  const lineProgress = interpolate(phase, [0, 110], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const cards = [
+    { left: "12%", top: "17%", width: "58%", height: "21%", rotate: "-3deg" },
+    { left: "30%", top: "42%", width: "58%", height: "21%", rotate: "3deg" },
+    { left: "12%", top: "67%", width: "58%", height: "19%", rotate: "-2deg" },
+  ];
+  return (
+    <AbsoluteFill style={{ background: "linear-gradient(145deg,#e4e8dc,#b9c6b8)", color: "#314139", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: "13%", bottom: "14%", left: "17%", width: 2, background: "#8b9c83", opacity: lineProgress }} />
+      {[0, 1, 2, 3, 4, 5].map((node) => (
+        <span key={node} style={{ position: "absolute", left: "calc(17% - 5px)", top: (17 + node * 13) + "%", width: 12, height: 12, borderRadius: "50%", background: "#f7f1e4", border: "2px solid #718a75", opacity: lineProgress }} />
+      ))}
+      {cards.map((card, index) => (
+        <AnimatedPhotoPanel
+          key={index}
+          src={scenePhoto(photos, index, scene)}
+          caption={["where it began", "the days we cherish", "our forever"][index]}
+          frame={phase}
+          delay={index * 16}
+          style={{
+            ...card,
+            transform: "rotate(" + card.rotate + ") translateX(" + ((1 - lineProgress) * (index % 2 ? 24 : -24)) + "px)",
+          }}
+        />
+      ))}
+      <div style={{ position: "absolute", top: "8%", right: "8%", color: "#617b67", font: "italic 11px Georgia,serif", letterSpacing: 2 }}>CHAPTER {scene + 1} / 6</div>
+      <PhotoStoryHeading template={template} scene={scene} light />
+    </AbsoluteFill>
+  );
+}
+
 export function PhotoWeddingMotionPreview({ template, photos = [] }) {
+  const styleId = template.styleId;
+  if (styleId === "photo-polaroid") return <PolaroidMemoryComposition template={template} photos={photos} />;
+  if (styleId === "photo-cinematic") return <CinematicLoveComposition template={template} photos={photos} />;
+  if (styleId === "photo-album") return <ForeverAlbumComposition template={template} photos={photos} />;
+  if (styleId === "photo-editorial") return <EditorialRomanceComposition template={template} photos={photos} />;
+  if (styleId === "photo-journey") return <OurJourneyComposition template={template} photos={photos} />;
+
   const frame = useCurrentFrame();
   const scene = Math.min(5, Math.floor(frame / 150));
   const sceneFrame = frame % 150;
   const title = template.previewTitle || "Our Wedding";
   const subtitle = template.previewSubtitle || "A story made for two";
   const accent = template.colors?.accent || "#d8bd88";
-  const light = ["photo-polaroid", "photo-album", "photo-editorial", "photo-gallery", "photo-journey", "photo-journal", "indian-typewriter"].includes(template.styleId);
-  const backgroundByStyle = {
-    "indian-typewriter": "linear-gradient(145deg, #f1dfbb, #c8a979)",
-    "indian-royal-mandap": "radial-gradient(ellipse at 50% 30%, #7b3a20, #32150f 72%)",
-    "indian-mehndi-floral": "linear-gradient(145deg, #315a3c, #183b2b)",
-    "indian-rose-arch": "radial-gradient(ellipse at 50% 40%, #5b1427, #210811 75%)",
-    "indian-rustic-save-date": "linear-gradient(145deg, #654326, #2e1c12)",
-    "photo-polaroid": "linear-gradient(140deg, #e5dac5, #c3b297)",
-    "photo-cinematic": "#111720",
-    "photo-album": "linear-gradient(90deg, #eee4d1 0%, #e3d4b9 49%, #d4c2a4 50%, #eee4d1 100%)",
-    "photo-editorial": "#eee9df",
-    "photo-journey": "linear-gradient(140deg, #dce3d8, #aebeb0)",
-    "photo-gallery": "linear-gradient(145deg, #e4e1d8, #c9c5b9)",
-    "photo-journal": "repeating-linear-gradient(0deg, #d8c8a9 0 2px, #d2c09d 2px 4px)",
-    "photo-golden": "linear-gradient(145deg, #241b13, #6c4b25 58%, #17130f)",
-  };
-  const titles = [
-    title,
-    "The moments we treasure",
-    "Two hearts, one journey",
-    "A day to remember",
-    "Forever begins here",
-    "With love, always",
-  ];
-  const layouts = useMemo(() => getPhotoLayout(template.styleId), [template.styleId]);
+  const light = ["photo-gallery", "photo-journal"].includes(styleId);
+  const layouts = useMemo(() => getPhotoLayout(styleId), [styleId]);
   const uploadedPhotos = photos.filter(Boolean);
   const photoFor = (slotIndex, sceneIndex) =>
-    uploadedPhotos.length
-      ? uploadedPhotos[(slotIndex + sceneIndex * layouts.length) % uploadedPhotos.length]
-      : null;
+    uploadedPhotos.length ? uploadedPhotos[(slotIndex + sceneIndex * layouts.length) % uploadedPhotos.length] : null;
   const titleOpacity = interpolate(sceneFrame, [0, 18, 125, 149], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const overlayOpacity = interpolate(sceneFrame, [0, 14, 136, 149], [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const frameType =
-    template.styleId === "photo-polaroid" ? "polaroid" :
-    template.styleId === "photo-gallery" ? "gallery" :
-    template.styleId === "photo-journal" ? "journal" :
-    template.styleId === "photo-golden" ? "golden" :
-    template.styleId === "photo-cinematic" ? "cinematic" :
-    template.styleId === "indian-typewriter" ? "polaroid" :
-    "standard";
-
+  const backgroundByStyle = {
+    "photo-gallery": "linear-gradient(145deg,#e4e1d8,#c9c5b9)",
+    "photo-journal": "repeating-linear-gradient(0deg,#d8c8a9 0 2px,#d2c09d 2px 4px)",
+    "photo-golden": "linear-gradient(145deg,#241b13,#6c4b25 58%,#17130f)",
+  };
   return (
-    <AbsoluteFill
-      style={{
-        background: backgroundByStyle[template.styleId] || "#e8dece",
-        color: light ? "#30271f" : template.colors?.ink || "#fff8ec",
-        fontFamily: "Georgia,serif",
-        overflow: "hidden",
-      }}
-    >
-      <PhotoStyleDecor
-        styleId={template.styleId}
-        accent={accent}
-        sceneFrame={sceneFrame}
-        scene={scene}
-      />
-      {layouts.map((position, index) => {
-        const current = photoFor(index, scene);
-        const previous = scene > 0 ? photoFor(index, scene - 1) : null;
-        return (
-          <PhotoFrame
-            key={index}
-            src={current}
-            previousSrc={previous}
-            label={PHOTO_SLOTS[index % MAX_PHOTOS]}
-            index={index}
-            frameType={frameType}
-            sceneFrame={sceneFrame}
-            style={position}
-          />
-        );
-      })}
-      {template.styleId === "photo-journey" && (
-        <div style={{ position: "absolute", top: "13%", right: "8%", color: accent, font: "italic 10px Georgia,serif", letterSpacing: 2 }}>CHAPTER {scene + 1} / 6</div>
-      )}
-      {template.styleId === "photo-journal" && (
-        <div style={{ position: "absolute", top: "9%", right: "12%", color: "#725c40", font: "italic 12px Georgia,serif", transform: "rotate(3deg)" }}>dear diary…</div>
-      )}
-      {template.styleId === "photo-cinematic" && (
-        <div style={{ position: "absolute", zIndex: 10, top: "7%", left: 0, right: 0, textAlign: "center", color: accent, font: "700 8px Arial,sans-serif", letterSpacing: 4 }}>A LOVE STORY IN FRAMES</div>
-      )}
-      <div
-        style={{
-          position: "absolute",
-          zIndex: 10,
-          left: "7%",
-          right: "7%",
-          bottom: template.styleId === "photo-cinematic" ? "13%" : "6%",
-          textAlign: "center",
-          opacity: titleOpacity,
-          transform: "translateY(" + ((1 - titleOpacity) * 16) + "px)",
-          textShadow: light ? "none" : "0 3px 24px rgba(0,0,0,.55)",
-        }}
-      >
-        <div style={{ color: accent, fontFamily: "Arial,sans-serif", fontSize: 10, letterSpacing: 3, marginBottom: 8 }}>
-          {template.name.toUpperCase()}
-        </div>
-        <div style={{ fontSize: 31, lineHeight: 1.1 }}>{titles[scene]}</div>
+    <AbsoluteFill style={{
+      background: backgroundByStyle[styleId] || "#e8dece",
+      color: light ? "#30271f" : template.colors?.ink || "#fff8ec",
+      fontFamily: "Georgia,serif",
+      overflow: "hidden",
+    }}>
+      <PhotoStyleDecor styleId={styleId} accent={accent} sceneFrame={sceneFrame} scene={scene} />
+      {layouts.map((position, index) => (
+        <AnimatedPhotoPanel
+          key={index}
+          src={photoFor(index, scene)}
+          caption={PHOTO_SLOTS[index % MAX_PHOTOS]}
+          frame={sceneFrame}
+          delay={index * 7}
+          style={position}
+        />
+      ))}
+      <div style={{
+        position: "absolute", zIndex: 10, left: "7%", right: "7%", bottom: "7%",
+        textAlign: "center", opacity: titleOpacity,
+        textShadow: light ? "none" : "0 3px 24px rgba(0,0,0,.55)",
+      }}>
+        <div style={{ color: accent, font: "700 10px Arial,sans-serif", letterSpacing: 3, marginBottom: 8 }}>{template.name.toUpperCase()}</div>
+        <div style={{ fontSize: 31, lineHeight: 1.1 }}>{title}</div>
         <div style={{ fontSize: 14, fontStyle: "italic", marginTop: 8, opacity: .82 }}>{subtitle}</div>
       </div>
-      {template.styleId === "photo-golden" && (
-        <div style={{ position: "absolute", zIndex: 9, inset: 0, background: "radial-gradient(ellipse at 78% 18%, rgba(255,218,150,.16), transparent 38%)", opacity: overlayOpacity, pointerEvents: "none" }} />
-      )}
-      <div style={{ position: "absolute", zIndex: 12, top: "5%", left: 0, right: 0, textAlign: "center", color: accent, font: "700 8px Arial,sans-serif", letterSpacing: 3 }}>
-        {String(Math.min(100, Math.round((frame / (DURATION_FRAMES - 1)) * 100))).padStart(2, "0")} · OUR WEDDING FILM
-      </div>
-      <div style={{ position: "absolute", zIndex: 13, bottom: 0, left: 0, height: 3, width: (frame / (DURATION_FRAMES - 1)) * 100 + "%", background: accent, boxShadow: "0 0 12px " + accent }} />
     </AbsoluteFill>
   );
 }
