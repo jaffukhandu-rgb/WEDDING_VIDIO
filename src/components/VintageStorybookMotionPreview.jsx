@@ -1,6 +1,5 @@
 import {
   AbsoluteFill,
-  Audio,
   Img,
   interpolate,
   spring,
@@ -13,6 +12,7 @@ import {
   WEDDING_VIDEO_SCENE_FRAMES,
 } from "../data/weddingVideoConfig.js";
 import "../styles/vintage-storybook-video.css";
+import { WeddingMediaLayer } from "./WeddingMediaLayer.jsx";
 
 const clamp = (value, input, output) =>
   interpolate(value, input, output, {
@@ -592,6 +592,7 @@ export function VintageStorybookMotionPreview({
   invitationMessage = "",
   hostLine = "",
   photos = [],
+  videos = [],
   musicUrl = "",
 }) {
   const frame = useCurrentFrame();
@@ -672,21 +673,7 @@ export function VintageStorybookMotionPreview({
       >
         {scene}
       </AbsoluteFill>
-      {safeMusicUrl && (
-        <Audio
-          src={safeMusicUrl}
-          volume={(audioFrame) =>
-            clamp(
-              audioFrame,
-              [
-                WEDDING_VIDEO_DURATION_FRAMES - fps * 1.5,
-                WEDDING_VIDEO_DURATION_FRAMES - 1,
-              ],
-              [1, 0],
-            )
-          }
-        />
-      )}
+      <WeddingMediaLayer photos={photos} videos={videos} musicUrl={safeMusicUrl} />
     </AbsoluteFill>
   );
 }
