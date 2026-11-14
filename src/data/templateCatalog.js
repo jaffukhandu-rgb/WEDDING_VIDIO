@@ -133,6 +133,7 @@ export const WEDDING_TEMPLATE_STYLES = [
   },
   {
     id: "three-d",
+    compositionId: "vintage-storybook",
     name: "Vintage Storybook",
     category: "Vintage",
     color: "Antique Parchment",
