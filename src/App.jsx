@@ -468,7 +468,7 @@ export default function App() {
                   previewTemplate.isPhotoTemplate
                     ? PhotoWeddingMotionPreview
                     : previewTemplate.occasionId === "wedding"
-                      ? previewTemplate.styleId === "three-d"
+                      ? previewTemplate.compositionId === "vintage-storybook"
                         ? VintageStorybookMotionPreview
                         : WeddingTemplateMotionPreview
                       : TemplateMotionPreview
@@ -477,7 +477,7 @@ export default function App() {
                   previewTemplate.isPhotoTemplate
                     ? { template: previewTemplate, photos: [] }
                     : previewTemplate.occasionId === "wedding" &&
-                      previewTemplate.styleId === "three-d"
+                      previewTemplate.compositionId === "vintage-storybook"
                       ? {
                           template: previewTemplate,
                           ...VINTAGE_STORYBOOK_PREVIEW_PROPS,
