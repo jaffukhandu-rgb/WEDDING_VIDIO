@@ -1,4 +1,11 @@
 import { useState } from "react";
+import { Player } from "@remotion/player";
+import { WeddingTemplateMotionPreview } from "./WeddingTemplateMotionPreview.jsx";
+import { VintageStorybookMotionPreview } from "./VintageStorybookMotionPreview.jsx";
+import {
+  WEDDING_VIDEO_DURATION_FRAMES,
+  WEDDING_VIDEO_FPS,
+} from "../data/weddingVideoConfig.js";
 
 const initialDetails = {
   brideName: "",
@@ -30,13 +37,12 @@ const labelStyle = {
   fontWeight: 600,
 };
 
-export function WeddingEventDetailsEditor({ template }) {
-  const [details, setDetails] = useState(initialDetails);
+export function WeddingEventDetailsEditor({ template, details, onDetailsChange }) {
   const [saved, setSaved] = useState(false);
 
   const updateField = (event) => {
     const { name, value } = event.target;
-    setDetails((current) => ({ ...current, [name]: value }));
+    onDetailsChange((current) => ({ ...current, [name]: value }));
     setSaved(false);
   };
 
@@ -141,6 +147,42 @@ export function WeddingEventDetailsEditor({ template }) {
           </p>
         )}
       </aside>
+
+      <div style={{ marginTop: 24 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+          <h3 style={{ margin: 0, color: "#f6f3ec", fontFamily: "Georgia,serif", fontSize: 22, fontWeight: 500 }}>
+            Live 30-second video preview
+          </h3>
+          <span style={{ color: "#aaa49a", fontSize: 11 }}>9:16 · Updates as you type</span>
+        </div>
+        <div style={{ width: "min(100%, 320px)", aspectRatio: "9 / 16", margin: "0 auto", overflow: "hidden", border: "1px solid rgba(201,170,108,.35)", borderRadius: 14, background: "#08090b" }}>
+          <Player
+            component={template.styleId === "three-d" ? VintageStorybookMotionPreview : WeddingTemplateMotionPreview}
+            inputProps={
+              template.styleId === "three-d"
+                ? {
+                    template,
+                    partner1Name: details.brideName,
+                    partner2Name: details.groomName,
+                    eventDate: displayDate === "Wedding date" ? "" : displayDate,
+                    eventTime: details.weddingTime,
+                    venueName: details.venueName,
+                    venueCity: details.venueAddress,
+                    invitationMessage: details.invitationMessage,
+                  }
+                : { template, eventDetails: details }
+            }
+            durationInFrames={WEDDING_VIDEO_DURATION_FRAMES}
+            compositionWidth={540}
+            compositionHeight={960}
+            fps={WEDDING_VIDEO_FPS}
+            loop
+            autoPlay
+            controls
+            style={{ width: "100%", height: "100%" }}
+          />
+        </div>
+      </div>
     </section>
   );
 }
