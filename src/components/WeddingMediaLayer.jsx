@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Img, Video, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio, Html5Video, Img, useCurrentFrame, useVideoConfig } from "remotion";
 
 function sourceOf(asset) {
   return typeof asset === "string" ? asset : asset?.src || asset?.url || "";
@@ -37,7 +37,7 @@ export function WeddingMediaLayer({ photos = [], videos = [], musicUrl = "" }) {
           }}
         >
           {activeAsset.type === "video" ? (
-            <Video
+            <Html5Video
               src={activeAsset.src}
               loop
               muted
