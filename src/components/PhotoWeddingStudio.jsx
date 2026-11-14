@@ -644,6 +644,131 @@ function OurJourneyComposition({ template, photos }) {
   );
 }
 
+const INDIAN_PHOTO_COMPOSITIONS = {
+  "indian-royal-mandap": {
+    background: "radial-gradient(ellipse at 50% 38%, #713b25 0%, #35160f 58%, #170b09 100%)",
+    accent: "#e7bf72",
+    ink: "#fff0d0",
+    motif: "✦  ♛  ✦",
+    eyebrow: "A ROYAL CELEBRATION",
+    frameType: "golden",
+    positions: [
+      { left: "13%", top: "17%", width: "74%", height: "39%" },
+      { left: "8%", top: "58%", width: "38%", height: "23%", transform: "rotate(-4deg)" },
+      { left: "54%", top: "58%", width: "38%", height: "23%", transform: "rotate(4deg)" },
+    ],
+    borderRadius: "42% 42% 5px 5px",
+    frameBorder: "2px solid #e7bf72",
+    closing: "A CELEBRATION FIT FOR ROYALTY",
+  },
+  "indian-mehndi-floral": {
+    background: "radial-gradient(ellipse at 50% 42%, #286044 0%, #123d2c 62%, #09251c 100%)",
+    accent: "#f3c66e",
+    ink: "#fff3d5",
+    motif: "✿  ❀  ✿  ❀  ✿",
+    eyebrow: "MEHNDI · MUSIC · MEMORIES",
+    frameType: "gallery",
+    positions: [
+      { left: "9%", top: "19%", width: "82%", height: "31%", transform: "rotate(-2deg)" },
+      { left: "12%", top: "55%", width: "35%", height: "25%", transform: "rotate(3deg)" },
+      { left: "53%", top: "55%", width: "35%", height: "25%", transform: "rotate(-3deg)" },
+    ],
+    borderRadius: "48% 48% 12px 12px",
+    frameBorder: "1px solid #f3c66e",
+    closing: "COLOUR, MUSIC AND CELEBRATION",
+  },
+  "indian-rose-arch": {
+    background: "radial-gradient(ellipse at 50% 40%, #76263b 0%, #3a0d1b 62%, #18070e 100%)",
+    accent: "#e5b873",
+    ink: "#fff0df",
+    motif: "❦  ❧  ❦",
+    eyebrow: "TWO HEARTS · ONE PROMISE",
+    frameType: "golden",
+    positions: [
+      { left: "17%", top: "18%", width: "66%", height: "43%" },
+      { left: "10%", top: "63%", width: "34%", height: "19%", transform: "rotate(-5deg)" },
+      { left: "56%", top: "63%", width: "34%", height: "19%", transform: "rotate(5deg)" },
+    ],
+    borderRadius: "50% 50% 4px 4px",
+    frameBorder: "2px solid #e5b873",
+    closing: "TOGETHER, FOREVER BEGINS",
+  },
+};
+
+function IndianWeddingPhotoComposition({ template, photos, variant }) {
+  const frame = useCurrentFrame();
+  const scene = Math.min(5, Math.floor(frame / 150));
+  const sceneFrame = frame % 150;
+  const design = INDIAN_PHOTO_COMPOSITIONS[variant];
+  const uploadedPhotos = photos.filter(Boolean);
+  const titleOpacity = interpolate(sceneFrame, [0, 20, 125, 149], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const title = scene === 0
+    ? template.previewTitle
+    : scene === 5
+      ? design.closing
+      : ["Our favourite moments", "A day to remember", "Together with our families", "The beginning of forever"][scene - 1];
+
+  return (
+    <AbsoluteFill style={{ background: design.background, color: design.ink, overflow: "hidden", fontFamily: "Georgia,serif" }}>
+      <div style={{ position: "absolute", inset: "4%", border: design.frameBorder, borderRadius: design.borderRadius, opacity: .9 }} />
+      <div style={{ position: "absolute", inset: "6%", border: "1px solid " + design.accent, borderRadius: design.borderRadius, opacity: .45 }} />
+      <div style={{ position: "absolute", top: "7%", left: "8%", right: "8%", textAlign: "center", color: design.accent, fontSize: 18, letterSpacing: 5 }}>
+        {design.motif}
+      </div>
+      <div style={{ position: "absolute", top: "12%", left: "10%", right: "10%", textAlign: "center", color: design.accent, font: "700 9px Arial,sans-serif", letterSpacing: 3 }}>
+        {design.eyebrow}
+      </div>
+      {design.positions.map((position, index) => {
+        const photoIndex = (index + scene * 2) % MAX_PHOTOS;
+        const src = uploadedPhotos.length
+          ? uploadedPhotos[(photoIndex) % uploadedPhotos.length]
+          : null;
+        return (
+          <PhotoFrame
+            key={index}
+            src={src}
+            previousSrc={null}
+            label={PHOTO_SLOTS[photoIndex]}
+            frameType={design.frameType}
+            sceneFrame={sceneFrame}
+            index={index}
+            style={{ ...position, borderRadius: variant === "indian-rose-arch" && index === 0 ? "48% 48% 2px 2px" : 3 }}
+          />
+        );
+      })}
+      <div style={{ position: "absolute", zIndex: 12, left: "8%", right: "8%", bottom: "7%", textAlign: "center", opacity: titleOpacity, textShadow: "0 3px 20px rgba(0,0,0,.45)" }}>
+        <div style={{ color: design.accent, font: "700 9px Arial,sans-serif", letterSpacing: 3, marginBottom: 9 }}>
+          {template.name.toUpperCase()}
+        </div>
+        <div style={{ fontSize: title.length > 24 ? 25 : 31, lineHeight: 1.12 }}>
+          {title}
+        </div>
+        <div style={{ marginTop: 8, fontSize: 13, fontStyle: "italic", opacity: .88 }}>
+          {scene === 5 ? design.closing : template.previewSubtitle}
+        </div>
+      </div>
+      <div style={{ position: "absolute", bottom: "3%", left: 0, right: 0, textAlign: "center", color: design.accent, fontSize: 10, letterSpacing: 4, opacity: .8 }}>
+        ✦
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function RoyalPalaceMandapComposition({ template, photos }) {
+  return <IndianWeddingPhotoComposition template={template} photos={photos} variant="indian-royal-mandap" />;
+}
+
+function MehndiFloralComposition({ template, photos }) {
+  return <IndianWeddingPhotoComposition template={template} photos={photos} variant="indian-mehndi-floral" />;
+}
+
+function CrimsonRoseArchComposition({ template, photos }) {
+  return <IndianWeddingPhotoComposition template={template} photos={photos} variant="indian-rose-arch" />;
+}
+
 function GenericPhotoWeddingComposition({ template, photos }) {
   const frame = useCurrentFrame();
   const scene = Math.min(5, Math.floor(frame / 150));
@@ -708,6 +833,12 @@ export function PhotoWeddingMotionPreview({ template, photos = [] }) {
       return <EditorialRomanceComposition template={template} photos={photos} />;
     case "photo-journey":
       return <OurJourneyComposition template={template} photos={photos} />;
+    case "indian-royal-mandap":
+      return <RoyalPalaceMandapComposition template={template} photos={photos} />;
+    case "indian-mehndi-floral":
+      return <MehndiFloralComposition template={template} photos={photos} />;
+    case "indian-rose-arch":
+      return <CrimsonRoseArchComposition template={template} photos={photos} />;
     default:
       return <GenericPhotoWeddingComposition template={template} photos={photos} />;
   }
