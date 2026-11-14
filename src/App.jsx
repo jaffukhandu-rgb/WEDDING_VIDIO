@@ -25,6 +25,16 @@ const SORT_OPTIONS = [
   { value: "name", label: "Name: A–Z" },
 ];
 
+const INITIAL_WEDDING_DETAILS = {
+  brideName: "",
+  groomName: "",
+  weddingDate: "",
+  weddingTime: "",
+  venueName: "",
+  venueAddress: "",
+  invitationMessage: "",
+};
+
 const STORAGE_KEY = "event-video-template-usage-v1";
 
 function readTemplateUsage() {
@@ -57,6 +67,7 @@ export default function App() {
   const [sortMode, setSortMode] = useState("featured");
   const [templateUsage, setTemplateUsage] = useState(readTemplateUsage);
   const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [weddingDetails, setWeddingDetails] = useState(INITIAL_WEDDING_DETAILS);
 
 
   const designs = useMemo(
@@ -132,6 +143,7 @@ export default function App() {
     setSelectedOccasion(occasionId);
     setSelectedDesign(null);
     setIsDesignConfirmed(false);
+    setWeddingDetails(INITIAL_WEDDING_DETAILS);
     resetGalleryControls();
   };
 
@@ -244,6 +256,8 @@ export default function App() {
           <WeddingEventDetailsEditor
             key={selectedDesignData.id}
             template={selectedDesignData}
+            details={weddingDetails}
+            onDetailsChange={setWeddingDetails}
           />
         )}
 
