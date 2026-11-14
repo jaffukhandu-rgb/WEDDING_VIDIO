@@ -7,6 +7,8 @@ import {
   useCurrentFrame,
 } from "remotion";
 import "../styles/photo-wedding-studio.css";
+import { WeddingMediaLayer } from "./WeddingMediaLayer.jsx";
+import { WeddingMediaUploadControls } from "./WeddingMediaUploadControls.jsx";
 
 const PHOTO_SLOTS = [
   "Main couple portrait",
@@ -821,32 +823,54 @@ function GenericPhotoWeddingComposition({ template, photos }) {
   );
 }
 
-export function PhotoWeddingMotionPreview({ template, photos = [] }) {
+export function PhotoWeddingMotionPreview({
+  template,
+  photos = [],
+  videos = [],
+  musicUrl = "",
+}) {
+  let composition;
   switch (template.styleId) {
     case "photo-polaroid":
-      return <PolaroidMemoryComposition template={template} photos={photos} />;
+      composition = <PolaroidMemoryComposition template={template} photos={photos} />;
+      break;
     case "photo-cinematic":
-      return <CinematicLoveComposition template={template} photos={photos} />;
+      composition = <CinematicLoveComposition template={template} photos={photos} />;
+      break;
     case "photo-album":
-      return <ForeverAlbumComposition template={template} photos={photos} />;
+      composition = <ForeverAlbumComposition template={template} photos={photos} />;
+      break;
     case "photo-editorial":
-      return <EditorialRomanceComposition template={template} photos={photos} />;
+      composition = <EditorialRomanceComposition template={template} photos={photos} />;
+      break;
     case "photo-journey":
-      return <OurJourneyComposition template={template} photos={photos} />;
+      composition = <OurJourneyComposition template={template} photos={photos} />;
+      break;
     case "indian-royal-mandap":
-      return <RoyalPalaceMandapComposition template={template} photos={photos} />;
+      composition = <RoyalPalaceMandapComposition template={template} photos={photos} />;
+      break;
     case "indian-mehndi-floral":
-      return <MehndiFloralComposition template={template} photos={photos} />;
+      composition = <MehndiFloralComposition template={template} photos={photos} />;
+      break;
     case "indian-rose-arch":
-      return <CrimsonRoseArchComposition template={template} photos={photos} />;
+      composition = <CrimsonRoseArchComposition template={template} photos={photos} />;
+      break;
     default:
-      return <GenericPhotoWeddingComposition template={template} photos={photos} />;
+      composition = <GenericPhotoWeddingComposition template={template} photos={photos} />;
   }
+
+  return (
+    <AbsoluteFill>
+      {composition}
+      <WeddingMediaLayer videos={videos} musicUrl={musicUrl} />
+    </AbsoluteFill>
+  );
 }
 
 export function PhotoWeddingStudio({ template }) {
   const [photos, setPhotos] = useState([]);
   const [error, setError] = useState("");
+  const [media, setMedia] = useState({ photos: [], videos: [], musicUrl: "" });
   const inputRefs = useRef([]);
   const photoUrlsRef = useRef({});
 
@@ -945,6 +969,7 @@ export function PhotoWeddingStudio({ template }) {
             ))}
           </div>
           <p className="photo-upload-help">JPG, PNG, WebP · Maximum 10 MB per photo · Up to 6 photos</p>
+          <WeddingMediaUploadControls showPhotos={false} onChange={setMedia} />
           {error && <p className="photo-upload-error" role="alert">{error}</p>}
         </div>
 
@@ -956,7 +981,7 @@ export function PhotoWeddingStudio({ template }) {
           <div className="photo-player-frame">
             <Player
               component={PhotoWeddingMotionPreview}
-              inputProps={{ template, photos }}
+              inputProps={{ template, photos, videos: media.videos, musicUrl: media.musicUrl }}
               durationInFrames={DURATION_FRAMES}
               compositionWidth={540}
               compositionHeight={960}
