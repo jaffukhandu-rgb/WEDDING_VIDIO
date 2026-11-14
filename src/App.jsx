@@ -11,6 +11,7 @@ import { WeddingTemplateGallery } from "./components/WeddingTemplateGallery.jsx"
 import { WeddingTemplateMotionPreview } from "./components/WeddingTemplateMotionPreview.jsx";
 import { VintageStorybookMotionPreview } from "./components/VintageStorybookMotionPreview.jsx";
 import { PhotoWeddingStudio, PhotoWeddingMotionPreview } from "./components/PhotoWeddingStudio.jsx";
+import { WeddingEventDetailsEditor } from "./components/WeddingEventDetailsEditor.jsx";
 import {
   VINTAGE_STORYBOOK_PREVIEW_PROPS,
   WEDDING_VIDEO_DURATION_FRAMES,
@@ -231,6 +232,16 @@ export default function App() {
         isDesignConfirmed &&
         selectedDesignData?.isPhotoTemplate && (
           <PhotoWeddingStudio
+            key={selectedDesignData.id}
+            template={selectedDesignData}
+          />
+        )}
+
+      {selectedOccasion === "wedding" &&
+        isDesignConfirmed &&
+        selectedDesignData &&
+        !selectedDesignData.isPhotoTemplate && (
+          <WeddingEventDetailsEditor
             key={selectedDesignData.id}
             template={selectedDesignData}
           />
