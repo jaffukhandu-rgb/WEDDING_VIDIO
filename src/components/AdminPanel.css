@@ -59,7 +59,7 @@
 .admin-step-number { width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid rgba(201,170,108,.32); border-radius: 6px; color: #d8bd84; font-size: 9px; }
 .admin-live-label { display: flex; align-items: center; gap: 7px; color: #8f9c8d; font-size: 8px; letter-spacing: .1em; }
 .admin-live-label i { width: 6px; height: 6px; }
-.admin-editor-tabs { display: flex; gap: 5px; padding: 12px 14px 0; }
+.admin-editor-tabs { display: flex; flex-wrap: wrap; gap: 5px; padding: 12px 14px 0; }
 .admin-editor-tabs button { min-height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 6px 6px 0 0; color: #8d887f; background: transparent; font: 600 9px 'DM Sans',sans-serif; cursor: pointer; }
 .admin-editor-tabs button.active { border-color: rgba(201,170,108,.2); color: #e3ca98; background: rgba(201,170,108,.07); }
 .admin-code-label { display: block; padding: 13px 16px 8px; }
