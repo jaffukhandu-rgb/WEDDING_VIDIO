@@ -101,8 +101,8 @@ function makeFullHtmlPreview(source) {
   const safeSource = source.trim() || STARTER_FULL_HTML;
   const cspTag = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
 
-  if (/<head(?:\\s[^>]*)?>/i.test(safeSource)) {
-    return safeSource.replace(/<head(?:\\s[^>]*)?>/i, (headTag) => `${headTag}\\n${cspTag}`);
+  if (/<head(?:\s[^>]*)?>/i.test(safeSource)) {
+    return safeSource.replace(/<head(?:\s[^>]*)?>/i, (headTag) => `${headTag}\n${cspTag}`);
   }
 
   return `<!doctype html>
