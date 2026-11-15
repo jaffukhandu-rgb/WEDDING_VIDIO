@@ -649,7 +649,7 @@ export function WeddingTemplateMotionPreview({ template, eventDetails = {}, phot
   const artScale = clamp(localFrame, [0, 149], [1.08, 1]);
   const drift = Math.sin(progress * Math.PI * 2) * 8;
   const accent = colors.accent || "#d7b46f";
-  const isLight = ["floral", "editorial", "mediterranean"].includes(template.styleId);
+  const isLight = ["floral", "editorial", "mediterranean"].includes(template.styleId) || template.compositionId === "modern-heirloom";
   const foreground = isLight ? "#352d25" : colors.ink || "#fff4df";
   const background = colors.background || "#101112";
 
