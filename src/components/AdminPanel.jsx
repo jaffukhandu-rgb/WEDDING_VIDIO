@@ -52,6 +52,34 @@ h1 span { color: #d7bd8b; font-style: italic; }
 .venue { margin-top: 4px; }
 .bottom { margin-top: 30px; }`;
 
+const STARTER_FULL_HTML = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wedding Invitation</title>
+  <style>
+    ${STARTER_CSS}
+  </style>
+</head>
+<body>
+  ${STARTER_HTML}
+</body>
+</html>`;
+
+const PREVIEW_CSP = [
+  "default-src 'none'",
+  "script-src 'unsafe-inline'",
+  "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src https://fonts.gstatic.com data:",
+  "img-src data: blob: https:",
+  "media-src data: blob: https:",
+  "connect-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
+
 function makePreviewDocument(html, css) {
   return `<!doctype html>
 <html lang="en">
@@ -69,6 +97,27 @@ ${html}
 </html>`;
 }
 
+function makeFullHtmlPreview(source) {
+  const safeSource = source.trim() || STARTER_FULL_HTML;
+  const cspTag = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
+
+  if (/<head(?:\\s[^>]*)?>/i.test(safeSource)) {
+    return safeSource.replace(/<head(?:\\s[^>]*)?>/i, (headTag) => `${headTag}\\n${cspTag}`);
+  }
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+${cspTag}
+</head>
+<body>
+${safeSource}
+</body>
+</html>`;
+}
+
 function readDraft() {
   if (typeof window === "undefined") return null;
   try {
@@ -80,6 +129,7 @@ function readDraft() {
       title: typeof parsed.title === "string" ? parsed.title : "Untitled wedding design",
       html: typeof parsed.html === "string" ? parsed.html : STARTER_HTML,
       css: typeof parsed.css === "string" ? parsed.css : STARTER_CSS,
+      fullHtml: typeof parsed.fullHtml === "string" ? parsed.fullHtml : "",
     };
   } catch {
     return null;
@@ -91,14 +141,17 @@ export function AdminPanel() {
     title: "Royal Wedding Invitation",
     html: STARTER_HTML,
     css: STARTER_CSS,
+    fullHtml: "",
   });
-  const [activeEditor, setActiveEditor] = useState("html");
+  const [activeEditor, setActiveEditor] = useState("full");
   const [saveMessage, setSaveMessage] = useState("");
   const [previewKey, setPreviewKey] = useState(0);
 
   const previewDocument = useMemo(
-    () => makePreviewDocument(draft.html, draft.css),
-    [draft.html, draft.css],
+    () => activeEditor === "full"
+      ? makeFullHtmlPreview(draft.fullHtml)
+      : makePreviewDocument(draft.html, draft.css),
+    [activeEditor, draft.fullHtml, draft.html, draft.css],
   );
 
   useEffect(() => {
@@ -127,9 +180,19 @@ export function AdminPanel() {
       title: "Royal Wedding Invitation",
       html: STARTER_HTML,
       css: STARTER_CSS,
+      fullHtml: "",
     });
+    setActiveEditor("full");
     setSaveMessage("Starter design restored. Save it to keep this version.");
   };
+
+  const editorValue = activeEditor === "full"
+    ? (draft.fullHtml || STARTER_FULL_HTML)
+    : draft[activeEditor];
+
+  const editorLabel = activeEditor === "full"
+    ? "COMPLETE HTML DOCUMENT"
+    : activeEditor === "html" ? "HTML MARKUP" : "CSS STYLES";
 
   return (
     <main className="admin-shell">
@@ -163,7 +226,7 @@ export function AdminPanel() {
           <div>
             <p className="admin-kicker">CREATE A NEW TEMPLATE</p>
             <h2>Bring your invitation to life.</h2>
-            <p className="admin-description">Write your HTML and CSS, then see your design update in the preview.</p>
+            <p className="admin-description">Paste a complete HTML document with CSS and JavaScript, then preview it in the isolated 9:16 canvas.</p>
           </div>
           <div className="admin-duration-pill"><span>◷</span> VIDEO FORMAT <strong>30 SEC · 9:16</strong></div>
         </div>
@@ -191,23 +254,24 @@ export function AdminPanel() {
               <span className="admin-live-label"><i /> LIVE PREVIEW</span>
             </div>
             <div className="admin-editor-tabs" role="tablist" aria-label="Code type">
+              <button type="button" role="tab" aria-selected={activeEditor === "full"} className={activeEditor === "full" ? "active" : ""} onClick={() => setActiveEditor("full")}>▤ FULL HTML + JS</button>
               <button type="button" role="tab" aria-selected={activeEditor === "html"} className={activeEditor === "html" ? "active" : ""} onClick={() => setActiveEditor("html")}>〈〉 HTML</button>
               <button type="button" role="tab" aria-selected={activeEditor === "css"} className={activeEditor === "css" ? "active" : ""} onClick={() => setActiveEditor("css")}>✳ CSS</button>
             </div>
-            <label className="admin-code-label" htmlFor="admin-code-input">{activeEditor === "html" ? "HTML MARKUP" : "CSS STYLES"}</label>
+            <label className="admin-code-label" htmlFor="admin-code-input">{editorLabel}</label>
             <textarea
               id="admin-code-input"
               className="admin-code-input"
               spellCheck="false"
               autoCapitalize="off"
               autoCorrect="off"
-              value={draft[activeEditor]}
-              onChange={(event) => updateDraft(activeEditor, event.target.value)}
-              aria-label={activeEditor === "html" ? "HTML code" : "CSS code"}
+              value={editorValue}
+              onChange={(event) => updateDraft(activeEditor === "full" ? "fullHtml" : activeEditor, event.target.value)}
+              aria-label={activeEditor === "full" ? "Complete HTML document including JavaScript" : activeEditor === "html" ? "HTML code" : "CSS code"}
             />
             <div className="admin-editor-footer">
-              <span>{activeEditor.toUpperCase()} · {draft[activeEditor].length.toLocaleString()} characters</span>
-              <span>HTML and CSS only</span>
+              <span>{activeEditor === "full" ? "FULL HTML + JS" : activeEditor.toUpperCase()} · {editorValue.length.toLocaleString()} characters</span>
+              <span>{activeEditor === "full" ? "Inline JavaScript enabled" : "HTML and CSS mode"}</span>
             </div>
           </section>
 
@@ -223,7 +287,7 @@ export function AdminPanel() {
                   key={previewKey}
                   title="Isolated wedding invitation preview"
                   className="admin-preview-iframe"
-                  sandbox=""
+                  sandbox="allow-scripts"
                   srcDoc={previewDocument}
                 />
               </div>
@@ -237,7 +301,7 @@ export function AdminPanel() {
 
         <div className="admin-notice">
           <span className="admin-notice-icon">i</span>
-          <p><strong>Safe preview mode.</strong> Your HTML runs inside an isolated preview frame. Drafts are currently saved only in this browser. Publishing to the customer gallery and exporting MP4 videos will be connected in later steps.</p>
+          <p><strong>Safe preview mode.</strong> Complete HTML and inline JavaScript run in a sandboxed preview. External scripts, network requests from JavaScript, pop-ups and access to the main website are blocked. External fonts, images and media may load where permitted. Drafts are saved only in this browser; MP4 export and customer-gallery publishing are not included yet.</p>
         </div>
         <div className="admin-bottom-row">
           <a href="/">← Back to customer website</a>
