@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { WeddingMediaLayer } from "./WeddingMediaLayer.jsx";
+import { RoyalNoirComposition, MaharajaLegacyComposition, ModernHeirloomComposition } from "./PremiumWeddingCompositions.jsx";
 
 const SEGMENT_FRAMES = 150;
 const TOTAL_SCENES = 6;
@@ -606,9 +607,19 @@ function MonogramArchitecture({ scene, progress, accent }) {
 }
 
 function ArtDirection({ template, scene, progress, frame }) {
-  const styleId = template.styleId;
   const accent = template.colors?.accent || "#d7b46f";
 
+  if (template.compositionId === "royal-noir") {
+    return <RoyalNoirComposition scene={scene} progress={progress} accent={accent} />;
+  }
+  if (template.compositionId === "maharaja-legacy") {
+    return <MaharajaLegacyComposition scene={scene} progress={progress} accent={accent} />;
+  }
+  if (template.compositionId === "modern-heirloom") {
+    return <ModernHeirloomComposition scene={scene} progress={progress} accent={accent} />;
+  }
+
+  const styleId = template.styleId;
   if (styleId === "royal") return <RoyalArchitecture scene={scene} progress={progress} accent={accent} />;
   if (styleId === "glass") return <GlassArchitecture scene={scene} progress={progress} accent={accent} />;
   if (styleId === "three-d") return <VintageArchitecture scene={scene} progress={progress} accent={accent} />;
@@ -623,7 +634,6 @@ function ArtDirection({ template, scene, progress, frame }) {
   if (styleId === "monogram") return <MonogramArchitecture scene={scene} progress={progress} accent={accent} />;
   return <RoyalArchitecture scene={scene} progress={progress} accent={accent} />;
 }
-
 export function WeddingTemplateMotionPreview({ template, eventDetails = {}, photos = [], videos = [], musicUrl = "" }) {
   const frame = useCurrentFrame();
   const colors = template.colors || {};
