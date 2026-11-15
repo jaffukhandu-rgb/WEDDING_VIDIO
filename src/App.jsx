@@ -18,6 +18,7 @@ import {
   WEDDING_VIDEO_FPS,
 } from "./data/weddingVideoConfig.js";
 import { TemplateArtwork } from "./components/TemplateArtwork.jsx";
+import { AdminPanel } from "./components/AdminPanel.jsx";
 
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
@@ -164,6 +165,10 @@ export default function App() {
     setPreviewTemplate(design);
   };
 
+  if (typeof window !== "undefined" && window.location.pathname === "/admin") {
+    return <AdminPanel />;
+  }
+
   return (
     <main className="app-shell">
       <section className="hero-section">
@@ -173,7 +178,7 @@ export default function App() {
         <nav className="topbar" aria-label="Main">
           <div className="brand-mark" aria-hidden="true">W</div>
           <span className="brand-name">Event Video Maker</span>
-          <span className="step-label">01 / 09</span>
+          <a className="step-label" href="/admin" style={{ textDecoration: "none" }}>Admin ↗</a>
         </nav>
 
         <div className="hero-copy">
