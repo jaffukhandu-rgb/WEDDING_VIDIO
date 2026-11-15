@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./WeddingVideoEditor.css";
-const BRIDGE = '<script id="wedding-editor-bridge">(() => {
+const BRIDGE = String.raw`<script id="wedding-editor-bridge">(() => {
 let picked=null;
 const send=(type,data={})=>parent.postMessage({source:"wedding-editor",type,...data},"*");
 const select=e=>{if(!e||e===document.body)return;picked=e;document.querySelectorAll("[data-we-selected]").forEach(n=>{n.style.outline=n.dataset.weOutline||"";n.removeAttribute("data-we-selected")});e.dataset.weOutline=e.style.outline||"";e.dataset.weSelected="1";e.style.outline="2px solid #e4bd70";let s=getComputedStyle(e),c=s.color.match(/\d+/g)||[255,255,255];send("select",{tag:e.tagName.toLowerCase(),text:e.innerText||e.textContent||"",color:"#"+c.slice(0,3).map(v=>Number(v).toString(16).padStart(2,"0")).join(""),fontSize:parseInt(s.fontSize)||16,fontFamily:s.fontFamily.split(",")[0].replace(/"/g,""),align:s.textAlign,width:Math.round(e.getBoundingClientRect().width/document.body.clientWidth*100),image:e.tagName==="IMG",src:e.src||""})};
@@ -10,7 +10,7 @@ if(m.type==="add"){let n=document.createElement(m.kind==="image"?"img":"div");n.
 if(m.type==="update"&&picked){if(m.text!==undefined&&picked.tagName!=="IMG")picked.textContent=m.text;if(m.color)picked.style.color=m.color;if(m.fontSize)picked.style.fontSize=m.fontSize+"px";if(m.fontFamily)picked.style.fontFamily=m.fontFamily;if(m.align)picked.style.textAlign=m.align;if(m.width)picked.style.width=m.width+"%";if(m.src&&picked.tagName==="IMG")picked.src=m.src;select(picked)}
 if(m.type==="delete"&&picked){picked.remove();picked=null;send("clear")}\nif(m.type==="save"){document.querySelectorAll("[data-we-selected]").forEach(n=>{n.style.outline=n.dataset.weOutline||"";delete n.dataset.weOutline;delete n.dataset.weSelected});document.querySelector("#wedding-editor-bridge")?.remove();send("saved",{html:"<!doctype html>\\n"+document.documentElement.outerHTML})}
 });
-})();</script>';
+})();</script>`;
 function instrument(html) { if (!html) return BRIDGE; if (html.includes('id="wedding-editor-bridge"')) return html; return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, BRIDGE+"</body>") : html+BRIDGE; }
 
 export function WeddingVideoEditor({ title, previewDocument, onSave }) {
