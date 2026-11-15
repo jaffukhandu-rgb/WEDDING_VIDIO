@@ -166,9 +166,11 @@ export function AdminPanel() {
     setDraft((current) => ({ ...current, [field]: value }));
   };
 
-  const saveDraft = () => {
+  const saveDraft = (updatedFullHtml) => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+      const nextDraft = typeof updatedFullHtml === "string" ? { ...draft, fullHtml: updatedFullHtml } : draft;
+      if (typeof updatedFullHtml === "string") setDraft(nextDraft);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDraft));
       setSaveMessage("Draft saved on this browser.");
     } catch {
       setSaveMessage("Could not save. Browser storage may be unavailable.");
