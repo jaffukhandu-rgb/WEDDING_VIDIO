@@ -7,12 +7,12 @@ export function WeddingVideoEditor({ title, previewDocument, onSave, saveMessage
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [hasCompleted, setHasCompleted] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
   const startedAtRef = useRef(0);
 
   useEffect(() => {
     if (!isPlaying) return undefined;
 
-    startedAtRef.current = Date.now() - elapsedMs;
     const intervalId = window.setInterval(() => {
       const nextElapsed = Math.min(Date.now() - startedAtRef.current, DURATION_MS);
       setElapsedMs(nextElapsed);
@@ -24,12 +24,13 @@ export function WeddingVideoEditor({ title, previewDocument, onSave, saveMessage
     }, 100);
 
     return () => window.clearInterval(intervalId);
-  }, [isPlaying, elapsedMs]);
+  }, [isPlaying]);
 
   const startPreview = () => {
     setElapsedMs(0);
     setHasCompleted(false);
     startedAtRef.current = Date.now();
+    setPreviewKey((current) => current + 1);
     setIsPlaying(true);
   };
 
@@ -58,6 +59,7 @@ export function WeddingVideoEditor({ title, previewDocument, onSave, saveMessage
             <div className="video-editor-phone">
               {isPlaying ? (
                 <iframe
+                  key={previewKey}
                   title="Timed wedding video preview"
                   className="video-editor-iframe"
                   sandbox="allow-scripts"
@@ -96,7 +98,7 @@ export function WeddingVideoEditor({ title, previewDocument, onSave, saveMessage
 
           <div className="video-editor-timeline-heading">
             <strong>Playback timeline</strong>
-            <span>{String(elapsedSeconds).padStart(2, "0")}:00 / 00:30</span>
+            <span>00:{String(elapsedSeconds).padStart(2, "0")} / 00:30</span>
           </div>
           <div
             className="video-editor-timeline"
