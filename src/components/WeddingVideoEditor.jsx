@@ -8,7 +8,7 @@ document.addEventListener("click",e=>{let n=e.target.closest("body *");if(!n||["
 addEventListener("message",e=>{let m=e.data;if(e.source!==parent||m?.source!=="wedding-editor-host")return;
 if(m.type==="add"){let n=document.createElement(m.kind==="image"?"img":"div");n.style.cssText="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;max-width:90%";if(m.kind==="image"){n.src=m.src;n.style.width="55%"}else if(m.kind==="shape"){n.style.cssText+=";width:55%;height:2px;background:#c9aa6c"}else{n.textContent="Your text";n.style.cssText+=";width:80%;color:#f5e9cf;font:24px Georgia;text-align:center"}document.body.appendChild(n);select(n)}
 if(m.type==="update"&&picked){if(m.text!==undefined&&picked.tagName!=="IMG")picked.textContent=m.text;if(m.color)picked.style.color=m.color;if(m.fontSize)picked.style.fontSize=m.fontSize+"px";if(m.fontFamily)picked.style.fontFamily=m.fontFamily;if(m.align)picked.style.textAlign=m.align;if(m.width)picked.style.width=m.width+"%";if(m.src&&picked.tagName==="IMG")picked.src=m.src;select(picked)}
-if(m.type==="delete"&&picked){picked.remove();picked=null;send("clear")}
+if(m.type==="delete"&&picked){picked.remove();picked=null;send("clear")}\nif(m.type==="save"){document.querySelectorAll("[data-we-selected]").forEach(n=>{n.style.outline=n.dataset.weOutline||"";delete n.dataset.weOutline;delete n.dataset.weSelected});document.querySelector("#wedding-editor-bridge")?.remove();send("saved",{html:"<!doctype html>\\n"+document.documentElement.outerHTML})}
 });
 })();</script>';
 function instrument(html) { if (!html) return BRIDGE; if (html.includes('id="wedding-editor-bridge"')) return html; return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, BRIDGE+"</body>") : html+BRIDGE; }
@@ -18,9 +18,9 @@ export function WeddingVideoEditor({ title, previewDocument, onSave }) {
  const [key,setKey]=useState(0),[item,setItem]=useState(null),[url,setUrl]=useState(""),[status,setStatus]=useState("");
  const srcDoc=instrument(previewDocument);
  const send=useCallback(m=>frame.current?.contentWindow?.postMessage({source:"wedding-editor-host",...m},"*"),[]);
- useEffect(()=>{const listener=e=>{if(e.source!==frame.current?.contentWindow||e.data?.source!=="wedding-editor")return;if(e.data.type==="select")setItem(e.data);if(e.data.type==="clear")setItem(null)};addEventListener("message",listener);return()=>removeEventListener("message",listener)},[]);
+ useEffect(()=>{const listener=e=>{if(e.source!==frame.current?.contentWindow||e.data?.source!=="wedding-editor")return;if(e.data.type==="select")setItem(e.data);if(e.data.type==="clear")setItem(null);if(e.data.type==="saved"){onSave?.(e.data.html);setStatus("Design changes saved in this browser.");setItem(null)}};addEventListener("message",listener);return()=>removeEventListener("message",listener)},[]);
  const update=m=>{setItem(v=>v?{...v,...m}:v);send({type:"update",...m})};
- const save=()=>{try{const d=frame.current.contentDocument;if(!d)throw Error();d.querySelector("#wedding-editor-bridge")?.remove();d.querySelectorAll("[data-we-selected]").forEach(n=>{n.style.outline=n.dataset.weOutline||"";delete n.dataset.weOutline;delete n.dataset.weSelected});const html="<!doctype html>\n"+d.documentElement.outerHTML;onSave?.(html);setStatus("Design saved in this browser.")}catch{setStatus("Could not save. Refresh the preview and try again.")}};
+ const save=()=>{setStatus("Saving design…");send({type:"save"})};
  return <section className="visual-editor" aria-label="Wedding visual editor">
   <header className="visual-editor-header"><div><p className="visual-eyebrow">VISUAL DESIGN EDITOR</p><h2>{title||"Wedding design"}</h2><p>Click an item in your invitation to edit it, or add new elements.</p></div><div className="visual-header-actions"><button type="button" onClick={()=>{setItem(null);setKey(v=>v+1)}}>Refresh</button><button type="button" className="visual-primary" onClick={save}>Save design</button></div></header>
   <div className="visual-editor-layout visual-editor-preview-layout">
