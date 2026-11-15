@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./AdminPanel.css";
+import { WeddingVideoEditor } from "./WeddingVideoEditor.jsx";
 
 const STORAGE_KEY = "wedding-admin-draft-v1";
 
@@ -146,6 +147,7 @@ export function AdminPanel() {
   const [activeEditor, setActiveEditor] = useState("full");
   const [saveMessage, setSaveMessage] = useState("");
   const [previewKey, setPreviewKey] = useState(0);
+  const [activeWorkspace, setActiveWorkspace] = useState("design");
 
   const previewDocument = useMemo(
     () => activeEditor === "full"
@@ -202,10 +204,10 @@ export function AdminPanel() {
           <span><strong>WEDDING</strong><small>CREATOR STUDIO</small></span>
         </a>
         <div className="admin-side-label">WORKSPACE</div>
-        <a className="admin-side-link is-active" href="/admin">✦ <span>Design Studio</span></a>
-        <div className="admin-side-label admin-side-label-lower">COMING NEXT</div>
+        <button className={"admin-side-link admin-side-workspace " + (activeWorkspace === "design" ? "is-active" : "")} type="button" onClick={() => setActiveWorkspace("design")}>✦ <span>Design Studio</span></button>
+        <div className="admin-side-label admin-side-label-lower">WORKSPACE</div>
+        <button className={"admin-side-muted admin-side-workspace " + (activeWorkspace === "video" ? "is-active" : "")} type="button" onClick={() => setActiveWorkspace("video")}>◷ <span>Video Editor</span></button>
         <div className="admin-side-muted">▧ <span>My Templates</span></div>
-        <div className="admin-side-muted">◷ <span>Video Editor</span></div>
         <div className="admin-side-muted">⚙ <span>Settings</span></div>
         <div className="admin-sidebar-bottom">
           <span className="admin-status-dot" />
@@ -216,12 +218,14 @@ export function AdminPanel() {
       <section className="admin-main">
         <header className="admin-topbar">
           <div>
-            <p className="admin-breadcrumb">ADMIN / DESIGN STUDIO</p>
-            <h1>Design workspace</h1>
+            <p className="admin-breadcrumb">ADMIN / {activeWorkspace === "design" ? "DESIGN STUDIO" : "VIDEO EDITOR"}</p>
+            <h1>{activeWorkspace === "design" ? "Design workspace" : "Wedding video editor"}</h1>
           </div>
           <a className="admin-view-site" href="/">View customer site ↗</a>
         </header>
 
+        {activeWorkspace === "design" && (
+        <>
         <div className="admin-intro-row">
           <div>
             <p className="admin-kicker">CREATE A NEW TEMPLATE</p>
@@ -307,6 +311,16 @@ export function AdminPanel() {
           <a href="/">← Back to customer website</a>
           <span role="status" aria-live="polite">{saveMessage}</span>
         </div>
+        </>
+        )}
+        {activeWorkspace === "video" && (
+          <WeddingVideoEditor
+            title={draft.title}
+            previewDocument={previewDocument}
+            onSave={saveDraft}
+            saveMessage={saveMessage}
+          />
+        )}
       </section>
     </main>
   );
