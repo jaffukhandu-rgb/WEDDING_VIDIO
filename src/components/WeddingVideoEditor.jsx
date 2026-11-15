@@ -1,63 +1,32 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./WeddingVideoEditor.css";
+const BRIDGE = '<script id="wedding-editor-bridge">(() => {
+let picked=null;
+const send=(type,data={})=>parent.postMessage({source:"wedding-editor",type,...data},"*");
+const select=e=>{if(!e||e===document.body)return;picked=e;document.querySelectorAll("[data-we-selected]").forEach(n=>{n.style.outline=n.dataset.weOutline||"";n.removeAttribute("data-we-selected")});e.dataset.weOutline=e.style.outline||"";e.dataset.weSelected="1";e.style.outline="2px solid #e4bd70";let s=getComputedStyle(e),c=s.color.match(/\d+/g)||[255,255,255];send("select",{tag:e.tagName.toLowerCase(),text:e.innerText||e.textContent||"",color:"#"+c.slice(0,3).map(v=>Number(v).toString(16).padStart(2,"0")).join(""),fontSize:parseInt(s.fontSize)||16,fontFamily:s.fontFamily.split(",")[0].replace(/"/g,""),align:s.textAlign,width:Math.round(e.getBoundingClientRect().width/document.body.clientWidth*100),image:e.tagName==="IMG",src:e.src||""})};
+document.addEventListener("click",e=>{let n=e.target.closest("body *");if(!n||["SCRIPT","STYLE","META","LINK"].includes(n.tagName))return;e.preventDefault();e.stopPropagation();select(n)},true);
+addEventListener("message",e=>{let m=e.data;if(e.source!==parent||m?.source!=="wedding-editor-host")return;
+if(m.type==="add"){let n=document.createElement(m.kind==="image"?"img":"div");n.style.cssText="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;max-width:90%";if(m.kind==="image"){n.src=m.src;n.style.width="55%"}else if(m.kind==="shape"){n.style.cssText+=";width:55%;height:2px;background:#c9aa6c"}else{n.textContent="Your text";n.style.cssText+=";width:80%;color:#f5e9cf;font:24px Georgia;text-align:center"}document.body.appendChild(n);select(n)}
+if(m.type==="update"&&picked){if(m.text!==undefined&&picked.tagName!=="IMG")picked.textContent=m.text;if(m.color)picked.style.color=m.color;if(m.fontSize)picked.style.fontSize=m.fontSize+"px";if(m.fontFamily)picked.style.fontFamily=m.fontFamily;if(m.align)picked.style.textAlign=m.align;if(m.width)picked.style.width=m.width+"%";if(m.src&&picked.tagName==="IMG")picked.src=m.src;select(picked)}
+if(m.type==="delete"&&picked){picked.remove();picked=null;send("clear")}
+});
+})();</script>';
+function instrument(html) { if (!html) return BRIDGE; if (html.includes('id="wedding-editor-bridge"')) return html; return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, BRIDGE+"</body>") : html+BRIDGE; }
 
 export function WeddingVideoEditor({ title, previewDocument, onSave }) {
-  const [previewKey, setPreviewKey] = useState(0);
-  const [saveMessage, setSaveMessage] = useState("");
-
-  const save = () => {
-    onSave?.();
-    setSaveMessage("Your current Design Studio draft has been saved.");
-  };
-
-  return (
-    <section className="visual-editor" aria-label="Wedding video editor">
-      <header className="visual-editor-header">
-        <div>
-          <p className="visual-eyebrow">VIDEO CANVAS</p>
-          <h2>{title || "Untitled wedding design"}</h2>
-          <p>This canvas uses your actual Design Studio HTML, CSS and JavaScript preview.</p>
-        </div>
-        <div className="visual-header-actions">
-          <button type="button" className="visual-secondary" onClick={() => setPreviewKey((value) => value + 1)}>Refresh preview</button>
-          <button type="button" className="visual-primary" onClick={save}>Save draft</button>
-        </div>
-      </header>
-
-      <div className="visual-editor-layout visual-editor-preview-layout">
-        <aside className="visual-tool-panel">
-          <h3>Your design</h3>
-          <p className="visual-tool-note">This is the same live design document used by Design Studio. Edit the HTML, CSS or JavaScript in Design Studio and return here to see the exact result.</p>
-          <div className="visual-sync-status"><i /> Connected to Design Studio preview</div>
-          <button type="button" onClick={() => setPreviewKey((value) => value + 1)}>↻ Reload current design</button>
-        </aside>
-
-        <section className="visual-canvas-panel" aria-label="Live wedding design canvas">
-          <div className="visual-canvas-top"><strong>Live design canvas</strong><span>9:16 PORTRAIT</span></div>
-          <div className="visual-canvas-stage">
-            <div className="visual-live-phone">
-              <iframe
-                key={previewKey}
-                title="Wedding design live canvas"
-                className="visual-live-iframe"
-                sandbox="allow-scripts"
-                srcDoc={previewDocument || "<!doctype html><html><body><p>No design preview is available.</p></body></html>"}
-              />
-            </div>
-          </div>
-          <div className="visual-canvas-footer"><span>Same source as Design Studio</span><span>Live HTML + CSS + JS preview</span></div>
-        </section>
-
-        <aside className="visual-properties-panel">
-          <h3>Design connection</h3>
-          <p className="visual-tool-note">The preview is now shared with Design Studio, so it no longer displays a separate sample invitation.</p>
-          <div className="visual-connection-detail"><span>Design</span><strong>{title || "Untitled wedding design"}</strong></div>
-          <div className="visual-connection-detail"><span>Source</span><strong>Complete HTML + CSS + JS</strong></div>
-          <div className="visual-connection-detail"><span>Canvas</span><strong>Portrait · 9:16</strong></div>
-          <div className="visual-connection-note">Direct selection and editing of individual HTML elements is the next integration step. This preview connection does not pretend those controls are already active.</div>
-        </aside>
-      </div>
-      <footer className="visual-editor-footer"><span role="status" aria-live="polite">{saveMessage || "Showing your current Design Studio draft."}</span><span>Preview is shared · MP4 export is not connected yet</span></footer>
-    </section>
-  );
+ const frame=useRef(null);
+ const [key,setKey]=useState(0),[item,setItem]=useState(null),[url,setUrl]=useState(""),[status,setStatus]=useState("");
+ const srcDoc=instrument(previewDocument);
+ const send=useCallback(m=>frame.current?.contentWindow?.postMessage({source:"wedding-editor-host",...m},"*"),[]);
+ useEffect(()=>{const listener=e=>{if(e.source!==frame.current?.contentWindow||e.data?.source!=="wedding-editor")return;if(e.data.type==="select")setItem(e.data);if(e.data.type==="clear")setItem(null)};addEventListener("message",listener);return()=>removeEventListener("message",listener)},[]);
+ const update=m=>{setItem(v=>v?{...v,...m}:v);send({type:"update",...m})};
+ const save=()=>{try{const d=frame.current.contentDocument;if(!d)throw Error();d.querySelector("#wedding-editor-bridge")?.remove();d.querySelectorAll("[data-we-selected]").forEach(n=>{n.style.outline=n.dataset.weOutline||"";delete n.dataset.weOutline;delete n.dataset.weSelected});const html="<!doctype html>\n"+d.documentElement.outerHTML;onSave?.(html);setStatus("Design saved in this browser.")}catch{setStatus("Could not save. Refresh the preview and try again.")}};
+ return <section className="visual-editor" aria-label="Wedding visual editor">
+  <header className="visual-editor-header"><div><p className="visual-eyebrow">VISUAL DESIGN EDITOR</p><h2>{title||"Wedding design"}</h2><p>Click an item in your invitation to edit it, or add new elements.</p></div><div className="visual-header-actions"><button type="button" onClick={()=>{setItem(null);setKey(v=>v+1)}}>Refresh</button><button type="button" className="visual-primary" onClick={save}>Save design</button></div></header>
+  <div className="visual-editor-layout visual-editor-preview-layout">
+   <aside className="visual-tool-panel"><h3>Add elements</h3><button type="button" onClick={()=>send({type:"add",kind:"text"})}>＋ Add text</button><button type="button" onClick={()=>send({type:"add",kind:"shape"})}>＋ Add line / shape</button><div className="visual-image-add"><label htmlFor="we-image">Image URL</label><input id="we-image" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..." /><button type="button" disabled={!/^https:\/\//i.test(url.trim())} onClick={()=>{send({type:"add",kind:"image",src:url.trim()});setUrl("")}}>＋ Add image</button></div><p className="visual-tool-note">Click any text or image inside the invitation to select it.</p></aside>
+   <section className="visual-canvas-panel"><div className="visual-canvas-top"><strong>Your editable wedding design</strong><span>9:16 PORTRAIT</span></div><div className="visual-canvas-stage"><div className="visual-live-phone"><iframe key={key} ref={frame} title="Editable wedding invitation" className="visual-live-iframe" sandbox="allow-scripts" srcDoc={srcDoc}/></div></div><div className="visual-canvas-footer">Select an element in the preview to edit it</div></section>
+   <aside className="visual-properties-panel"><h3>Properties</h3>{item?<><p className="visual-selected-label">{item.tag?.toUpperCase()} SELECTED</p>{item.image?<label>Image URL<input value={item.src||""} onChange={e=>update({src:e.target.value})}/></label>:<><label>Text<textarea rows={3} value={item.text||""} onChange={e=>update({text:e.target.value})}/></label><label>Font<select value={item.fontFamily||"Georgia"} onChange={e=>update({fontFamily:e.target.value})}><option>Georgia</option><option>Arial</option><option>Times New Roman</option><option>Verdana</option><option>cursive</option></select></label><label>Font size<input type="range" min="8" max="72" value={Math.max(8,Math.min(72,item.fontSize||16))} onChange={e=>update({fontSize:Number(e.target.value)})}/><span>{item.fontSize}px</span></label><label>Alignment<select value={item.align||"left"} onChange={e=>update({align:e.target.value})}><option>left</option><option>center</option><option>right</option></select></label><label>Colour<input type="color" value={item.color||"#ffffff"} onChange={e=>update({color:e.target.value})}/></label></>}<label>Width<input type="range" min="10" max="100" value={Math.max(10,Math.min(100,item.width||80))} onChange={e=>update({width:Number(e.target.value)})}/><span>{item.width||80}%</span></label><button type="button" className="visual-delete" onClick={()=>{send({type:"delete"});setItem(null)}}>Delete selected element</button></>:<p className="visual-empty-selection">Nothing selected. Click an element in your invitation to edit its properties.</p>}<div className="visual-connection-note">Changes are applied to the actual design preview. Save design to keep them.</div></aside>
+  </div><footer className="visual-editor-footer"><span role="status">{status||"Select an element to begin editing."}</span><span>Local browser draft · MP4 export not connected</span></footer>
+ </section>;
 }
