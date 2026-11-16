@@ -121,10 +121,11 @@ app.post("/api/render", async (req, res) => {
       "Content-Disposition": 'inline; filename="wedding-invitation.mp4"',
       "Cache-Control": "no-store",
     });
-    res.sendFile(outputPath, async (error) => {
-      if (error && !res.headersSent) res.status(500).json({ error: "Could not send the rendered video." });
-      await rm(workDir, { recursive: true, force: true }).catch(() => {});
-      workDir = null;
+    await new Promise((resolve, reject) => {
+      res.sendFile(outputPath, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
     });
   } catch (error) {
     if (ffmpeg) {
