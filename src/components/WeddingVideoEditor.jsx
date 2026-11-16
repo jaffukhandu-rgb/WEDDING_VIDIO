@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./WeddingVideoEditor.css";
+import { VideoRenderPanel } from "./VideoRenderPanel.jsx";
 
 const BRIDGE = String.raw`<script id="wedding-editor-bridge">
 (() => {
@@ -282,6 +283,7 @@ export function WeddingVideoEditor({ title, previewDocument, onSave }) {
           <div className="visual-connection-note">Edits apply directly to this invitation. Save design to keep them in your local draft.</div>
         </aside>
       </div>
+      <VideoRenderPanel html={previewDocument} title={title} />
       <footer className="visual-editor-footer"><span role="status">{status || "Ready to edit."}</span><span>Local browser draft · MP4 export not connected</span></footer>
     </section>
   );
