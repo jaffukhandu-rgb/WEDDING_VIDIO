@@ -16,6 +16,25 @@ const MAX_HTML_BYTES = 1024 * 1024;
 let rendering = false;
 
 app.disable("x-powered-by");
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.FRONTEND_ORIGIN,
+].filter(Boolean));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && !allowedOrigins.has(origin)) {
+    return res.status(403).json({ error: "This website origin is not allowed to use the renderer." });
+  }
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 app.use(express.json({ limit: "1mb", strict: true }));
 
 app.get("/api/health", (_req, res) => {
