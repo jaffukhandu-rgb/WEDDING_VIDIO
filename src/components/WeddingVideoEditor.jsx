@@ -184,7 +184,7 @@ const BRIDGE = String.raw`<script id="wedding-editor-bridge">
 function instrument(html) {
   if (!html) return BRIDGE;
   if (html.includes('id="wedding-editor-bridge"')) return html;
-  return /<\\/body>/i.test(html) ? html.replace(/<\\/body>/i, BRIDGE + "</body>") : html + BRIDGE;
+  return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, BRIDGE + "</body>") : html + BRIDGE;
 }
 
 export function WeddingVideoEditor({ title, previewDocument, onSave }) {
