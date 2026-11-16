@@ -19,7 +19,7 @@ export function WeddingVideoEditor({ title, previewDocument, onSave }) {
  const [key,setKey]=useState(0),[item,setItem]=useState(null),[url,setUrl]=useState(""),[status,setStatus]=useState("");
  const srcDoc=instrument(previewDocument);
  const send=useCallback(m=>frame.current?.contentWindow?.postMessage({source:"wedding-editor-host",...m},"*"),[]);
- useEffect(()=>{const listener=e=>{if(e.source!==frame.current?.contentWindow||e.data?.source!=="wedding-editor")return;if(e.data.type==="select")setItem(e.data);if(e.data.type==="clear")setItem(null);if(e.data.type==="saved"){onSave?.(e.data.html);setStatus("Design changes saved in this browser.");setItem(null)}};addEventListener("message",listener);return()=>removeEventListener("message",listener)},[]);
+ useEffect(()=>{const listener=e=>{if(e.source!==frame.current?.contentWindow||e.data?.source!=="wedding-editor")return;if(e.data.type==="select")setItem(e.data);if(e.data.type==="clear")setItem(null);if(e.data.type==="saved"){onSave?.(e.data.html);setStatus("Design changes saved in this browser.");setItem(null)}};addEventListener("message",listener);return()=>removeEventListener("message",listener)},[onSave]);
  const update=m=>{setItem(v=>v?{...v,...m}:v);send({type:"update",...m})};
  const save=()=>{setStatus("Saving design…");send({type:"save"})};
  return <section className="visual-editor" aria-label="Wedding visual editor">
