@@ -184,6 +184,11 @@ export function AdminPanel() {
           <div className="adm-breadcrumb">WORKSPACE <span>/</span> {activeSection.toUpperCase()}</div>
           <a className="adm-site-link" href="/">View website <span>↗</span></a>
         </header>
+        <nav className="adm-mobile-nav" aria-label="Admin sections">
+          <button className={activeSection === "overview" ? "active" : ""} onClick={() => setActiveSection("overview")} type="button">Overview</button>
+          <button className={activeSection === "library" ? "active" : ""} onClick={() => setActiveSection("library")} type="button">Templates</button>
+          <button className={activeSection === "categories" ? "active" : ""} onClick={() => setActiveSection("categories")} type="button">Categories</button>
+        </nav>
 
         {activeSection === "overview" ? (
           <div className="adm-content">
