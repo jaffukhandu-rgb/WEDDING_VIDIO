@@ -1,329 +1,260 @@
 import { useEffect, useMemo, useState } from "react";
 import "./AdminPanel.css";
-import { WeddingVideoEditor } from "./WeddingVideoEditor.jsx";
 
-const STORAGE_KEY = "wedding-admin-draft-v1";
+const STORAGE_KEY = "event-template-admin-v2";
 
-const STARTER_HTML = `<main class="invitation">
-  <div class="ornament">✦</div>
-  <p class="eyebrow">TOGETHER WITH THEIR FAMILIES</p>
-  <h1>Aarav <span>&</span> Kiara</h1>
-  <div class="rule"></div>
-  <p class="message">Invite you to celebrate the beginning of their forever.</p>
-  <p class="date">24 · APRIL · 2026</p>
-  <p class="venue">THE ROYAL GARDEN · PUNE</p>
-  <div class="ornament bottom">❦</div>
-</main>`;
+const CATEGORIES = [
+  "Wedding",
+  "Birthday",
+  "Anniversary",
+  "Engagement",
+  "Baby Shower",
+  "Festival",
+  "Corporate",
+  "Other",
+];
 
-const STARTER_CSS = `* { box-sizing: border-box; }
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  color: #f5e9cf;
-  background: radial-gradient(circle at 50% 25%, #684052, #21141f 72%);
-  font-family: Georgia, serif;
-}
-.invitation {
-  width: 84%;
-  min-height: 78vh;
-  padding: 12% 8%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  border: 1px solid #c9aa6c;
-  outline: 1px solid rgba(201,170,108,.35);
-  outline-offset: -12px;
-  background: linear-gradient(145deg, rgba(255,255,255,.06), transparent);
-}
-.ornament { color: #e1c58d; font-size: 34px; }
-.eyebrow, .date, .venue {
-  color: #d7bd8b;
-  font: 600 9px/1.8 Arial, sans-serif;
-  letter-spacing: .2em;
-}
-h1 { margin: 24px 0; font-size: clamp(30px, 8vw, 54px); font-weight: 400; }
-h1 span { color: #d7bd8b; font-style: italic; }
-.rule { width: 54px; height: 1px; background: #d7bd8b; }
-.message { max-width: 240px; color: #eadfc9; font-size: 15px; line-height: 1.7; }
-.date { margin-top: 26px; }
-.venue { margin-top: 4px; }
-.bottom { margin-top: 30px; }`;
+const DEFAULT_FIELDS = {
+  Wedding: ["Bride name", "Groom name", "Event date", "Venue"],
+  Birthday: ["Celebrant name", "Age", "Event date", "Venue"],
+  Anniversary: ["Couple names", "Years together", "Event date", "Message"],
+  Engagement: ["Partner names", "Event date", "Venue"],
+  "Baby Shower": ["Parent name", "Baby name", "Event date", "Venue"],
+  Festival: ["Family name", "Greeting message"],
+  Corporate: ["Company name", "Event title", "Event date", "Venue"],
+  Other: ["Main title", "Event date", "Venue"],
+};
 
-const STARTER_FULL_HTML = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wedding Invitation</title>
-  <style>
-    ${STARTER_CSS}
-  </style>
-</head>
-<body>
-  ${STARTER_HTML}
-</body>
-</html>`;
-
-const PREVIEW_CSP = [
-  "default-src 'none'",
-  "script-src 'unsafe-inline'",
-  "style-src 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src https://fonts.gstatic.com data:",
-  "img-src data: blob: https:",
-  "media-src data: blob: https:",
-  "connect-src 'none'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-].join("; ");
-
-function makePreviewDocument(html, css) {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-html, body { width: 100%; min-height: 100%; }
-${css}
-</style>
-</head>
-<body>
-${html}
-</body>
-</html>`;
-}
-
-function makeFullHtmlPreview(source) {
-  const safeSource = source.trim() || STARTER_FULL_HTML;
-  const cspTag = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
-
-  if (/<head(?:\s[^>]*)?>/i.test(safeSource)) {
-    return safeSource.replace(/<head(?:\s[^>]*)?>/i, (headTag) => `${headTag}\n${cspTag}`);
-  }
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-${cspTag}
-</head>
-<body>
-${safeSource}
-</body>
-</html>`;
-}
-
-function readDraft() {
-  if (typeof window === "undefined") return null;
+function readTemplates() {
+  if (typeof window === "undefined") return [];
   try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    if (!value) return null;
-    const parsed = JSON.parse(value);
-    if (!parsed || typeof parsed !== "object") return null;
-    return {
-      title: typeof parsed.title === "string" ? parsed.title : "Untitled wedding design",
-      html: typeof parsed.html === "string" ? parsed.html : STARTER_HTML,
-      css: typeof parsed.css === "string" ? parsed.css : STARTER_CSS,
-      fullHtml: typeof parsed.fullHtml === "string" ? parsed.fullHtml : "",
-    };
+    const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]");
+    return Array.isArray(saved) ? saved.filter((item) =>
+      item && typeof item.id === "string" && typeof item.title === "string"
+    ) : [];
   } catch {
-    return null;
+    return [];
   }
+}
+
+function Icon({ name }) {
+  const paths = {
+    grid: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
+    layers: <><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 12 9 5 9-5M3 16l9 5 9-5" /></>,
+    folder: <><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5v-10Z" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.8Z" /></>,
+    plus: <><path d="M12 5v14M5 12h14" /></>,
+    search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 5 5" /></>,
+    upload: <><path d="M12 16V4m-4 4 4-4 4 4" /><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></>,
+    close: <><path d="m6 6 12 12M18 6 6 18" /></>,
+    video: <><rect x="3" y="5" width="13" height="14" rx="2" /><path d="m16 10 5-3v10l-5-3" /></>,
+    arrow: <><path d="M5 12h14m-6-6 6 6-6 6" /></>,
+    more: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
+  };
+  return <svg className="adm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
 export function AdminPanel() {
-  const [draft, setDraft] = useState(() => readDraft() || {
-    title: "Royal Wedding Invitation",
-    html: STARTER_HTML,
-    css: STARTER_CSS,
-    fullHtml: "",
-  });
-  const [activeEditor, setActiveEditor] = useState("full");
-  const [saveMessage, setSaveMessage] = useState("");
-  const [previewKey, setPreviewKey] = useState(0);
-  const [activeWorkspace, setActiveWorkspace] = useState("design");
-
-  const previewDocument = useMemo(
-    () => activeEditor === "full"
-      ? makeFullHtmlPreview(draft.fullHtml)
-      : makePreviewDocument(draft.html, draft.css),
-    [activeEditor, draft.fullHtml, draft.html, draft.css],
-  );
+  const [templates, setTemplates] = useState(readTemplates);
+  const [activeSection, setActiveSection] = useState("library");
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("Wedding");
+  const [sourceFile, setSourceFile] = useState(null);
+  const [fields, setFields] = useState(DEFAULT_FIELDS.Wedding);
+  const [newField, setNewField] = useState("");
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    if (!saveMessage) return undefined;
-    const timeout = window.setTimeout(() => setSaveMessage(""), 3500);
-    return () => window.clearTimeout(timeout);
-  }, [saveMessage]);
-
-  const updateDraft = (field, value) => {
-    setDraft((current) => ({ ...current, [field]: value }));
-  };
-
-  const saveDraft = (updatedFullHtml) => {
     try {
-      const nextDraft = typeof updatedFullHtml === "string" ? { ...draft, fullHtml: updatedFullHtml } : draft;
-      if (typeof updatedFullHtml === "string") setDraft(nextDraft);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDraft));
-      setSaveMessage("Draft saved on this browser.");
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
     } catch {
-      setSaveMessage("Could not save. Browser storage may be unavailable.");
+      // The admin remains usable for this session if browser storage is unavailable.
     }
+  }, [templates]);
+
+  const visibleTemplates = useMemo(() => templates.filter((item) => {
+    const matchesCategory = activeCategory === "All" || item.category === activeCategory;
+    const matchesStatus = statusFilter === "All" || item.status === statusFilter;
+    const matchesSearch = item.title.toLowerCase().includes(search.trim().toLowerCase());
+    return matchesCategory && matchesStatus && matchesSearch;
+  }), [templates, activeCategory, statusFilter, search]);
+
+  const publishedCount = templates.filter((item) => item.status === "Published").length;
+  const draftCount = templates.filter((item) => item.status === "Draft").length;
+
+  const openUpload = () => {
+    setTitle("");
+    setCategory("Wedding");
+    setSourceFile(null);
+    setFields(DEFAULT_FIELDS.Wedding);
+    setNewField("");
+    setFormError("");
+    setShowModal(true);
   };
 
-  const resetDraft = () => {
-    const confirmed = window.confirm("Replace this draft with the starter design? Your current unsaved edits will be lost.");
-    if (!confirmed) return;
-    setDraft({
-      title: "Royal Wedding Invitation",
-      html: STARTER_HTML,
-      css: STARTER_CSS,
-      fullHtml: "",
-    });
-    setActiveEditor("full");
-    setSaveMessage("Starter design restored. Save it to keep this version.");
+  const handleCategoryChange = (value) => {
+    setCategory(value);
+    setFields(DEFAULT_FIELDS[value] || DEFAULT_FIELDS.Other);
   };
 
-  const editorValue = activeEditor === "full"
-    ? (draft.fullHtml || STARTER_FULL_HTML)
-    : draft[activeEditor];
+  const addField = () => {
+    const value = newField.trim();
+    if (!value || fields.some((field) => field.toLowerCase() === value.toLowerCase())) return;
+    setFields((current) => [...current, value]);
+    setNewField("");
+  };
 
-  const editorLabel = activeEditor === "full"
-    ? "COMPLETE HTML DOCUMENT"
-    : activeEditor === "html" ? "HTML MARKUP" : "CSS STYLES";
+  const saveTemplate = (event) => {
+    event.preventDefault();
+    if (!title.trim()) {
+      setFormError("Please enter a template name.");
+      return;
+    }
+    if (!sourceFile) {
+      setFormError("Please select a template source file.");
+      return;
+    }
+
+    const allowed = /\.(mp4|webm|mov|zip|html?)$/i;
+    if (!allowed.test(sourceFile.name)) {
+      setFormError("Use an MP4, WebM, MOV, ZIP or HTML file.");
+      return;
+    }
+
+    const item = {
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      title: title.trim(),
+      category,
+      fileName: sourceFile.name,
+      fields,
+      status: "Draft",
+      createdAt: new Date().toISOString(),
+    };
+    setTemplates((current) => [item, ...current]);
+    setShowModal(false);
+    setActiveSection("library");
+    setActiveCategory("All");
+    setStatusFilter("All");
+    setSearch("");
+  };
+
+  const toggleStatus = (id) => {
+    setTemplates((current) => current.map((item) =>
+      item.id === id ? { ...item, status: item.status === "Published" ? "Draft" : "Published" } : item
+    ));
+  };
+
+  const deleteTemplate = (id) => {
+    if (!window.confirm("Delete this template record from this browser?")) return;
+    setTemplates((current) => current.filter((item) => item.id !== id));
+  };
 
   return (
-    <main className="admin-shell">
-      <aside className="admin-sidebar">
-        <a className="admin-brand" href="/" aria-label="Return to customer website">
-          <span className="admin-brand-mark">W</span>
-          <span><strong>WEDDING</strong><small>CREATOR STUDIO</small></span>
+    <main className="adm-shell">
+      <aside className="adm-sidebar">
+        <a className="adm-brand" href="/" aria-label="Back to Event Video Maker">
+          <span className="adm-brand-symbol">W</span>
+          <span><strong>WEDDING</strong><small>CREATOR CONSOLE</small></span>
         </a>
-        <div className="admin-side-label">WORKSPACE</div>
-        <button className={"admin-side-link admin-side-workspace " + (activeWorkspace === "design" ? "is-active" : "")} type="button" onClick={() => setActiveWorkspace("design")}>✦ <span>Design Studio</span></button>
-        <div className="admin-side-label admin-side-label-lower">WORKSPACE</div>
-        <button className={"admin-side-muted admin-side-workspace " + (activeWorkspace === "video" ? "is-active" : "")} type="button" onClick={() => setActiveWorkspace("video")}>◷ <span>Video Editor</span></button>
-        <div className="admin-side-muted">▧ <span>My Templates</span></div>
-        <div className="admin-side-muted">⚙ <span>Settings</span></div>
-        <div className="admin-sidebar-bottom">
-          <span className="admin-status-dot" />
-          <span>Local draft mode</span>
+
+        <div className="adm-side-caption">WORKSPACE</div>
+        <button className={activeSection === "overview" ? "adm-nav-item active" : "adm-nav-item"} onClick={() => setActiveSection("overview")} type="button">
+          <Icon name="grid" /> Overview
+        </button>
+        <button className={activeSection === "library" ? "adm-nav-item active" : "adm-nav-item"} onClick={() => setActiveSection("library")} type="button">
+          <Icon name="layers" /> Template library <span className="adm-nav-count">{templates.length}</span>
+        </button>
+        <button className={activeSection === "categories" ? "adm-nav-item active" : "adm-nav-item"} onClick={() => setActiveSection("categories")} type="button">
+          <Icon name="folder" /> Categories
+        </button>
+        <div className="adm-sidebar-bottom">
+          <span className="adm-avatar">A</span>
+          <span><strong>Administrator</strong><small>Workspace owner</small></span>
+          <span className="adm-online-dot" />
         </div>
       </aside>
 
-      <section className="admin-main">
-        <header className="admin-topbar">
-          <div>
-            <p className="admin-breadcrumb">ADMIN / {activeWorkspace === "design" ? "DESIGN STUDIO" : "VIDEO EDITOR"}</p>
-            <h1>{activeWorkspace === "design" ? "Design workspace" : "Wedding video editor"}</h1>
-          </div>
-          <a className="admin-view-site" href="/">View customer site ↗</a>
+      <section className="adm-main">
+        <header className="adm-topbar">
+          <div className="adm-mobile-brand"><span className="adm-brand-symbol">W</span><strong>WEDDING</strong></div>
+          <div className="adm-breadcrumb">WORKSPACE <span>/</span> {activeSection.toUpperCase()}</div>
+          <a className="adm-site-link" href="/">View website <span>↗</span></a>
         </header>
 
-        {activeWorkspace === "design" && (
-        <>
-        <div className="admin-intro-row">
-          <div>
-            <p className="admin-kicker">CREATE A NEW TEMPLATE</p>
-            <h2>Bring your invitation to life.</h2>
-            <p className="admin-description">Paste a complete HTML document with CSS and JavaScript, then preview it in the isolated 9:16 canvas.</p>
+        {activeSection === "overview" ? (
+          <div className="adm-content">
+            <div className="adm-heading-row">
+              <div><p className="adm-eyebrow">YOUR CREATIVE CONTROL CENTER</p><h1>Good to see you.</h1><p className="adm-subtitle">Manage invitation templates across every celebration.</p></div>
+              <button className="adm-primary-btn" onClick={openUpload} type="button"><Icon name="plus" /> Add template</button>
+            </div>
+            <div className="adm-stats-grid">
+              <article className="adm-stat-card"><span className="adm-stat-icon"><Icon name="layers" /></span><span className="adm-stat-label">Total templates</span><strong>{templates.length}</strong><small>Across all categories</small></article>
+              <article className="adm-stat-card"><span className="adm-stat-icon green"><span>✓</span></span><span className="adm-stat-label">Published</span><strong>{publishedCount}</strong><small>Marked live in this browser</small></article>
+              <article className="adm-stat-card"><span className="adm-stat-icon amber"><span>◷</span></span><span className="adm-stat-label">Drafts</span><strong>{draftCount}</strong><small>Not yet marked published</small></article>
+            </div>
+            <div className="adm-section-heading"><div><p className="adm-eyebrow">EXPLORE</p><h2>All occasions, one place.</h2></div><button className="adm-text-btn" onClick={() => setActiveSection("categories")} type="button">View categories <Icon name="arrow" /></button></div>
+            <div className="adm-category-grid">
+              {CATEGORIES.map((name, index) => <button className="adm-category-card" key={name} onClick={() => { setActiveCategory(name); setActiveSection("library"); }} type="button"><span className="adm-category-number">0{index + 1}</span><strong>{name}</strong><small>{templates.filter((item) => item.category === name).length} templates</small><span className="adm-category-arrow">↗</span></button>)}
+            </div>
           </div>
-          <div className="admin-duration-pill"><span>◷</span> VIDEO FORMAT <strong>30 SEC · 9:16</strong></div>
-        </div>
-
-        <div className="admin-project-bar">
-          <label className="admin-title-field">
-            <span>DESIGN NAME</span>
-            <input
-              value={draft.title}
-              onChange={(event) => updateDraft("title", event.target.value)}
-              maxLength={80}
-              placeholder="Name your design"
-            />
-          </label>
-          <div className="admin-project-actions">
-            <button className="admin-reset-button" type="button" onClick={resetDraft}>Reset</button>
-            <button className="admin-save-button" type="button" onClick={saveDraft}>Save draft</button>
+        ) : activeSection === "categories" ? (
+          <div className="adm-content">
+            <div className="adm-heading-row"><div><p className="adm-eyebrow">ORGANIZE YOUR LIBRARY</p><h1>Categories</h1><p className="adm-subtitle">One admin workspace for every type of invitation.</p></div><button className="adm-primary-btn" onClick={openUpload} type="button"><Icon name="plus" /> Add template</button></div>
+            <div className="adm-category-grid adm-category-grid-large">
+              {CATEGORIES.map((name, index) => <button className="adm-category-card" key={name} onClick={() => { setActiveCategory(name); setActiveSection("library"); }} type="button"><span className="adm-category-number">0{index + 1}</span><strong>{name}</strong><small>{templates.filter((item) => item.category === name).length} templates</small><span className="adm-category-arrow">↗</span></button>)}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="adm-content">
+            <div className="adm-heading-row">
+              <div><p className="adm-eyebrow">YOUR CONTENT, BEAUTIFULLY ORGANIZED</p><h1>Template library</h1><p className="adm-subtitle">Upload and organize templates for weddings, birthdays, anniversaries and more.</p></div>
+              <button className="adm-primary-btn" onClick={openUpload} type="button"><Icon name="plus" /> Add template</button>
+            </div>
 
-        <div className="admin-workspace-grid">
-          <section className="admin-editor-panel" aria-label="Design code editor">
-            <div className="admin-panel-heading">
-              <div><span className="admin-step-number">01</span><strong>Code editor</strong></div>
-              <span className="admin-live-label"><i /> LIVE PREVIEW</span>
+            <div className="adm-library-toolbar">
+              <label className="adm-search"><Icon name="search" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search templates..." /></label>
+              <label className="adm-select-wrap"><span className="sr-only">Filter by status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All</option><option>Published</option><option>Draft</option></select></label>
             </div>
-            <div className="admin-editor-tabs" role="tablist" aria-label="Code type">
-              <button type="button" role="tab" aria-selected={activeEditor === "full"} className={activeEditor === "full" ? "active" : ""} onClick={() => setActiveEditor("full")}>▤ FULL HTML + JS</button>
-              <button type="button" role="tab" aria-selected={activeEditor === "html"} className={activeEditor === "html" ? "active" : ""} onClick={() => setActiveEditor("html")}>〈〉 HTML</button>
-              <button type="button" role="tab" aria-selected={activeEditor === "css"} className={activeEditor === "css" ? "active" : ""} onClick={() => setActiveEditor("css")}>✳ CSS</button>
-            </div>
-            <label className="admin-code-label" htmlFor="admin-code-input">{editorLabel}</label>
-            <textarea
-              id="admin-code-input"
-              className="admin-code-input"
-              spellCheck="false"
-              autoCapitalize="off"
-              autoCorrect="off"
-              value={editorValue}
-              onChange={(event) => updateDraft(activeEditor === "full" ? "fullHtml" : activeEditor, event.target.value)}
-              aria-label={activeEditor === "full" ? "Complete HTML document including JavaScript" : activeEditor === "html" ? "HTML code" : "CSS code"}
-            />
-            <div className="admin-editor-footer">
-              <span>{activeEditor === "full" ? "FULL HTML + JS" : activeEditor.toUpperCase()} · {editorValue.length.toLocaleString()} characters</span>
-              <span>{activeEditor === "full" ? "Inline JavaScript enabled" : "HTML and CSS mode"}</span>
-            </div>
-          </section>
 
-          <section className="admin-preview-panel" aria-label="Live design preview">
-            <div className="admin-panel-heading">
-              <div><span className="admin-step-number">02</span><strong>Live preview</strong></div>
-              <button className="admin-refresh-button" type="button" onClick={() => setPreviewKey((value) => value + 1)}>↻ Refresh</button>
+            <div className="adm-category-pills">
+              {["All", ...CATEGORIES].map((name) => <button type="button" key={name} className={activeCategory === name ? "active" : ""} onClick={() => setActiveCategory(name)}>{name}</button>)}
             </div>
-            <div className="admin-preview-stage">
-              <div className="admin-phone-frame">
-                <div className="admin-phone-camera" />
-                <iframe
-                  key={previewKey}
-                  title="Isolated wedding invitation preview"
-                  className="admin-preview-iframe"
-                  sandbox="allow-scripts"
-                  srcDoc={previewDocument}
-                />
+
+            {visibleTemplates.length ? (
+              <div className="adm-template-grid">
+                {visibleTemplates.map((item) => <article className="adm-template-card" key={item.id}>
+                  <div className="adm-template-art"><span className="adm-art-orbit" /><span className="adm-art-monogram">✦</span><span className="adm-art-label">{item.category.toUpperCase()} COLLECTION</span><span className="adm-art-file"><Icon name="video" /> {item.fileName}</span></div>
+                  <div className="adm-template-info"><div className="adm-template-title-row"><div><h3>{item.title}</h3><span>{item.category}</span></div><span className={item.status === "Published" ? "adm-status published" : "adm-status"}>{item.status}</span></div><p>{item.fields.length} customer input fields</p><div className="adm-template-actions"><button type="button" onClick={() => toggleStatus(item.id)}>{item.status === "Published" ? "Unpublish" : "Publish"}</button><button className="adm-delete-btn" type="button" onClick={() => deleteTemplate(item.id)} aria-label={"Delete " + item.title}>Delete</button></div></div>
+                </article>)}
               </div>
-            </div>
-            <div className="admin-preview-footer">
-              <span><i /> 9:16 PORTRAIT CANVAS</span>
-              <span>30-second video target</span>
-            </div>
-          </section>
-        </div>
-
-        <div className="admin-notice">
-          <span className="admin-notice-icon">i</span>
-          <p><strong>Safe preview mode.</strong> Complete HTML and inline JavaScript run in a sandboxed preview. External scripts, network requests from JavaScript, pop-ups and access to the main website are blocked. External fonts, images and media may load where permitted. Drafts are saved only in this browser; MP4 export and customer-gallery publishing are not included yet.</p>
-        </div>
-        <div className="admin-bottom-row">
-          <a href="/">← Back to customer website</a>
-          <span role="status" aria-live="polite">{saveMessage}</span>
-        </div>
-        </>
-        )}
-        {activeWorkspace === "video" && (
-          <WeddingVideoEditor
-            title={draft.title}
-            previewDocument={previewDocument}
-            onSave={saveDraft}
-            saveMessage={saveMessage}
-          />
+            ) : (
+              <div className="adm-empty-state"><span className="adm-empty-icon"><Icon name="layers" /></span><h2>{search || activeCategory !== "All" || statusFilter !== "All" ? "No matching templates" : "Your template library starts here."}</h2><p>{search || activeCategory !== "All" || statusFilter !== "All" ? "Try changing your search or filters." : "Add your first design and configure the details customers can personalize."}</p>{!templates.length && <button className="adm-primary-btn" onClick={openUpload} type="button"><Icon name="upload" /> Upload first template</button>}</div>
+            )}
+            <p className="adm-storage-note"><span>i</span> Admin prototype: template records are saved in this browser only. Uploads, publishing to the customer website and video personalization are not connected yet.</p>
+          </div>
         )}
       </section>
+
+      {showModal && <div className="adm-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowModal(false); }}>
+        <section className="adm-modal" role="dialog" aria-modal="true" aria-labelledby="adm-modal-title">
+          <div className="adm-modal-header"><div><p className="adm-eyebrow">TEMPLATE SETUP</p><h2 id="adm-modal-title">Add a new template</h2><p>Choose its occasion and define what customers can personalize.</p></div><button className="adm-icon-btn" type="button" onClick={() => setShowModal(false)} aria-label="Close"><Icon name="close" /></button></div>
+          <form onSubmit={saveTemplate}>
+            <label className="adm-form-field"><span>Template name</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Golden Garden Invitation" maxLength={80} /></label>
+            <label className="adm-form-field"><span>Category</span><select value={category} onChange={(event) => handleCategoryChange(event.target.value)}>{CATEGORIES.map((name) => <option key={name}>{name}</option>)}</select></label>
+            <label className="adm-upload-zone"><input type="file" accept=".mp4,.webm,.mov,.zip,.html,.htm" onChange={(event) => setSourceFile(event.target.files?.[0] || null)} /><span className="adm-upload-symbol"><Icon name="upload" /></span><strong>{sourceFile ? sourceFile.name : "Choose your template file"}</strong><small>MP4, WebM, MOV, ZIP or HTML · Select one file</small></label>
+            <div className="adm-fields-heading"><div><strong>Customer input fields</strong><small>Only these details will be editable by customers.</small></div><span>{fields.length} fields</span></div>
+            <div className="adm-field-chips">{fields.map((field) => <span key={field}>{field}<button type="button" onClick={() => setFields((current) => current.filter((value) => value !== field))} aria-label={"Remove " + field}>×</button></span>)}</div>
+            <div className="adm-add-field"><input value={newField} onChange={(event) => setNewField(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addField(); } }} placeholder="Add a custom field..." /><button type="button" onClick={addField}>Add field</button></div>
+            {formError && <p className="adm-form-error" role="alert">{formError}</p>}
+            <div className="adm-modal-footer"><button className="adm-cancel-btn" type="button" onClick={() => setShowModal(false)}>Cancel</button><button className="adm-primary-btn" type="submit">Save as draft <Icon name="arrow" /></button></div>
+            <p className="adm-modal-note">This currently saves template details locally. The selected file is not uploaded to cloud storage yet.</p>
+          </form>
+        </section>
+      </div>}
     </main>
   );
 }
