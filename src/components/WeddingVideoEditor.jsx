@@ -37,6 +37,7 @@ const BRIDGE = String.raw`<script id="wedding-editor-bridge">
       x: rect.x,
       y: rect.y,
       rotation: parseFloat(picked.style.rotate) || 0,
+      textEditable: picked.tagName !== "IMG" && picked.children.length === 0,
       image: picked.tagName === "IMG",
       src: picked.src || ""
     });
@@ -106,7 +107,9 @@ const BRIDGE = String.raw`<script id="wedding-editor-bridge">
     handle.addEventListener("pointercancel", stop);
   };
   document.addEventListener("click", (event) => {
-    const node = event.target.closest("body *");
+    let node = event.target.closest("body *");
+    const textRange = document.caretRangeFromPoint?.(event.clientX, event.clientY);
+    if (textRange?.startContainer?.nodeType === Node.TEXT_NODE) node = textRange.startContainer.parentElement;
     if (!node || ignored.has(node.tagName) || node === overlay || overlay?.contains(node)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -154,7 +157,7 @@ const BRIDGE = String.raw`<script id="wedding-editor-bridge">
       select(node);
     }
     if (m.type === "update" && picked) {
-      if (m.text !== undefined && picked.tagName !== "IMG") picked.textContent = m.text;
+      if (m.text !== undefined && picked.tagName !== "IMG" && picked.children.length === 0) picked.textContent = m.text;
       if (m.color) picked.style.color = m.color;
       if (m.fontSize) picked.style.fontSize = m.fontSize + "px";
       if (m.fontFamily) picked.style.fontFamily = m.fontFamily;
@@ -262,7 +265,7 @@ export function WeddingVideoEditor({ title, previewDocument, onSave }) {
                 <label>Image URL<input value={item.src || ""} onChange={(event) => update({ src: event.target.value })} /></label>
               ) : (
                 <>
-                  <label>Text<textarea rows={3} value={item.text || ""} onChange={(event) => update({ text: event.target.value })} /></label>
+                  {item.textEditable && <label>Text<textarea rows={3} value={item.text || ""} onChange={(event) => update({ text: event.target.value })} /></label>}
                   <label>Font<select value={item.fontFamily || "Georgia"} onChange={(event) => update({ fontFamily: event.target.value })}><option>Georgia</option><option>Arial</option><option>Times New Roman</option><option>Verdana</option><option>cursive</option></select></label>
                   <label>Font size<input type="range" min="8" max="100" value={Math.max(8, Math.min(100, item.fontSize || 16))} onChange={(event) => update({ fontSize: Number(event.target.value) })} /><span>{item.fontSize}px</span></label>
                   <label>Alignment<select value={item.align || "left"} onChange={(event) => update({ align: event.target.value })}><option>left</option><option>center</option><option>right</option></select></label>
