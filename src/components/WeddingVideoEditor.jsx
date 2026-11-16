@@ -174,7 +174,9 @@ const BRIDGE = String.raw`<script id="wedding-editor-bridge">
     }
     if (m.type === "save") {
       if (overlay) overlay.remove();
-      send("saved", { html: "<!doctype html>" + String.fromCharCode(10) + document.documentElement.outerHTML });
+      const savedHtml = "<!doctype html>" + String.fromCharCode(10) + document.documentElement.outerHTML;
+      const cleanedHtml = savedHtml.replace(/(<body(?:\\s[^>]*)?>)(?:\\s*\\\\n\\s*)+/i, "$1");
+      send("saved", { html: cleanedHtml });
     }
   });
   addEventListener("scroll", refreshOverlay, true);
