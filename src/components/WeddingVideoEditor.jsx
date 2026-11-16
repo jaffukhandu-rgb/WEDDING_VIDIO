@@ -141,7 +141,7 @@ const BRIDGE = String.raw`<script id="wedding-editor-bridge">
     if (event.source !== parent || m?.source !== "wedding-editor-host") return;
     if (m.type === "add") {
       const node = document.createElement(m.kind === "image" ? "img" : "div");
-      node.style.cssText = "position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:1000;box-sizing:border-box";
+      node.style.cssText = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000;box-sizing:border-box";
       if (m.kind === "image") {
         node.src = m.src; node.alt = "Added wedding decoration"; node.style.width = "45%";
       } else if (m.kind === "shape") {
@@ -160,6 +160,7 @@ const BRIDGE = String.raw`<script id="wedding-editor-bridge">
       if (m.fontFamily) picked.style.fontFamily = m.fontFamily;
       if (m.align) picked.style.textAlign = m.align;
       if (m.width) picked.style.width = m.width + "%";
+      if (m.rotation !== undefined) picked.style.rotate = m.rotation + "deg";
       if (m.src && picked.tagName === "IMG") picked.src = m.src;
       report();
     }
