@@ -60,11 +60,16 @@ app.post("/api/render", async (req, res) => {
   let browser;
   let workDir;
   let ffmpeg;
+  let renderTimeout;
 
   try {
     workDir = await mkdtemp(join(tmpdir(), "wedding-render-"));
     const outputPath = join(workDir, "wedding-invitation.mp4");
     browser = await chromium.launch({ headless: true });
+    renderTimeout = setTimeout(() => {
+      if (browser) browser.close().catch(() => {});
+      if (ffmpeg) ffmpeg.kill("SIGKILL");
+    }, 10 * 60 * 1000);
     const page = await browser.newPage({
       viewport: { width: 540, height: 960 },
       deviceScaleFactor: 1,
@@ -133,6 +138,7 @@ app.post("/api/render", async (req, res) => {
       });
     }
   } finally {
+    if (renderTimeout) clearTimeout(renderTimeout);
     if (browser) await browser.close().catch(() => {});
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
     rendering = false;
