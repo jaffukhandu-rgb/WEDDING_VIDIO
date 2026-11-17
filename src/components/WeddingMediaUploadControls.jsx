@@ -80,10 +80,12 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
   const handleMusic = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("audio/")) {
+    if (!file.type.startsWith("audio/") || file.size > 8 * 1024 * 1024) {
+      setMessage("Choose an audio file up to 8 MB.");
       event.target.value = "";
       return;
     }
+    setMessage("");
     if (musicUrl) {
       URL.revokeObjectURL(musicUrl);
       urlsRef.current.delete(musicUrl);
@@ -142,7 +144,7 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
       {message && <p role="alert" style={{ margin: 0, color: "#e5a19a", fontSize: 11 }}>{message}</p>}
       <div style={{ color: "#8f8a82", fontSize: 11, lineHeight: 1.6 }}>
         {showPhotos ? "Photos: JPG, PNG or WebP · up to 6 · 10 MB each. " : ""}
-        Videos: MP4 or WebM · up to 2 · 50 MB each. Music: audio files.
+        Videos: MP4 or WebM · up to 2 · 50 MB each. Music: audio files up to 8 MB.
       </div>
       {(photos.length > 0 || videos.length > 0 || musicUrl) && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
