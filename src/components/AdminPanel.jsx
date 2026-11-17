@@ -361,15 +361,12 @@ export function AdminPanel() {
     Promise.all(keys.map(async key => {
       try {
         const file = await loadAsset(key);
-        return file ? [key, URL.createObjectURL(file)] : null;
+        return file ? [key, file] : null;
       } catch {
         return null;
       }
     })).then(results => {
-      if (cancelled) {
-        results.filter(Boolean).forEach(([, url]) => URL.revokeObjectURL(url));
-        return;
-      }
+      if (cancelled) return;
       const loaded = Object.fromEntries(results.filter(Boolean));
       const next = Object.fromEntries(Object.entries(loaded).map(([key, file]) => [key, URL.createObjectURL(file)]));
       urlsRef.current.forEach(URL.revokeObjectURL);
