@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./AdminPanel.css";
-import { buildRoyalPalaceInvitationHtml } from "../templates/royalPalaceInvitation.js";
 import { WeddingVideoEditor } from "./WeddingVideoEditor.jsx";
 
 const TEMPLATE_STORAGE_KEY = "wedding-template-manager-v1";
@@ -222,17 +221,40 @@ const INITIAL_WEDDING = {
 function readTemplates() {
   try {
     const saved = JSON.parse(window.localStorage.getItem(TEMPLATE_STORAGE_KEY) || "null");
-    if (!Array.isArray(saved)) return [INITIAL_WEDDING];
+    if (!Array.isArray(saved)) {
+      return [{ ...INITIAL_WEDDING, fields: mergeCustomerFields("Wedding", INITIAL_WEDDING.fields) }];
+    }
+
     const hasSeed = saved.some(item => item?.id === INITIAL_WEDDING.id);
-    if (!hasSeed) return [INITIAL_WEDDING, ...saved];
-    return saved.map(item => item.id === INITIAL_WEDDING.id
-      ? { ...INITIAL_WEDDING, ...item, title: INITIAL_WEDDING.title,
-          description: INITIAL_WEDDING.description, canvaUrl: "", thumbnailUrl: null,
-          builtInTemplateKey: INITIAL_WEDDING.builtInTemplateKey, designName: INITIAL_WEDDING.designName,
-          sourceLabel: INITIAL_WEDDING.sourceLabel, status: item.builtInTemplateKey ? item.status : "Published" }
-      : item);
+    const normalized = saved
+      .filter(item => item && typeof item === "object")
+      .map(item => {
+        const template = item.id === INITIAL_WEDDING.id
+          ? {
+              ...INITIAL_WEDDING,
+              ...item,
+              title: INITIAL_WEDDING.title,
+              description: INITIAL_WEDDING.description,
+              canvaUrl: "",
+              thumbnailUrl: null,
+              builtInTemplateKey: INITIAL_WEDDING.builtInTemplateKey,
+              designName: INITIAL_WEDDING.designName,
+              sourceLabel: INITIAL_WEDDING.sourceLabel,
+              status: item.builtInTemplateKey ? item.status : "Published"
+            }
+          : item;
+
+        return {
+          ...template,
+          fields: mergeCustomerFields(template.category || "Other", template.fields || [])
+        };
+      });
+
+    return hasSeed
+      ? normalized
+      : [{ ...INITIAL_WEDDING, fields: mergeCustomerFields("Wedding", INITIAL_WEDDING.fields) }, ...normalized];
   } catch {
-    return [INITIAL_WEDDING];
+    return [{ ...INITIAL_WEDDING, fields: mergeCustomerFields("Wedding", INITIAL_WEDDING.fields) }];
   }
 }
 
@@ -304,16 +326,6 @@ function Icon({ name }) {
 
 export function AdminPanel() {
   const [templates, setTemplates] = useState(readTemplates);
-  const builtInRoyalPreviewHtml = useMemo(() => buildRoyalPalaceInvitationHtml({
-    brideName: "Aarav",
-    groomName: "Kiara",
-    date: "24 April 2027",
-    time: "6:30 PM",
-    venue: "The Royal Garden",
-    address: "Pune, Maharashtra",
-    message: "With joyful hearts, we invite you to celebrate our wedding day.",
-    host: "Together with our families"
-  }), []);
   const [activeSection, setActiveSection] = useState("library");
   const [editorTab, setEditorTab] = useState("design");
   const [layoutPresetId, setLayoutPresetId] = useState("names-photo-details");
