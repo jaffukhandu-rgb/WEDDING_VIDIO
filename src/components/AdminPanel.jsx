@@ -397,15 +397,25 @@ export function AdminPanel() {
   const selectedLayoutPreset = LAYOUT_PRESETS.find(preset => preset.id === layoutPresetId) || LAYOUT_PRESETS[0];
   const layoutPreviewDocument = useMemo(() => {
     if (layoutMode === "fine-tune" && manualLayoutHtml) {
-      return manualLayoutHtml.split("__TEMPLATE_BACKGROUND__").join(backgroundPreviewUrl);
+      let previewHtml = manualLayoutHtml.split("__TEMPLATE_BACKGROUND__").join(backgroundPreviewUrl);
+      Object.entries(sampleValues).forEach(([key, value]) => {
+        previewHtml = previewHtml.split("{{customer:" + key + "}}").join(escapeHtml(formatSampleValue(key, value)));
+      });
+      return previewHtml;
     }
     return buildLayoutPreviewDocument(backgroundPreviewUrl, backgroundPreviewType, selectedLayoutPreset, sampleValues);
   }, [layoutMode, manualLayoutHtml, backgroundPreviewUrl, backgroundPreviewType, selectedLayoutPreset, sampleValues]);
 
   const saveManualLayout = html => {
-    const savedHtml = backgroundPreviewUrl
+    let savedHtml = backgroundPreviewUrl
       ? html.split(backgroundPreviewUrl).join("__TEMPLATE_BACKGROUND__")
       : html;
+    Object.entries(sampleValues).forEach(([key, value]) => {
+      const renderedValue = escapeHtml(formatSampleValue(key, value));
+      if (renderedValue) {
+        savedHtml = savedHtml.split(renderedValue).join("{{customer:" + key + "}}");
+      }
+    });
     setManualLayoutHtml(savedHtml);
     setLayoutMode("fine-tune");
     setFormError("");
