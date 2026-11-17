@@ -48,25 +48,34 @@ function getDefaultFields(category) {
 
 const INITIAL_WEDDING = {
   id: "canva-royal-palace-wedding",
-  title: "Royal Palace Wedding Invitation",
+  title: "Royal Palace Wedding Invitation · 30s",
   category: "Wedding",
-  description: "A royal palace-inspired wedding invitation in warm ivory, burgundy and antique gold.",
-  canvaUrl: "https://www.canva.com/d/WwCfAG_3sRX7aEp",
+  description: "A 30-second animated royal palace invitation with editable couple names, date, time, venue, message and a photo.",
+  canvaUrl: "",
   thumbnailKey: null,
-  thumbnailUrl: "https://design.canva.ai/VgXY1oai8eRFP-9",
+  thumbnailUrl: null,
   designKey: null,
   musicKey: null,
+  builtInTemplateKey: "royal-palace",
+  designName: "Built-in animated template · 30 seconds",
   fields: getDefaultFields("Wedding"),
   allowCustomerMusic: true,
-  status: "Draft",
-  sourceLabel: "Canva design linked — export and upload the MP4 to publish",
+  status: "Published",
+  sourceLabel: "Built-in animated invitation. Customer details update in the live preview and final MP4.",
   createdAt: "2026-11-17T00:00:00.000Z"
 };
 
 function readTemplates() {
   try {
     const saved = JSON.parse(window.localStorage.getItem(TEMPLATE_STORAGE_KEY) || "null");
-    return Array.isArray(saved) ? saved : [INITIAL_WEDDING];
+    if (!Array.isArray(saved)) return [INITIAL_WEDDING];
+    const hasSeed = saved.some(item => item?.id === INITIAL_WEDDING.id);
+    if (!hasSeed) return [INITIAL_WEDDING, ...saved];
+    return saved.map(item => item.id === INITIAL_WEDDING.id
+      ? { ...INITIAL_WEDDING, ...item, builtInTemplateKey: INITIAL_WEDDING.builtInTemplateKey,
+          designName: INITIAL_WEDDING.designName, sourceLabel: INITIAL_WEDDING.sourceLabel,
+          status: item.builtInTemplateKey ? item.status : "Published" }
+      : item);
   } catch {
     return [INITIAL_WEDDING];
   }
@@ -154,6 +163,7 @@ export function AdminPanel() {
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [musicFile, setMusicFile] = useState(null);
   const [existingDesignKey, setExistingDesignKey] = useState(null);
+  const [existingBuiltInTemplateKey, setExistingBuiltInTemplateKey] = useState("");
   const [existingThumbnailKey, setExistingThumbnailKey] = useState(null);
   const [existingMusicKey, setExistingMusicKey] = useState(null);
   const [existingDesignName, setExistingDesignName] = useState("");
@@ -226,6 +236,7 @@ export function AdminPanel() {
     setThumbnailFile(null);
     setMusicFile(null);
     setExistingDesignKey(template?.designKey || null);
+    setExistingBuiltInTemplateKey(template?.builtInTemplateKey || "");
     setExistingThumbnailKey(template?.thumbnailKey || null);
     setExistingMusicKey(template?.musicKey || null);
     setExistingDesignName(template?.designName || template?.sourceLabel || "");
@@ -250,8 +261,8 @@ export function AdminPanel() {
     setFormError("");
     if (!title.trim()) { setFormError("Enter a template name."); return; }
     if (!description.trim()) { setFormError("Add a short description."); return; }
-    if (!thumbnailFile && !existingThumbnailKey) { setFormError("Add a thumbnail image for the customer gallery."); return; }
-    if (!designFile && !existingDesignKey) { setFormError("Upload the Canva-exported video or image file."); return; }
+    if (!thumbnailFile && !existingThumbnailKey && !existingBuiltInTemplateKey) { setFormError("Add a thumbnail image for the customer gallery."); return; }
+    if (!designFile && !existingDesignKey && !existingBuiltInTemplateKey) { setFormError("Upload the Canva-exported video or image file."); return; }
     if (!fields.some(field => field.enabled)) { setFormError("Select at least one customer detail."); return; }
 
     const id = editingId || "template_" + Date.now();
@@ -266,6 +277,7 @@ export function AdminPanel() {
       const record = {
         id, title: title.trim(), category, description: description.trim(), canvaUrl: canvaUrl.trim(),
         designKey, thumbnailKey, musicKey,
+        builtInTemplateKey: designFile ? "" : existingBuiltInTemplateKey,
         designName: designFile?.name || existingDesignName || "",
         thumbnailName: thumbnailFile?.name || existingThumbnailName || "",
         musicName: musicFile?.name || existingMusicName || "",
@@ -322,6 +334,7 @@ export function AdminPanel() {
 
         <section className="adm-simple-card">
           <div className="adm-card-title"><span>02</span><div><h2>Upload finished design</h2><p>Export your design from Canva, then upload the video file here.</p></div></div>
+          {existingBuiltInTemplateKey && <p className="adm-simple-note"><b>Built-in template:</b> The Royal Palace animation is already installed. Customer names and event details remain editable in the wedding preview; you do not need to upload another video for this template.</p>}
           <div className="adm-upload-grid">
             <label className="adm-upload-box"><input type="file" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" onChange={e => setDesignFile(e.target.files?.[0] || null)}/><Icon name="upload"/><strong>{designFile?.name || existingDesignName || "Choose invitation video"}</strong><small>MP4, WebM, MOV or image background</small>{(designFile || existingDesignKey) && <span className="adm-file-selected">Design file selected</span>}</label>
             <label className="adm-upload-box"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setThumbnailFile(e.target.files?.[0] || null)}/><Icon name="upload"/><strong>{thumbnailFile?.name || existingThumbnailName || "Choose gallery thumbnail"}</strong><small>PNG, JPG or WebP</small>{(thumbnailFile || existingThumbnailKey) && <span className="adm-file-selected">Thumbnail selected</span>}</label>
@@ -384,7 +397,7 @@ export function AdminPanel() {
           <div className="adm-template-info"><div className="adm-template-title-row"><div><h3>{template.title}</h3><span>{template.category}</span></div></div><p>{template.description || "No description added"} </p><div className="adm-template-meta"><span>{template.fields?.filter(f => f.enabled).length || 0} customer details</span><span>{template.musicKey ? "Music included" : "No default music"}</span></div>
             {template.sourceLabel && <small className="adm-canva-draft-note">{template.sourceLabel}</small>}
             {template.canvaUrl && <a className="adm-canva-open" href={template.canvaUrl} target="_blank" rel="noreferrer">Open in Canva ↗</a>}
-            <div className="adm-template-actions"><button type="button" onClick={() => openEditor(template)}>Edit</button>{template.status === "Published" ? <button type="button" onClick={() => setTemplateStatus(template.id, "Draft")}>Unpublish</button> : <button type="button" disabled={!template.designKey || !template.thumbnailKey} onClick={() => setTemplateStatus(template.id, "Published")}>Publish</button>}<button className="adm-delete-btn" type="button" onClick={() => removeTemplate(template)}>Delete</button></div>
+            <div className="adm-template-actions"><button type="button" onClick={() => openEditor(template)}>Edit</button>{template.status === "Published" ? <button type="button" onClick={() => setTemplateStatus(template.id, "Draft")}>Unpublish</button> : <button type="button" disabled={!template.designKey || !template.thumbnailKey || template.builtInTemplateKey} onClick={() => setTemplateStatus(template.id, "Published")}>Publish</button>}{!template.builtInTemplateKey && <button className="adm-delete-btn" type="button" onClick={() => removeTemplate(template)}>Delete</button>}</div>
           </div>
         </article>)}</div> : <div className="adm-empty-state"><span className="adm-empty-icon"><Icon name="layers"/></span><h2>No templates found.</h2><p>Upload your first Canva export and prepare it for customers.</p><button className="adm-primary-btn" type="button" onClick={() => openEditor()}><Icon name="upload"/> Add first template</button></div>}
         <p className="adm-storage-note">Local prototype only: records live in this browser's localStorage; design, thumbnail and music files live in this browser's IndexedDB. They are not yet shared with other devices or customers.</p>
