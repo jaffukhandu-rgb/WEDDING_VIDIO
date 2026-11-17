@@ -21,7 +21,7 @@ const actionStyle = {
   cursor: "pointer",
 };
 
-export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
+export function WeddingMediaUploadControls({ onChange, showPhotos = true, showVideos = true, maxPhotos = MAX_PHOTOS }) {
   const [photos, setPhotos] = useState([]);
   const [videos, setVideos] = useState([]);
   const [musicUrl, setMusicUrl] = useState("");
@@ -45,10 +45,10 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
       ["image/jpeg", "image/png", "image/webp"].includes(file.type) &&
       file.size <= MAX_PHOTO_BYTES
     );
-    const remaining = Math.max(0, MAX_PHOTOS - photos.length);
+    const remaining = Math.max(0, maxPhotos - photos.length);
     const accepted = valid.slice(0, remaining);
     if (accepted.length !== files.length) {
-      setMessage("Some photos were skipped. Use JPG, PNG or WebP files up to 10 MB each, with a maximum of 6.");
+      setMessage("Some photos were skipped. Use JPG, PNG or WebP files up to 10 MB each, with a maximum of " + maxPhotos + ".");
     } else {
       setMessage("");
     }
@@ -134,7 +134,7 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
           <span aria-hidden="true">▶</span>
           Add videos
           <input type="file" accept="video/mp4,video/webm" multiple onChange={handleVideos} hidden />
-        </label>
+        </label>}
         <label style={actionStyle}>
           <span aria-hidden="true">♫</span>
           {musicUrl ? "Replace music" : "Add music"}
@@ -144,16 +144,16 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true }) {
       {message && <p role="alert" style={{ margin: 0, color: "#e5a19a", fontSize: 11 }}>{message}</p>}
       <div style={{ color: "#8f8a82", fontSize: 11, lineHeight: 1.6 }}>
         {showPhotos ? "Photos: JPG, PNG or WebP · up to 6 · 10 MB each. " : ""}
-        Videos: MP4 or WebM · up to 2 · 50 MB each. Music: audio files up to 8 MB.
+        {showVideos ? "Videos: MP4 or WebM · up to 2 · 50 MB each. " : ""}Music: audio files up to 8 MB.
       </div>
-      {(photos.length > 0 || videos.length > 0 || musicUrl) && (
+      {(photos.length > 0 || (showVideos && videos.length > 0) || musicUrl) && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
           {photos.map((asset) => (
             <button key={asset.src} type="button" onClick={() => removeAsset(asset, "image")} style={{ ...actionStyle, minHeight: 30, padding: "0 9px", fontSize: 10 }}>
               ▧ {asset.name} ×
             </button>
           ))}
-          {videos.map((asset) => (
+          {showVideos && videos.map((asset) => (
             <button key={asset.src} type="button" onClick={() => removeAsset(asset, "video")} style={{ ...actionStyle, minHeight: 30, padding: "0 9px", fontSize: 10 }}>
               ▶ {asset.name} ×
             </button>
