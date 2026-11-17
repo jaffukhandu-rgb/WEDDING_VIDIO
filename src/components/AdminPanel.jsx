@@ -53,6 +53,7 @@ const INITIAL_WEDDING = {
   description: "A royal palace-inspired wedding invitation in warm ivory, burgundy and antique gold.",
   canvaUrl: "https://www.canva.com/d/WwCfAG_3sRX7aEp",
   thumbnailKey: null,
+  thumbnailUrl: "https://design.canva.ai/VgXY1oai8eRFP-9",
   designKey: null,
   musicKey: null,
   fields: getDefaultFields("Wedding"),
