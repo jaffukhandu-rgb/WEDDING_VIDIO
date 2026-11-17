@@ -565,7 +565,7 @@ export function AdminPanel() {
 
   if (editorOpen) {
     const alwaysSampleFields = ALWAYS_EDITABLE_FIELDS;
-    const customSampleFields = fields.filter(field => field.custom && field.enabled);
+    const customSampleFields = fields.filter(field => !ALWAYS_EDITABLE_KEYS.has(field.key) && field.enabled);
 
     return <main className="adm-shell adm-simple-editor">
       <header className="adm-editor-top">
@@ -791,7 +791,11 @@ export function AdminPanel() {
               {customSampleFields.map(field => (
                 <label key={field.key}>
                   {field.label}
-                  <input value={sampleValues[field.key] || ""} maxLength={field.maxLength || 120} onChange={event => setSampleValues(current => ({ ...current, [field.key]: event.target.value }))}/>
+                  {field.type === "photos" ? (
+                    <input type="file" accept="image/png,image/jpeg,image/webp" multiple/>
+                  ) : (
+                    <input value={sampleValues[field.key] || ""} maxLength={field.maxLength || 120} onChange={event => setSampleValues(current => ({ ...current, [field.key]: event.target.value }))}/>
+                  )}
                 </label>
               ))}
               <div className="adm-sample-actions">
