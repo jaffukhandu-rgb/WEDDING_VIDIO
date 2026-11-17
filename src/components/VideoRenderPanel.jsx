@@ -31,7 +31,7 @@ export function VideoRenderPanel({ html, title, audioDataUrl = "" }) {
     try {
       let audioPayload = {};
       if (audioDataUrl) {
-        const match = audioDataUrl.match(/^data:(audio\\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+        const match = audioDataUrl.match(/^data:(audio\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
         if (!match) throw new Error("The selected music could not be prepared for export.");
         if (match[2].length > 11 * 1024 * 1024) throw new Error("Choose a music file smaller than 8 MB.");
         audioPayload = { audioMimeType: match[1], audioBase64: match[2] };
