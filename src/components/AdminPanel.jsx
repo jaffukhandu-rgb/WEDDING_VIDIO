@@ -246,10 +246,16 @@ function readTemplates() {
               description: INITIAL_WEDDING.description,
               canvaUrl: "",
               thumbnailUrl: null,
-              builtInTemplateKey: INITIAL_WEDDING.builtInTemplateKey,
-              designName: INITIAL_WEDDING.designName,
-              sourceLabel: INITIAL_WEDDING.sourceLabel,
-              status: item.builtInTemplateKey ? item.status : "Published"
+              builtInTemplateKey: Object.prototype.hasOwnProperty.call(item, "builtInTemplateKey")
+                ? item.builtInTemplateKey
+                : INITIAL_WEDDING.builtInTemplateKey,
+              designName: item.builtInTemplateKey
+                ? INITIAL_WEDDING.designName
+                : (item.designName || ""),
+              sourceLabel: item.builtInTemplateKey
+                ? INITIAL_WEDDING.sourceLabel
+                : (item.sourceLabel || ""),
+              status: item.status || "Published"
             }
           : item;
 
