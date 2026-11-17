@@ -328,19 +328,20 @@ export function AdminPanel() {
             <label className="adm-form-field">Template name<input value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder="e.g. Royal Palace Wedding"/></label>
             <label className="adm-form-field">Category<select value={category} onChange={e => changeCategory(e.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
             <label className="adm-form-field adm-span-two">Short description<textarea value={description} onChange={e => setDescription(e.target.value)} rows="2" maxLength={220} placeholder="Describe the style of this invitation."/></label>
-            <label className="adm-form-field adm-span-two">Canva design link <small>Keep the editable Canva source linked to this template (optional).</small><input type="url" value={canvaUrl} onChange={e => setCanvaUrl(e.target.value)} placeholder="https://www.canva.com/design/..."/></label>
+            <label className="adm-form-field adm-span-two" style={{ display: existingBuiltInTemplateKey ? "none" : "flex" }}>Canva design link <small>Keep the editable Canva source linked to this template (optional).</small><input type="url" value={canvaUrl} onChange={e => setCanvaUrl(e.target.value)} placeholder="https://www.canva.com/design/..."/></label>
           </div>
         </section>
 
         <section className="adm-simple-card">
-          <div className="adm-card-title"><span>02</span><div><h2>Upload finished design</h2><p>Export your design from Canva, then upload the video file here.</p></div></div>
+          <div className="adm-card-title"><span>02</span><div><h2>{existingBuiltInTemplateKey ? "Built-in animated design" : "Upload finished design"}</h2><p>{existingBuiltInTemplateKey ? "This Royal Palace template is already installed and ready to preview." : "Export your design from Canva, then upload the video file here."}</p></div></div>
           {existingBuiltInTemplateKey && <p className="adm-simple-note"><b>Built-in template:</b> The Royal Palace animation is already installed. Customer names and event details remain editable in the wedding preview; you do not need to upload another video for this template.</p>}
-          <div className="adm-upload-grid">
+          <div className="adm-upload-grid" style={{ display: existingBuiltInTemplateKey ? "none" : "grid" }}>
             <label className="adm-upload-box"><input type="file" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" onChange={e => setDesignFile(e.target.files?.[0] || null)}/><Icon name="upload"/><strong>{designFile?.name || existingDesignName || "Choose invitation video"}</strong><small>MP4, WebM, MOV or image background</small>{(designFile || existingDesignKey) && <span className="adm-file-selected">Design file selected</span>}</label>
             <label className="adm-upload-box"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setThumbnailFile(e.target.files?.[0] || null)}/><Icon name="upload"/><strong>{thumbnailFile?.name || existingThumbnailName || "Choose gallery thumbnail"}</strong><small>PNG, JPG or WebP</small>{(thumbnailFile || existingThumbnailKey) && <span className="adm-file-selected">Thumbnail selected</span>}</label>
           </div>
-          {canvaUrl && <p className="adm-canva-source">Canva source: <a href={canvaUrl} target="_blank" rel="noreferrer">Open editable design ↗</a></p>}
-          <p className="adm-simple-note"><b>Important:</b> A Canva-exported MP4 is a finished flat video. Customer names, dates and photos can be collected separately, but replacing text inside the video needs a personalization/rendering step. Uploading alone does not edit the MP4.</p>
+          {!existingBuiltInTemplateKey && canvaUrl && <p className="adm-canva-source">Canva source: <a href={canvaUrl} target="_blank" rel="noreferrer">Open editable design ↗</a></p>}
+          {!existingBuiltInTemplateKey && <p className="adm-simple-note"><b>Important:</b> A Canva-exported MP4 is a finished flat video. Customer names, dates and photos can be collected separately, but replacing text inside the video needs a personalization/rendering step. Uploading alone does not edit the MP4.</p>}
+          {existingBuiltInTemplateKey && <p className="adm-simple-note">The Royal Palace composition is already connected to the wedding details form, live preview and 30-second MP4 export.</p>}
           {(designFile?.type.startsWith("video/") || assetUrls[existingDesignKey]) && <video className="adm-upload-preview" controls muted src={filePreviewUrls.design || assetUrls[existingDesignKey]}/>}
           {(thumbnailFile || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl) && <img className="adm-thumbnail-preview" src={filePreviewUrls.thumbnail || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl} alt="Template thumbnail preview"/>}
         </section>
