@@ -212,6 +212,8 @@ const INITIAL_WEDDING = {
   designName: "Built-in animated template · 30 seconds",
   fields: getDefaultFields("Wedding"),
   allowCustomerMusic: true,
+  allowCustomerRemoveMusic: false,
+  musicRightsNotice: MUSIC_RIGHTS_NOTICE,
   status: "Published",
   sourceLabel: "Built-in animated invitation. Customer details update in the live preview and final MP4.",
   createdAt: "2026-11-17T00:00:00.000Z"
@@ -515,7 +517,7 @@ export function AdminPanel() {
     setFormError("");
     if (!title.trim()) { setFormError("Enter a template name."); return; }
     if (!description.trim()) { setFormError("Add a short description."); return; }
-    if (!thumbnailFile && !existingThumbnailKey && !existingBuiltInTemplateKey) { setFormError("Add a thumbnail image for the customer gallery."); return; }
+    if (!thumbnailFile && !existingThumbnailKey && !(existingBuiltInTemplateKey && !designFile)) { setFormError("Add a thumbnail image for the customer gallery."); return; }
     if (!designFile && !existingDesignKey && !existingBuiltInTemplateKey) { setFormError("Upload the Canva-exported video or image file."); return; }
     if (!fields.some(field => field.enabled)) { setFormError("Select at least one customer detail."); return; }
     if (designFile && !ACCEPTED_BACKGROUND_TYPES.includes(designFile.type)) {
@@ -867,12 +869,12 @@ export function AdminPanel() {
       <header className="adm-topbar"><div className="adm-mobile-brand"><span className="adm-brand-symbol">W</span><strong>EVENT STUDIO</strong></div><div className="adm-breadcrumb">WORKSPACE <span>/</span> {activeSection.toUpperCase()}</div><a className="adm-site-link" href="/">View website ↗</a></header>
       <nav className="adm-mobile-nav"><button className={activeSection === "overview" ? "active" : ""} onClick={() => setActiveSection("overview")} type="button">Overview</button><button className={activeSection === "library" ? "active" : ""} onClick={() => setActiveSection("library")} type="button">Templates</button></nav>
       {activeSection === "overview" ? <div className="adm-content">
-        <div className="adm-heading-row"><div><p className="adm-eyebrow">CANVA → CUSTOMER WEBSITE</p><h1>Your invitation studio.</h1><p className="adm-subtitle">Upload finished designs. Customers add their own details and music.</p></div><button className="adm-primary-btn" type="button" onClick={() => openEditor()}><Icon name="plus"/> Add template</button></div>
+        <div className="adm-heading-row"><div><p className="adm-eyebrow">CANVA → CUSTOMER WEBSITE</p><h1>Your invitation studio.</h1><p className="adm-subtitle">Upload clean Canva backgrounds, choose automatic layouts and configure editable invitation details.</p></div><button className="adm-primary-btn" type="button" onClick={() => openEditor()}><Icon name="plus"/> Add template</button></div>
         <div className="adm-stats-grid"><article className="adm-stat-card"><span>Total templates</span><strong>{templates.length}</strong><small>Saved in this browser</small></article><article className="adm-stat-card"><span>Published</span><strong>{publishedCount}</strong><small>Local publish status</small></article><article className="adm-stat-card"><span>Drafts</span><strong>{draftCount}</strong><small>Ready to finish</small></article></div>
         <div className="adm-section-heading"><div><p className="adm-eyebrow">CATEGORIES</p><h2>Every celebration, one place.</h2></div></div>
         <div className="adm-category-grid">{CATEGORIES.map(c => <button className="adm-category-card" key={c} type="button" onClick={() => { setCategoryFilter(c); setActiveSection("library"); }}><strong>{c}</strong><small>{templates.filter(t => t.category === c).length} templates</small><span className="adm-category-arrow">↗</span></button>)}</div>
       </div> : <div className="adm-content">
-        <div className="adm-heading-row"><div><p className="adm-eyebrow">YOUR CANVA DESIGNS</p><h1>Template library</h1><p className="adm-subtitle">Add a finished Canva export once. Manage it here whenever you need.</p></div><button className="adm-primary-btn" type="button" onClick={() => openEditor()}><Icon name="plus"/> Add template</button></div>
+        <div className="adm-heading-row"><div><p className="adm-eyebrow">YOUR CANVA DESIGNS</p><h1>Template library</h1><p className="adm-subtitle">Manage background files, layout presets, customer fields and music settings.</p></div><button className="adm-primary-btn" type="button" onClick={() => openEditor()}><Icon name="plus"/> Add template</button></div>
         <div className="adm-library-toolbar"><label className="adm-search"><Icon name="search"/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search templates…"/></label><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option>All</option><option>Draft</option><option>Published</option></select></div>
         <div className="adm-category-pills">{["All", ...CATEGORIES].map(c => <button key={c} className={categoryFilter === c ? "active" : ""} onClick={() => setCategoryFilter(c)} type="button">{c}</button>)}</div>
         {filteredTemplates.length ? <div className="adm-template-grid">{filteredTemplates.map(template => <article className="adm-template-card" key={template.id}>
