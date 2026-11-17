@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Player } from "@remotion/player";
 import { WeddingTemplateMotionPreview } from "./WeddingTemplateMotionPreview.jsx";
 import { VintageStorybookMotionPreview } from "./VintageStorybookMotionPreview.jsx";
 import { WeddingMediaUploadControls } from "./WeddingMediaUploadControls.jsx";
+import { VideoRenderPanel } from "./VideoRenderPanel.jsx";
+import { buildRoyalPalaceInvitationHtml, ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL } from "../templates/royalPalaceInvitation.js";
 import {
   WEDDING_VIDEO_DURATION_FRAMES,
   WEDDING_VIDEO_FPS,
@@ -28,9 +30,42 @@ const labelStyle = {
   fontWeight: 600,
 };
 
+
+async function imageUrlToDataUrl(url) {
+  if (!url) return "";
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Could not read the selected photo.");
+  const bitmap = await createImageBitmap(await response.blob());
+  const scale = Math.min(1, 900 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
+async function audioUrlToDataUrl(url) {
+  if (!url) return ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Could not read the selected music.");
+  const blob = await response.blob();
+  if (blob.size > 8 * 1024 * 1024) throw new Error("Music files must be 8 MB or smaller for MP4 export.");
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not prepare the selected music."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function WeddingEventDetailsEditor({ template, details, onDetailsChange }) {
   const [saved, setSaved] = useState(false);
   const [media, setMedia] = useState({ photos: [], videos: [], musicUrl: "" });
+  const [royalPhotoDataUrl, setRoyalPhotoDataUrl] = useState("");
+  const [royalMusicDataUrl, setRoyalMusicDataUrl] = useState(ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL);
+  const [royalMediaError, setRoyalMediaError] = useState("");
+  const isRoyalPalaceTemplate = template.styleId === "royal" || template.compositionId === "royal-palace-html";
 
   const updateField = (event) => {
     const { name, value } = event.target;
@@ -50,6 +85,47 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
         year: "numeric",
       })
     : "Wedding date";
+
+  const displayTime = details.weddingTime
+    ? new Date("2000-01-01T" + details.weddingTime + ":00").toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "";
+
+  useEffect(() => {
+    if (!isRoyalPalaceTemplate) return undefined;
+    let active = true;
+    const prepareMedia = async () => {
+      try {
+        const photo = media.photos[0]?.src ? await imageUrlToDataUrl(media.photos[0].src) : "";
+        const music = await audioUrlToDataUrl(media.musicUrl);
+        if (active) {
+          setRoyalPhotoDataUrl(photo);
+          setRoyalMusicDataUrl(music);
+          setRoyalMediaError("");
+        }
+      } catch (error) {
+        if (active) setRoyalMediaError(error instanceof Error ? error.message : "Could not prepare your media.");
+      }
+    };
+    prepareMedia();
+    return () => { active = false; };
+  }, [isRoyalPalaceTemplate, media.photos, media.musicUrl]);
+
+  const royalHtml = useMemo(() => buildRoyalPalaceInvitationHtml({
+    brideName: details.brideName,
+    groomName: details.groomName,
+    date: displayDate === "Wedding date" ? "" : displayDate,
+    time: displayTime,
+    venue: details.venueName,
+    address: details.venueAddress,
+    message: details.invitationMessage,
+    host: details.hostLine,
+  }, royalPhotoDataUrl), [
+    details.brideName, details.groomName, details.venueName, details.venueAddress,
+    details.invitationMessage, details.hostLine, displayDate, displayTime, royalPhotoDataUrl
+  ]);
 
   return (
     <section
