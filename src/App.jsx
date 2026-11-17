@@ -34,6 +34,7 @@ const INITIAL_WEDDING_DETAILS = {
   venueName: "",
   venueAddress: "",
   invitationMessage: "",
+  hostLine: "",
 };
 
 const STORAGE_KEY = "event-video-template-usage-v1";
