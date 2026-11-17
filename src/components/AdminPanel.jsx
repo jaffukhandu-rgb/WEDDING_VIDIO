@@ -354,8 +354,8 @@ export function AdminPanel() {
           {!existingBuiltInTemplateKey && <p className="adm-simple-note"><b>Important:</b> A Canva-exported MP4 is a finished flat video. Customer names, dates and photos can be collected separately, but replacing text inside the video needs a personalization/rendering step. Uploading alone does not edit the MP4.</p>}
           {existingBuiltInTemplateKey && <p className="adm-simple-note">The Royal Palace composition is already connected to the wedding details form, live preview and 30-second MP4 export.</p>}
           {existingBuiltInTemplateKey === "royal-palace" && <div className="adm-built-in-preview">
-            <div><strong>Animated template preview</strong><small>30 seconds · vertical 9:16 · editable customer details</small></div>
-            <iframe title="Royal Palace animated invitation preview" srcDoc={builtInRoyalPreviewHtml} sandbox="allow-scripts" />
+            <div className="adm-built-in-preview__copy"><strong>Animated template preview</strong><small>30 seconds · vertical 9:16 · editable customer details</small></div>
+            <div className="adm-built-in-preview__frame"><iframe title="Royal Palace animated invitation preview" srcDoc={builtInRoyalPreviewHtml} sandbox="allow-scripts" /></div>
           </div>}
           {(designFile?.type.startsWith("video/") || assetUrls[existingDesignKey]) && <video className="adm-upload-preview" controls muted src={filePreviewUrls.design || assetUrls[existingDesignKey]}/>}
           {(thumbnailFile || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl) && <img className="adm-thumbnail-preview" src={filePreviewUrls.thumbnail || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl} alt="Template thumbnail preview"/>}
