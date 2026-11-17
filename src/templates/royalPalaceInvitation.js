@@ -98,4 +98,63 @@ requestAnimationFrame(tick);
 }
 export const ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL = "data:audio/mpeg;base64,SUQzBAAAAAAAIlRTU0UAAAAOAAADTGF2ZjYxLjcuMTAzAAAAAAAAAAAAAAD/83DAAAAAAAAAAAAASW5mbwAAAA8AAAGBAAB2kgAEBgkMDhETFhgbHSAjJScqLS8yNTc5PD9BREZIS05QU1ZYWl1gYmVnaWxvcXR3eXt+gYOGiYuNkJKVmJqcnKkp6qsrrGztrm7vcDDxcjLzc/S1dfa3N7h5Obp7O7w8/b4+/4AAAAATGF2YzYxLjE5AAAAAAAAAAAAAAAAJAKsAAAAAAAAdpL4v3VfAAAAAAAAAAAAAAAAAP/zMMQAB8gGab4ARgJRqZ4f7/cAFLkHKGqbW+uO/8hOXVn5//n+Xvy/Z//LqpcZiMTODIPDcFFpAKIVGQlsBgIxgCCY5AYoiOlEHjjvxv/zMsQhDeiGIADQcMDiEgzY8tVVUjcpXl0ilqv/+v//vo//VW4AVwDlgHHwlSHBpoqHpmHJ5l2FZhJCHESZjftoAgM729Jh91IhBqz9bub/8zDEKw3AhiQA33YgP41ZpO01ETcG4EvrWBMlRwUMmO05gRqbqmmOQ8eo6hnsNDoWMGKA5nLDgQLmndwkAyKrKkmLOd3vO5VWZC2ayar/8zLENQ2AhiwA3zYhlZQaIDDICDOc2N3NVdgAHRuPFRo8FBhghGHCAgLZgo2QjQ05HU7IDl8HDQHo+UHO441nRNDixZtp30pkRhGAKdYc//MwxEEOaIYsAN94IDqZLkCCCOMIBvMd/3MSxTM88HxETDF1hAbWdTZgOB7XH8f9JCczu/+ssYsaAKq4ry0RgCCguBoAGICiGLInmZhO//MwxEgN+IYwAO54RYBDA7Eso07BYw8UzGsxIJWFf5iDBxAHocIC13bbguen+Y3/8vxQyXJxQij5//QqLAJsBBgJGELBGUwpGqxTlgZj//MyxFEPiIosAO66RKn6A1+GA2mg1WQwINsDXQgsckmiRCcvyAGio/Vt1+f/bDtmRBmqjnOrGA284kCDRo0OjOo6RDDAZC9MPNtMKhLmEP/zMMRUDsCKLADuukSBZjWCwsKqhbGjAYOziZ1gMJLfR1lQsEsV7Sd/9V14GP6OKQl4J//////11QApJbLQBKZpmJidOZkoGMjQICB1KP/zMMRaEQiGKADnuiDwdMgqFwQJ1hpbHyEHGQ2Gw672yrVfZ/UR4GIvk+Gf3exaf7s79H7P/05reoiz4dAXMCQh8wtwljGJFZMG4IAzCf/zMsRWECiCSH7fKDBLQxpAgDgeDecAMjexO4VtmgcLAECVyO4240GkI7zvO6oVsA1LHIrgdYWpYYPAJqosniR6d1U5hIhtmJO12YIgS4L/8zDEVw9YhiwA9rpFg7MZwuMJgBQqSdMAhKOPmrMIgETDZ2uwOCOL4Zc7jjQKJmGKbvHUElJdyKpgGCBjM0xmiR5nGiRj2Gx4NCBReRn/8zLEKwA=";
 
-export const ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL = "";
+
+let royalMusicCache = "";
+
+export function createRoyalPalaceDefaultMusicDataUrl() {
+  if (royalMusicCache) return royalMusicCache;
+
+  const sampleRate = 16000;
+  const duration = 10;
+  const sampleCount = sampleRate * duration;
+  const buffer = new ArrayBuffer(44 + sampleCount * 2);
+  const view = new DataView(buffer);
+  const writeText = (offset, text) => {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+
+  writeText(0, "RIFF");
+  view.setUint32(4, 36 + sampleCount * 2, true);
+  writeText(8, "WAVE");
+  writeText(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeText(36, "data");
+  view.setUint32(40, sampleCount * 2, true);
+
+  const notes = [
+    [293.66, 0], [349.23, 1.7], [392, 3.4], [440, 5.1],
+    [392, 6.8], [349.23, 8.3]
+  ];
+  for (let i = 0; i < sampleCount; i += 1) {
+    const time = i / sampleRate;
+    let value = 0;
+    for (const [frequency, start] of notes) {
+      const noteTime = time - start;
+      if (noteTime >= 0 && noteTime < 2.15) {
+        const envelope = Math.exp(-noteTime * 2.05) * (1 - Math.exp(-noteTime * 34));
+        value += (Math.sin(2 * Math.PI * frequency * noteTime)
+          + 0.34 * Math.sin(2 * Math.PI * frequency * 2.01 * noteTime)
+          + 0.11 * Math.sin(2 * Math.PI * frequency * 4 * noteTime)) * envelope * 0.16;
+      }
+    }
+    value += 0.023 * Math.sin(2 * Math.PI * 146.83 * time);
+    value += 0.016 * Math.sin(2 * Math.PI * 196 * time);
+    const beatTime = time % 0.72;
+    value += 0.035 * Math.sin(2 * Math.PI * (78 - 25 * beatTime) * beatTime) * Math.exp(-beatTime * 18);
+    const fade = Math.min(1, time / 0.7, (duration - time) / 1.1);
+    const sample = Math.max(-1, Math.min(1, Math.tanh(value * 1.8) * Math.max(0, fade)));
+    view.setInt16(44 + i * 2, Math.round(sample * 32767), true);
+  }
+
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+  royalMusicCache = "data:audio/wav;base64," + btoa(binary);
+  return royalMusicCache;
+}
