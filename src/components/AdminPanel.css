@@ -332,3 +332,11 @@
 
 .adm-canva-open{display:inline-flex;margin-top:8px;color:#e4c990;font-size:9px;text-decoration:none}
 .adm-canva-open:hover{text-decoration:underline}
+
+.adm-built-in-preview{display:grid;grid-template-columns:minmax(0,1fr) 220px;align-items:center;gap:18px;margin-top:14px;padding:14px;border:1px solid rgba(217,189,131,.18);border-radius:12px;background:rgba(217,189,131,.035)}
+.adm-built-in-preview__copy strong,.adm-built-in-preview__copy small{display:block}
+.adm-built-in-preview__copy strong{color:#e9ddc5;font-size:11px}
+.adm-built-in-preview__copy small{margin-top:6px;color:#929997;font-size:9px;line-height:1.6}
+.adm-built-in-preview__frame{width:220px;height:391px;overflow:hidden;border:1px solid rgba(217,189,131,.35);border-radius:12px;background:#160b10}
+.adm-built-in-preview__frame iframe{width:540px;height:960px;display:block;border:0;transform:scale(.4074);transform-origin:top left}
+@media(max-width:700px){.adm-built-in-preview{grid-template-columns:1fr;justify-items:center}.adm-built-in-preview__copy{width:100%}}
