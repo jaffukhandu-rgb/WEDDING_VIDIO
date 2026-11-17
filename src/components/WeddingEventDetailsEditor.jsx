@@ -63,7 +63,7 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
   const [saved, setSaved] = useState(false);
   const [media, setMedia] = useState({ photos: [], videos: [], musicUrl: "" });
   const [royalPhotoDataUrl, setRoyalPhotoDataUrl] = useState("");
-  const [royalMusicDataUrl, setRoyalMusicDataUrl] = useState(createRoyalPalaceDefaultMusicDataUrl());
+  const [royalMusicDataUrl, setRoyalMusicDataUrl] = useState("");
   const [royalMediaError, setRoyalMediaError] = useState("");
   const isRoyalPalaceTemplate = template.styleId === "royal" || template.compositionId === "royal-palace-html";
 
