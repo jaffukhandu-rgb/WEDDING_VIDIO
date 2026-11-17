@@ -70,10 +70,11 @@ const LAYOUT_PRESETS = [
       { key: "brideName", label: "Bride name", x: 8, y: 8, w: 84, h: 7, fontSize: 5.2, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1, end: 29 },
       { key: "groomName", label: "Groom name", x: 8, y: 16, w: 84, h: 7, fontSize: 5.2, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1.5, end: 29 },
       { key: "photo1", label: "Main photo", type: "photo", x: 17, y: 29, w: 66, h: 32, start: 4, end: 27 },
-      { key: "eventDate", label: "Date", x: 10, y: 66, w: 80, h: 5, fontSize: 3.5, font: "Arial", color: "#f2d39b", align: "center", weight: 700, start: 7, end: 29 },
-      { key: "venueName", label: "Venue", x: 8, y: 73, w: 84, h: 6, fontSize: 4, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 9, end: 29 },
-      { key: "venueAddress", label: "Address", x: 8, y: 80, w: 84, h: 5, fontSize: 2.5, font: "Arial", color: "#f4e5d0", align: "center", weight: 400, start: 10, end: 29 },
-      { key: "invitationMessage", label: "Message", x: 9, y: 87, w: 82, h: 7, fontSize: 2.4, font: "Georgia", color: "#f4e5d0", align: "center", weight: 400, start: 12, end: 29 }
+      { key: "eventDate", label: "Date", x: 10, y: 65, w: 80, h: 4, fontSize: 3.5, font: "Arial", color: "#f2d39b", align: "center", weight: 700, start: 7, end: 29 },
+      { key: "eventTime", label: "Time", x: 10, y: 70, w: 80, h: 3, fontSize: 2.7, font: "Arial", color: "#f4e5d0", align: "center", weight: 500, start: 8, end: 29 },
+      { key: "venueName", label: "Venue", x: 8, y: 74, w: 84, h: 5, fontSize: 3.8, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 9, end: 29 },
+      { key: "venueAddress", label: "Address", x: 8, y: 80, w: 84, h: 4, fontSize: 2.3, font: "Arial", color: "#f4e5d0", align: "center", weight: 400, start: 10, end: 29 },
+      { key: "invitationMessage", label: "Message", x: 9, y: 85, w: 82, h: 9, fontSize: 2.2, font: "Georgia", color: "#f4e5d0", align: "center", weight: 400, start: 12, end: 29 }
     ]
   },
   {
@@ -83,9 +84,11 @@ const LAYOUT_PRESETS = [
     elements: [
       { key: "brideName", label: "Bride name", x: 8, y: 27, w: 84, h: 9, fontSize: 6, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1, end: 29 },
       { key: "groomName", label: "Groom name", x: 8, y: 38, w: 84, h: 9, fontSize: 6, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 2, end: 29 },
-      { key: "eventDate", label: "Date", x: 10, y: 56, w: 80, h: 6, fontSize: 3.8, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 5, end: 29 },
-      { key: "venueName", label: "Venue", x: 8, y: 65, w: 84, h: 7, fontSize: 4.2, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 7, end: 29 },
-      { key: "invitationMessage", label: "Message", x: 12, y: 76, w: 76, h: 10, fontSize: 2.7, font: "Georgia", color: "#f4e5d0", align: "center", weight: 400, start: 9, end: 29 }
+      { key: "eventDate", label: "Date", x: 10, y: 54, w: 80, h: 5, fontSize: 3.6, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 5, end: 29 },
+      { key: "eventTime", label: "Time", x: 10, y: 60, w: 80, h: 4, fontSize: 2.7, font: "Arial", color: "#f4e5d0", align: "center", weight: 500, start: 6, end: 29 },
+      { key: "venueName", label: "Venue", x: 8, y: 66, w: 84, h: 5, fontSize: 4, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 7, end: 29 },
+      { key: "venueAddress", label: "Address", x: 8, y: 72, w: 84, h: 4, fontSize: 2.3, font: "Arial", color: "#f4e5d0", align: "center", weight: 400, start: 8, end: 29 },
+      { key: "invitationMessage", label: "Message", x: 12, y: 78, w: 76, h: 10, fontSize: 2.5, font: "Georgia", color: "#f4e5d0", align: "center", weight: 400, start: 9, end: 29 }
     ]
   },
   {
@@ -95,11 +98,14 @@ const LAYOUT_PRESETS = [
     elements: [
       { key: "brideName", label: "Bride name", x: 8, y: 5, w: 84, h: 6, fontSize: 4.5, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1, end: 29 },
       { key: "groomName", label: "Groom name", x: 8, y: 12, w: 84, h: 6, fontSize: 4.5, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1.5, end: 29 },
-      { key: "photo1", label: "Photo slot 1", type: "photo", x: 12, y: 22, w: 76, h: 17, start: 3, end: 29 },
-      { key: "photo2", label: "Photo slot 2", type: "photo", x: 12, y: 42, w: 76, h: 17, start: 6, end: 29 },
-      { key: "photo3", label: "Photo slot 3", type: "photo", x: 12, y: 62, w: 76, h: 17, start: 9, end: 29 },
-      { key: "eventDate", label: "Date", x: 8, y: 82, w: 84, h: 5, fontSize: 3, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 12, end: 29 },
-      { key: "venueName", label: "Venue", x: 8, y: 88, w: 84, h: 5, fontSize: 3.1, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 13, end: 29 }
+      { key: "photo1", label: "Photo slot 1", type: "photo", x: 12, y: 21, w: 76, h: 15, start: 3, end: 29 },
+      { key: "photo2", label: "Photo slot 2", type: "photo", x: 12, y: 38, w: 76, h: 15, start: 6, end: 29 },
+      { key: "photo3", label: "Photo slot 3", type: "photo", x: 12, y: 55, w: 76, h: 15, start: 9, end: 29 },
+      { key: "eventDate", label: "Date", x: 8, y: 73, w: 84, h: 4, fontSize: 2.9, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 11, end: 29 },
+      { key: "eventTime", label: "Time", x: 8, y: 78, w: 84, h: 4, fontSize: 2.5, font: "Arial", color: "#f4e5d0", align: "center", weight: 500, start: 12, end: 29 },
+      { key: "venueName", label: "Venue", x: 8, y: 83, w: 84, h: 4, fontSize: 3, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 13, end: 29 },
+      { key: "venueAddress", label: "Address", x: 8, y: 88, w: 84, h: 3, fontSize: 2, font: "Arial", color: "#f4e5d0", align: "center", weight: 400, start: 14, end: 29 },
+      { key: "invitationMessage", label: "Message", x: 8, y: 92, w: 84, h: 5, fontSize: 1.9, font: "Georgia", color: "#f4e5d0", align: "center", weight: 400, start: 15, end: 29 }
     ]
   },
   {
@@ -109,10 +115,12 @@ const LAYOUT_PRESETS = [
     elements: [
       { key: "brideName", label: "Bride name", x: 10, y: 26, w: 80, h: 8, fontSize: 5.4, font: "Georgia", color: "#fff4e4", align: "center", weight: 500, start: 1, end: 29 },
       { key: "groomName", label: "Groom name", x: 10, y: 36, w: 80, h: 8, fontSize: 5.4, font: "Georgia", color: "#fff4e4", align: "center", weight: 500, start: 2, end: 29 },
-      { key: "invitationMessage", label: "Message", x: 14, y: 47, w: 72, h: 12, fontSize: 2.8, font: "Georgia", color: "#f0dfc7", align: "center", weight: 400, start: 4, end: 29 },
-      { key: "photo1", label: "Photo", type: "photo", x: 32, y: 62, w: 36, h: 15, start: 7, end: 27 },
-      { key: "eventDate", label: "Date", x: 10, y: 80, w: 80, h: 5, fontSize: 3.3, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 10, end: 29 },
-      { key: "venueName", label: "Venue", x: 10, y: 86, w: 80, h: 5, fontSize: 3.4, font: "Georgia", color: "#fff4e4", align: "center", weight: 500, start: 12, end: 29 }
+      { key: "invitationMessage", label: "Message", x: 14, y: 46, w: 72, h: 9, fontSize: 2.5, font: "Georgia", color: "#f0dfc7", align: "center", weight: 400, start: 4, end: 29 },
+      { key: "photo1", label: "Photo", type: "photo", x: 32, y: 57, w: 36, h: 14, start: 7, end: 27 },
+      { key: "eventDate", label: "Date", x: 10, y: 73, w: 80, h: 4, fontSize: 3.1, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 10, end: 29 },
+      { key: "eventTime", label: "Time", x: 10, y: 78, w: 80, h: 4, fontSize: 2.5, font: "Arial", color: "#f0dfc7", align: "center", weight: 500, start: 11, end: 29 },
+      { key: "venueName", label: "Venue", x: 10, y: 83, w: 80, h: 4, fontSize: 3.1, font: "Georgia", color: "#fff4e4", align: "center", weight: 500, start: 12, end: 29 },
+      { key: "venueAddress", label: "Address", x: 10, y: 88, w: 80, h: 4, fontSize: 2.1, font: "Arial", color: "#f0dfc7", align: "center", weight: 400, start: 13, end: 29 }
     ]
   }
 ];
