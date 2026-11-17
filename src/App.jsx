@@ -19,6 +19,7 @@ import {
 } from "./data/weddingVideoConfig.js";
 import { TemplateArtwork } from "./components/TemplateArtwork.jsx";
 import { AdminPanel } from "./components/AdminPanel.jsx";
+import { buildRoyalPalaceInvitationHtml } from "./templates/royalPalaceInvitation.js";
 
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
@@ -487,46 +488,64 @@ export default function App() {
               </button>
             </div>
             <div className="preview-player-shell">
-              <Player
-                component={
-                  previewTemplate.isPhotoTemplate
-                    ? PhotoWeddingMotionPreview
-                    : previewTemplate.occasionId === "wedding"
-                      ? previewTemplate.compositionId === "vintage-storybook"
-                        ? VintageStorybookMotionPreview
-                        : WeddingTemplateMotionPreview
-                      : TemplateMotionPreview
-                }
-                inputProps={
-                  previewTemplate.isPhotoTemplate
-                    ? { template: previewTemplate, photos: [] }
-                    : previewTemplate.occasionId === "wedding" &&
-                      previewTemplate.compositionId === "vintage-storybook"
-                      ? {
-                          template: previewTemplate,
-                          ...VINTAGE_STORYBOOK_PREVIEW_PROPS,
-                        }
-                      : { template: previewTemplate }
-                }
-                durationInFrames={
-                  previewTemplate.occasionId === "wedding"
-                    ? WEDDING_VIDEO_DURATION_FRAMES
-                    : 90
-                }
-                compositionWidth={540}
-                compositionHeight={960}
-                fps={
-                  previewTemplate.occasionId === "wedding"
-                    ? WEDDING_VIDEO_FPS
-                    : 30
-                }
-                loop
-                autoPlay
-                controls
-                style={{ width: "100%", height: "100%" }}
+            {previewTemplate.styleId === "royal" ? (
+              <iframe
+                title="Royal Palace animated wedding invitation preview"
+                sandbox="allow-scripts"
+                srcDoc={buildRoyalPalaceInvitationHtml({
+                  brideName: "Aarav",
+                  groomName: "Kiara",
+                  date: "24 April 2027",
+                  time: "6:30 PM",
+                  venue: "The Royal Garden",
+                  address: "Pune, Maharashtra",
+                  message: "With joyful hearts, we invite you to celebrate our wedding day.",
+                  host: "Together with our families"
+                })}
+                style={{ width: "100%", height: "100%", border: 0, display: "block" }}
               />
-            </div>
-            <div className="preview-modal-footer">
+            ) : (
+              <Player
+                              component={
+                                previewTemplate.isPhotoTemplate
+                                  ? PhotoWeddingMotionPreview
+                                  : previewTemplate.occasionId === "wedding"
+                                    ? previewTemplate.compositionId === "vintage-storybook"
+                                      ? VintageStorybookMotionPreview
+                                      : WeddingTemplateMotionPreview
+                                    : TemplateMotionPreview
+                              }
+                              inputProps={
+                                previewTemplate.isPhotoTemplate
+                                  ? { template: previewTemplate, photos: [] }
+                                  : previewTemplate.occasionId === "wedding" &&
+                                    previewTemplate.compositionId === "vintage-storybook"
+                                    ? {
+                                        template: previewTemplate,
+                                        ...VINTAGE_STORYBOOK_PREVIEW_PROPS,
+                                      }
+                                    : { template: previewTemplate }
+                              }
+                              durationInFrames={
+                                previewTemplate.occasionId === "wedding"
+                                  ? WEDDING_VIDEO_DURATION_FRAMES
+                                  : 90
+                              }
+                              compositionWidth={540}
+                              compositionHeight={960}
+                              fps={
+                                previewTemplate.occasionId === "wedding"
+                                  ? WEDDING_VIDEO_FPS
+                                  : 30
+                              }
+                              loop
+                              autoPlay
+                              controls
+                              style={{ width: "100%", height: "100%" }}
+                            />
+            )}
+          </div>
+          <div className="preview-modal-footer">
               <span>
                   {previewTemplate.occasionId === "wedding"
                     ? "30-second animated wedding invitation"
