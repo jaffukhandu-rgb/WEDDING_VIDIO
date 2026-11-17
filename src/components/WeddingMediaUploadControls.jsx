@@ -130,11 +130,13 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true, showVi
             <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePhotos} hidden />
           </label>
         )}
-        <label style={actionStyle}>
-          <span aria-hidden="true">▶</span>
-          Add videos
-          <input type="file" accept="video/mp4,video/webm" multiple onChange={handleVideos} hidden />
-        </label>}
+        {showVideos && (
+          <label style={actionStyle}>
+            <span aria-hidden="true">▶</span>
+            Add videos
+            <input type="file" accept="video/mp4,video/webm" multiple onChange={handleVideos} hidden />
+          </label>
+        )}
         <label style={actionStyle}>
           <span aria-hidden="true">♫</span>
           {musicUrl ? "Replace music" : "Add music"}
@@ -143,7 +145,7 @@ export function WeddingMediaUploadControls({ onChange, showPhotos = true, showVi
       </div>
       {message && <p role="alert" style={{ margin: 0, color: "#e5a19a", fontSize: 11 }}>{message}</p>}
       <div style={{ color: "#8f8a82", fontSize: 11, lineHeight: 1.6 }}>
-        {showPhotos ? "Photos: JPG, PNG or WebP · up to 6 · 10 MB each. " : ""}
+        {showPhotos ? "Photos: JPG, PNG or WebP · up to " + maxPhotos + " · 10 MB each. " : ""}
         {showVideos ? "Videos: MP4 or WebM · up to 2 · 50 MB each. " : ""}Music: audio files up to 8 MB.
       </div>
       {(photos.length > 0 || (showVideos && videos.length > 0) || musicUrl) && (
