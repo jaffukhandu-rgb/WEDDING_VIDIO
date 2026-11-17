@@ -173,8 +173,9 @@ function buildLayoutPreviewDocument(backgroundUrl, backgroundType, preset, sampl
       ? '<span>PHOTO SLOT</span><small>' + escapeHtml(element.label) + '</small>'
       : escapeHtml(formatSampleValue(element.key, sampleValues[element.key]) || element.label);
     const delay = Number(element.start || 0);
-    const hideDelay = Math.max(delay, Number(element.end || 30) - 0.35);
-    return '<div class="layout-item ' + (isPhoto ? "photo-slot" : "text-slot") + '" data-field="' + escapeHtml(element.key) + '" data-start="' + delay + '" data-end="' + Number(element.end || 30) + '" style="left:' + element.x + '%;top:' + element.y + '%;width:' + element.w + '%;height:' + element.h + '%;font-size:' + element.fontSize + 'cqw;font-family:' + escapeHtml(element.font || "Georgia") + ';font-weight:' + Number(element.weight || 400) + ';color:' + escapeHtml(element.color || "#fff") + ';text-align:' + escapeHtml(element.align || "center") + ';--enter-delay:' + delay + 's;--exit-delay:' + hideDelay + 's">' + content + '</div>';
+    const end = Math.max(delay + 0.7, Number(element.end || 30));
+    const activeDuration = end - delay;
+    return '<div class="layout-item ' + (isPhoto ? "photo-slot" : "text-slot") + '" data-field="' + escapeHtml(element.key) + '" data-start="' + delay + '" data-end="' + end + '" style="left:' + element.x + '%;top:' + element.y + '%;width:' + element.w + '%;height:' + element.h + '%;font-size:' + element.fontSize + 'cqw;font-family:' + escapeHtml(element.font || "Georgia") + ';font-weight:' + Number(element.weight || 400) + ';color:' + escapeHtml(element.color || "#fff") + ';text-align:' + escapeHtml(element.align || "center") + ';--enter-delay:' + delay + 's;--active-duration:' + activeDuration + 's">' + content + '</div>';
   }).join("");
 
   return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
@@ -182,10 +183,10 @@ function buildLayoutPreviewDocument(backgroundUrl, backgroundType, preset, sampl
     '#stage{position:relative;width:100%;height:100%;aspect-ratio:9/16;container-type:inline-size;overflow:hidden;background:linear-gradient(150deg,#4d2533,#151015)}' +
     '.background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.background-empty{position:absolute;inset:0;display:grid;place-items:center;padding:12%;color:#efdfbd;text-align:center;background:linear-gradient(150deg,#4d2533,#151015);font:4cqw Arial,sans-serif}' +
     '.safe-margin{position:absolute;inset:8%;border:1px dashed rgba(255,255,255,.24);pointer-events:none}' +
-    '.layout-item{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding:1.2%;line-height:1.2;overflow-wrap:anywhere;opacity:0;animation:reveal .55s ease var(--enter-delay) both,hide .35s ease var(--exit-delay) both}' +
+    '.layout-item{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding:1.2%;line-height:1.2;overflow-wrap:anywhere;opacity:0;animation:reveal-hold-fade var(--active-duration) ease var(--enter-delay) both}' +
     '.photo-slot{border:2px dashed rgba(255,244,220,.9);border-radius:3cqw;background:rgba(26,13,18,.48);color:#fff4df;text-shadow:0 1px 6px #000;font:3cqw Arial,sans-serif;letter-spacing:.12em}' +
     '.photo-slot small{margin-top:1.5%;font-size:2.1cqw;opacity:.82}.text-slot{text-shadow:0 2px 9px rgba(0,0,0,.52)}' +
-    '@keyframes reveal{from{opacity:0;transform:translateY(1.6cqw)}to{opacity:1;transform:translateY(0)}}@keyframes hide{to{opacity:0}}' +
+    '@keyframes reveal-hold-fade{0%{opacity:0;transform:translateY(1.6cqw)}8%{opacity:1;transform:translateY(0)}88%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(0)}}' +
     '</style></head><body><main id="stage">' + background + '<div class="safe-margin"></div>' + elements + '</main></body></html>';
 }
 
