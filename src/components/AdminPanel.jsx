@@ -145,10 +145,10 @@ function getDefaultFields(category) {
 }
 
 function formatSampleValue(key, value) {
-  if (key === "eventDate" && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value || ""))) {
+  if (key === "eventDate" && /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) {
     return new Date(value + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
   }
-  if (key === "eventTime" && /^\\d{2}:\\d{2}$/.test(String(value || ""))) {
+  if (key === "eventTime" && /^\d{2}:\d{2}$/.test(String(value || ""))) {
     return new Date("2000-01-01T" + value + ":00").toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   }
   return value || "";
@@ -512,7 +512,10 @@ export function AdminPanel() {
 
   const changeCategory = value => {
     setCategory(value);
-    setFields(getDefaultFields(value));
+    setFields(current => [
+      ...getDefaultFields(value),
+      ...current.filter(field => field.custom)
+    ]);
   };
 
   const updateField = (key, patch) => {
