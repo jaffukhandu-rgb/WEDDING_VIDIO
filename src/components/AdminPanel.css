@@ -329,3 +329,6 @@
 .adm-mobile-nav{display:none}
 @media(max-width:900px){.adm-simple-heading{align-items:flex-start;flex-direction:column}.adm-steps-note{white-space:normal}.adm-simple-content{padding-top:25px}}
 @media(max-width:700px){.adm-editor-top{flex-wrap:wrap;gap:8px}.adm-editor-top>div{order:3;flex-basis:100%}.adm-local-tag{margin-left:auto}.adm-simple-content{padding:22px 14px}.adm-simple-editor .adm-form-grid,.adm-upload-grid,.adm-customer-fields{grid-template-columns:1fr}.adm-simple-editor .adm-span-two{grid-column:auto}.adm-simple-footer{align-items:stretch;flex-direction:column}.adm-simple-footer>div{display:grid;grid-template-columns:1fr 1fr}.adm-card-title h2{font-size:13px}.adm-customer-field{padding:10px}}
+
+.adm-canva-open{display:inline-flex;margin-top:8px;color:#e4c990;font-size:9px;text-decoration:none}
+.adm-canva-open:hover{text-decoration:underline}
