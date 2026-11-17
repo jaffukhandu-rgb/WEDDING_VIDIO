@@ -59,7 +59,8 @@ export function AdminPanel() {
   const [duration,setDuration]=useState(30);
   const [aspectRatio,setAspectRatio]=useState("9:16");
   const [languages,setLanguages]=useState(["English","Hindi"]);
-  const [thumbnail,setThumbnail]=useState(null);\n  const [thumbnailName,setThumbnailName]=useState("");
+  const [thumbnail,setThumbnail]=useState(null);
+  const [thumbnailName,setThumbnailName]=useState("");
   const [designType,setDesignType]=useState("background");
   const [designFile,setDesignFile]=useState(null);
   const [designUrl,setDesignUrl]=useState("");
