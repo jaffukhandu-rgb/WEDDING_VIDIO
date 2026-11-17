@@ -181,6 +181,10 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
             Invitation message
             <textarea style={{ ...fieldStyle, minHeight: 100, resize: "vertical" }} name="invitationMessage" value={details.invitationMessage} onChange={updateField} maxLength={500} placeholder="Add a personal invitation message (optional)" />
           </label>
+          <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>
+            Host line (optional)
+            <input style={fieldStyle} name="hostLine" value={details.hostLine || ""} onChange={updateField} maxLength={120} placeholder="Together with our families" />
+          </label>
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 14, marginTop: 22 }}>
@@ -221,11 +225,11 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
       <div style={{ marginTop: 24 }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <h3 style={{ margin: 0, color: "#f6f3ec", fontFamily: "Georgia,serif", fontSize: 22, fontWeight: 500 }}>
-            Live 30-second video preview
+            Live 30-second invitation preview
           </h3>
           <span style={{ color: "#aaa49a", fontSize: 11 }}>9:16 · Updates as you type</span>
         </div>
-        <div style={{ width: "min(100%, 320px)", aspectRatio: "9 / 16", margin: "0 auto", overflow: "hidden", border: "1px solid rgba(201,170,108,.35)", borderRadius: 14, background: "#08090b" }}>
+        <div style={{ display: isRoyalPalaceTemplate ? "none" : "block", width: "min(100%, 320px)", aspectRatio: "9 / 16", margin: "0 auto", overflow: "hidden", border: "1px solid rgba(201,170,108,.35)", borderRadius: 14, background: "#08090b" }}>
           <Player
             component={template.compositionId === "vintage-storybook" ? VintageStorybookMotionPreview : WeddingTemplateMotionPreview}
             inputProps={
@@ -261,6 +265,30 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
             style={{ width: "100%", height: "100%" }}
           />
         </div>
+        {isRoyalPalaceTemplate && (
+          <div style={{ display: "grid", gap: 13, justifyItems: "center" }}>
+            <div style={{ width: "min(100%, 320px)", aspectRatio: "9 / 16", overflow: "hidden", border: "1px solid rgba(201,170,108,.35)", borderRadius: 14, background: "#08090b" }}>
+              <iframe
+                title="Royal Palace wedding invitation live preview"
+                srcDoc={royalHtml}
+                sandbox="allow-scripts"
+                style={{ width: "100%", height: "100%", display: "block", border: 0 }}
+              />
+            </div>
+            <p style={{ margin: 0, color: "#aaa49a", fontSize: 11, textAlign: "center" }}>
+              Your names, date, venue, message and first photo update in this preview.
+            </p>
+            {royalMediaError && <p role="alert" style={{ margin: 0, color: "#e5a19a", fontSize: 11 }}>{royalMediaError}</p>}
+            <audio controls loop preload="metadata" src={royalMusicDataUrl} style={{ display: "block", width: "min(100%, 360px)" }}>
+              Your browser does not support audio playback.
+            </audio>
+            <VideoRenderPanel
+              html={royalHtml}
+              audioDataUrl={royalMusicDataUrl}
+              title={(details.brideName || "royal") + "-" + (details.groomName || "wedding") + "-invitation"}
+            />
+          </div>
+        )}
       </div>
     </section>
   );
