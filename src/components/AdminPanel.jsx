@@ -564,68 +564,281 @@ export function AdminPanel() {
   const setTemplateStatus = (id, status) => setTemplates(current => current.map(t => t.id === id ? { ...t, status } : t));
 
   if (editorOpen) {
+    const alwaysSampleFields = ALWAYS_EDITABLE_FIELDS;
+    const customSampleFields = fields.filter(field => field.custom && field.enabled);
+
     return <main className="adm-shell adm-simple-editor">
       <header className="adm-editor-top">
         <button className="adm-quiet-btn" type="button" onClick={() => setEditorOpen(false)}>← Back to templates</button>
         <div><strong>{editingId ? "Edit template" : "Add a template"}</strong><span> · {title || "New invitation"}</span></div>
-        <span className="adm-local-tag">Simple template setup</span>
+        <span className="adm-local-tag">Admin template setup</span>
       </header>
+
       <div className="adm-simple-content">
         <div className="adm-simple-heading">
-          <div><p className="adm-eyebrow">CANVA → WEBSITE</p><h1>{editingId ? "Update your template." : "Add your Canva design."}</h1><p>Upload the finished design. Choose what customers can personalize and which music options they get.</p></div>
-          <div className="adm-steps-note"><span>01</span> Upload <i>→</i> <span>02</span> Choose details <i>→</i> <span>03</span> Publish</div>
+          <div>
+            <p className="adm-eyebrow">CANVA → INVITATION TEMPLATE</p>
+            <h1>{editingId ? "Update your template." : "Add your Canva background."}</h1>
+            <p>Upload a clean background, choose how the details are placed, then save the template.</p>
+          </div>
+          <div className="adm-steps-note"><span>01</span> Design <i>→</i> <span>02</span> Layout <i>→</i> <span>03</span> Details <i>→</i> <span>04</span> Music</div>
         </div>
 
-        <section className="adm-simple-card">
-          <div className="adm-card-title"><span>01</span><div><h2>Template information</h2><p>Tell customers what this invitation is for.</p></div></div>
-          <div className="adm-form-grid">
-            <label className="adm-form-field">Template name<input value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder="e.g. Royal Palace Wedding"/></label>
-            <label className="adm-form-field">Category<select value={category} onChange={e => changeCategory(e.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></label>
-            <label className="adm-form-field adm-span-two">Short description<textarea value={description} onChange={e => setDescription(e.target.value)} rows="2" maxLength={220} placeholder="Describe the style of this invitation."/></label>
-            <label className="adm-form-field adm-span-two" style={{ display: existingBuiltInTemplateKey ? "none" : "flex" }}>Canva design link <small>Keep the editable Canva source linked to this template (optional).</small><input type="url" value={canvaUrl} onChange={e => setCanvaUrl(e.target.value)} placeholder="https://www.canva.com/design/..."/></label>
-          </div>
-        </section>
+        <nav className="adm-editor-tabs" role="tablist" aria-label="Template setup">
+          {[
+            ["design", "Design"],
+            ["layout", "Layout"],
+            ["details", "Details"],
+            ["music", "Music"]
+          ].map(([id, label], index) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={editorTab === id}
+              className={editorTab === id ? "active" : ""}
+              onClick={() => setEditorTab(id)}
+            >
+              <span>{String(index + 1).padStart(2, "0")}</span>{label}
+            </button>
+          ))}
+        </nav>
 
-        <section className="adm-simple-card">
-          <div className="adm-card-title"><span>02</span><div><h2>{existingBuiltInTemplateKey ? "Built-in animated design" : "Upload finished design"}</h2><p>{existingBuiltInTemplateKey ? "This Royal Palace template is already installed and ready to preview." : "Export your design from Canva, then upload the video file here."}</p></div></div>
-          {existingBuiltInTemplateKey && <p className="adm-simple-note"><b>Built-in template:</b> The Royal Palace animation is already installed. Customer names and event details remain editable in the wedding preview; you do not need to upload another video for this template.</p>}
-          <div className="adm-upload-grid" style={{ display: existingBuiltInTemplateKey ? "none" : "grid" }}>
-            <label className="adm-upload-box"><input type="file" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" onChange={e => setDesignFile(e.target.files?.[0] || null)}/><Icon name="upload"/><strong>{designFile?.name || existingDesignName || "Choose invitation video"}</strong><small>MP4, WebM, MOV or image background</small>{(designFile || existingDesignKey) && <span className="adm-file-selected">Design file selected</span>}</label>
-            <label className="adm-upload-box"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setThumbnailFile(e.target.files?.[0] || null)}/><Icon name="upload"/><strong>{thumbnailFile?.name || existingThumbnailName || "Choose gallery thumbnail"}</strong><small>PNG, JPG or WebP</small>{(thumbnailFile || existingThumbnailKey) && <span className="adm-file-selected">Thumbnail selected</span>}</label>
-          </div>
-          {!existingBuiltInTemplateKey && canvaUrl && <p className="adm-canva-source">Canva source: <a href={canvaUrl} target="_blank" rel="noreferrer">Open editable design ↗</a></p>}
-          {!existingBuiltInTemplateKey && <p className="adm-simple-note"><b>Important:</b> A Canva-exported MP4 is a finished flat video. Customer names, dates and photos can be collected separately, but replacing text inside the video needs a personalization/rendering step. Uploading alone does not edit the MP4.</p>}
-          {existingBuiltInTemplateKey && <p className="adm-simple-note">The Royal Palace composition is already connected to the wedding details form, live preview and 30-second MP4 export.</p>}
-          {existingBuiltInTemplateKey === "royal-palace" && <div className="adm-built-in-preview">
-            <div className="adm-built-in-preview__copy"><strong>Animated template preview</strong><small>30 seconds · vertical 9:16 · editable customer details</small></div>
-            <div className="adm-built-in-preview__frame"><iframe title="Royal Palace animated invitation preview" srcDoc={builtInRoyalPreviewHtml} sandbox="allow-scripts" /></div>
-          </div>}
-          {(designFile?.type.startsWith("video/") || assetUrls[existingDesignKey]) && <video className="adm-upload-preview" controls muted src={filePreviewUrls.design || assetUrls[existingDesignKey]}/>}
-          {(thumbnailFile || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl) && <img className="adm-thumbnail-preview" src={filePreviewUrls.thumbnail || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl} alt="Template thumbnail preview"/>}
-        </section>
+        {editorTab === "design" && <>
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>01</span><div><h2>Template information</h2><p>Give this invitation a clear name and category.</p></div></div>
+            <div className="adm-form-grid">
+              <label className="adm-form-field">Template name
+                <input value={title} onChange={event => setTitle(event.target.value)} maxLength={80} placeholder="e.g. Royal Palace Wedding"/>
+              </label>
+              <label className="adm-form-field">Category
+                <select value={category} onChange={event => changeCategory(event.target.value)}>{CATEGORIES.map(value => <option key={value}>{value}</option>)}</select>
+              </label>
+              <label className="adm-form-field adm-span-two">Short description
+                <textarea value={description} onChange={event => setDescription(event.target.value)} rows="2" maxLength={220} placeholder="Describe the visual style of this invitation."/>
+              </label>
+              <label className="adm-form-field adm-span-two" style={{ display: existingBuiltInTemplateKey ? "none" : "flex" }}>Canva source link (optional)
+                <input type="url" value={canvaUrl} onChange={event => setCanvaUrl(event.target.value)} placeholder="https://www.canva.com/design/..."/>
+              </label>
+            </div>
+          </section>
 
-        <section className="adm-simple-card">
-          <div className="adm-card-title"><span>03</span><div><h2>What can customers change?</h2><p>Tick only the details that belong to this invitation.</p></div></div>
-          <div className="adm-customer-fields">
-            {fields.map(field => <label className="adm-customer-field" key={field.key}>
-              <input type="checkbox" checked={field.enabled} onChange={e => updateField(field.key, { enabled: e.target.checked })}/>
-              <span><strong>{field.label}</strong><small>{field.type === "photos" ? "Customer can add photos" : field.required ? "Required detail" : "Optional detail"}</small></span>
-              <select value={field.required ? "required" : "optional"} disabled={!field.enabled || field.type === "photos"} onChange={e => updateField(field.key, { required: e.target.value === "required" })}><option value="required">Required</option><option value="optional">Optional</option></select>
-            </label>)}
-          </div>
-          <p className="adm-simple-note">These choices define the customer form. The video renderer must still be connected to place those values into the final invitation.</p>
-        </section>
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>02</span><div><h2>Canva background</h2><p>Upload the finished background only. All invitation wording stays outside this file.</p></div></div>
+            <div className="adm-upload-grid">
+              <label className="adm-upload-box">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,video/mp4,video/webm"
+                  onChange={handleBackgroundFileChange}
+                />
+                <Icon name="upload"/>
+                <strong>{designFile?.name || existingDesignName || "Choose background image or video"}</strong>
+                <small>PNG, JPG, WebP, MP4 or WebM</small>
+                {(designFile || existingDesignKey) && <span className="adm-file-selected">Background saved in this template</span>}
+              </label>
+              <label className="adm-upload-box">
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleThumbnailFileChange}/>
+                <Icon name="upload"/>
+                <strong>{thumbnailFile?.name || existingThumbnailName || "Choose gallery thumbnail"}</strong>
+                <small>PNG, JPG or WebP</small>
+                {(thumbnailFile || existingThumbnailKey) && <span className="adm-file-selected">Thumbnail saved in this template</span>}
+              </label>
+            </div>
+            {canvaUrl && <p className="adm-canva-source">Canva source: <a href={canvaUrl} target="_blank" rel="noreferrer">Open editable design ↗</a></p>}
+            {backgroundPreviewUrl && (
+              <div className="adm-background-preview">
+                <strong>Current background preview</strong>
+                {backgroundPreviewType.startsWith("video/") ? (
+                  <video className="adm-upload-preview" controls muted playsInline loop src={backgroundPreviewUrl}/>
+                ) : (
+                  <img className="adm-upload-preview" src={backgroundPreviewUrl} alt="Uploaded Canva background preview"/>
+                )}
+              </div>
+            )}
+            {(thumbnailFile || assetUrls[existingThumbnailKey]) && (
+              <div className="adm-thumbnail-preview-wrap">
+                <strong>Gallery thumbnail</strong>
+                <img className="adm-thumbnail-preview" src={filePreviewUrls.thumbnail || assetUrls[existingThumbnailKey]} alt="Template gallery thumbnail"/>
+              </div>
+            )}
+            <p className="adm-simple-note">Background, thumbnail and default music files are stored in this browser's IndexedDB. They are restored when this Admin page is reopened on the same browser.</p>
+          </section>
 
-        <section className="adm-simple-card">
-          <div className="adm-card-title"><span>04</span><div><h2>Music options</h2><p>Choose the music you provide and whether customers may use their own.</p></div></div>
-          <label className="adm-form-field">Your default music track <input type="file" accept="audio/*" onChange={e => setMusicFile(e.target.files?.[0] || null)}/><small>{musicFile?.name || existingMusicName || "No default music selected yet"}</small></label>
-          {(musicFile || assetUrls[existingMusicKey]) && <audio className="adm-audio-preview" controls src={filePreviewUrls.music || assetUrls[existingMusicKey]}/>}
-          <label className="adm-switch-row"><input type="checkbox" checked={allowCustomerMusic} onChange={e => setAllowCustomerMusic(e.target.checked)}/><span><b>Allow customers to upload their own music</b><small>Customers can keep your default track or choose their own.</small></span><i/></label>
-        </section>
+          <section className="adm-simple-card adm-canva-guide">
+            <div className="adm-card-title"><span>03</span><div><h2>Canva design guide</h2><p>Use these rules before exporting your background.</p></div></div>
+            <div className="adm-guide-facts">
+              <div><small>CANVAS SIZE</small><strong>1080 × 1920 px</strong><span>Portrait · 9:16</span></div>
+              <div><small>SAFE MARGIN</small><strong>8% on every edge</strong><span>Keep important decoration inside this boundary.</span></div>
+            </div>
+            <ul className="adm-guide-list">
+              <li>Keep the bride/groom name area empty.</li>
+              <li>Keep date, time, venue and address areas empty.</li>
+              <li>Leave photo areas clear for customer uploads.</li>
+              <li>Do not bake text, names, dates, captions, logos or watermarks into the background.</li>
+              <li>Accepted background formats: PNG, JPG, WebP, MP4 and WebM. Thumbnail: PNG, JPG or WebP.</li>
+            </ul>
+          </section>
+        </>}
+
+        {editorTab === "layout" && <>
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>01</span><div><h2>Preset layouts</h2><p>Choose a ready-made arrangement. Text and photo slots are positioned automatically.</p></div></div>
+            <div className="adm-preset-grid">
+              {LAYOUT_PRESETS.map(preset => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={layoutPresetId === preset.id ? "active" : ""}
+                  aria-pressed={layoutPresetId === preset.id}
+                  onClick={() => { setLayoutPresetId(preset.id); setLayoutMode("preset"); setManualLayoutHtml(""); }}
+                >
+                  <span className="adm-preset-mini" aria-hidden="true">
+                    {preset.elements.slice(0, 5).map((element, index) => (
+                      <i key={element.key + index} className={element.type === "photo" ? "photo" : "text"} style={{ left: element.x + "%", top: element.y + "%", width: element.w + "%", height: element.h + "%" }}/>
+                    ))}
+                  </span>
+                  <strong>{preset.name}</strong>
+                  <small>{preset.description}</small>
+                  <em>{preset.elements.length} positioned elements · timed reveal</em>
+                </button>
+              ))}
+            </div>
+            <div className="adm-layout-mode-row">
+              <div><strong>Editing mode</strong><small>Start with a preset; use Fine-tune only when you need custom positioning.</small></div>
+              <div>
+                <button type="button" className={layoutMode === "preset" ? "active" : ""} onClick={() => setLayoutMode("preset")}>Preset</button>
+                <button type="button" className={layoutMode === "fine-tune" ? "active" : ""} onClick={() => setLayoutMode("fine-tune")}>Fine-tune</button>
+              </div>
+            </div>
+          </section>
+
+          {layoutMode === "preset" ? (
+            <section className="adm-simple-card">
+              <div className="adm-card-title"><span>02</span><div><h2>Automatic placement preview</h2><p>{selectedLayoutPreset.description} The text and photo slots use the selected preset's font, size, colour and timing.</p></div></div>
+              <div className="adm-layout-preview-frame">
+                <iframe title="Preset invitation layout preview" srcDoc={layoutPreviewDocument} sandbox="allow-scripts"/>
+              </div>
+              {!backgroundPreviewUrl && <p className="adm-simple-note">Upload a Canva background in the Design tab to preview the real artwork behind these sample placements.</p>}
+            </section>
+          ) : (
+            <section className="adm-simple-card">
+              <div className="adm-card-title"><span>02</span><div><h2>Fine-tune layout</h2><p>Drag elements to move, resize with the corner handle, rotate, and adjust text properties.</p></div></div>
+              {backgroundPreviewUrl ? (
+                <WeddingVideoEditor
+                  title={title || "Invitation layout"}
+                  previewDocument={layoutPreviewDocument}
+                  onSave={saveManualLayout}
+                />
+              ) : (
+                <p className="adm-simple-note">Upload a background in the Design tab before opening Fine-tune mode.</p>
+              )}
+            </section>
+          )}
+        </>}
+
+        {editorTab === "details" && <>
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>01</span><div><h2>Always included customer details</h2><p>These seven fields stay editable for every template. They cannot be disabled here.</p></div></div>
+            <div className="adm-always-field-grid">
+              {ALWAYS_EDITABLE_FIELDS.map(field => (
+                <div key={field.key} className="adm-always-field">
+                  <span><strong>{field.label}</strong><small>{field.required ? "Required by default" : "Optional by default"}</small></span>
+                  <em>Always included</em>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>02</span><div><h2>Template custom fields</h2><p>Keep category-specific fields or add your own. Optional fields can be hidden from this template.</p></div></div>
+            <div className="adm-customer-fields">
+              {fields.filter(field => !ALWAYS_EDITABLE_KEYS.has(field.key)).map(field => (
+                <div className="adm-customer-field" key={field.key}>
+                  <input type="checkbox" checked={field.enabled} onChange={event => updateField(field.key, { enabled: event.target.checked })}/>
+                  <span>
+                    {field.custom ? (
+                      <input className="adm-custom-field-label" aria-label="Custom field label" value={field.label} onChange={event => updateField(field.key, { label: event.target.value })}/>
+                    ) : <strong>{field.label}</strong>}
+                    <small>{field.custom ? "Custom customer field" : field.type === "photos" ? "Customer photo slot" : "Category field"}</small>
+                  </span>
+                  <select aria-label={"Requirement for " + field.label} value={field.required ? "required" : "optional"} disabled={!field.enabled} onChange={event => updateField(field.key, { required: event.target.value === "required" })}>
+                    <option value="required">Required</option><option value="optional">Optional</option>
+                  </select>
+                  {field.custom && <button type="button" onClick={() => setFields(current => current.filter(item => item.key !== field.key))}>Remove</button>}
+                </div>
+              ))}
+            </div>
+            <div className="adm-add-field">
+              <input value={customFieldLabel} onChange={event => setCustomFieldLabel(event.target.value)} maxLength={70} placeholder="Add a custom field (e.g. RSVP phone)"/>
+              <button type="button" disabled={!customFieldLabel.trim()} onClick={addCustomField}>Add field</button>
+            </div>
+          </section>
+
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>03</span><div><h2>Sample customer details form</h2><p>This Admin-only form lets you test the values that will populate the layout. It does not change the live customer website.</p></div></div>
+            <form className="adm-sample-form" onSubmit={event => event.preventDefault()}>
+              {alwaysSampleFields.map(field => (
+                <label key={field.key}>
+                  {field.label}
+                  {field.type === "textarea" ? (
+                    <textarea rows="3" maxLength={field.maxLength} value={sampleValues[field.key] || ""} onChange={event => setSampleValues(current => ({ ...current, [field.key]: event.target.value }))}/>
+                  ) : (
+                    <input type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"} maxLength={field.type === "date" || field.type === "time" ? undefined : field.maxLength} value={sampleValues[field.key] || ""} onChange={event => setSampleValues(current => ({ ...current, [field.key]: event.target.value }))}/>
+                  )}
+                </label>
+              ))}
+              {customSampleFields.map(field => (
+                <label key={field.key}>
+                  {field.label}
+                  <input value={sampleValues[field.key] || ""} maxLength={field.maxLength || 120} onChange={event => setSampleValues(current => ({ ...current, [field.key]: event.target.value }))}/>
+                </label>
+              ))}
+              <div className="adm-sample-actions">
+                <button className="adm-secondary-btn" type="button" onClick={resetSampleValues}>Reset to sample</button>
+                <span>Sample values are saved with this Admin template.</span>
+              </div>
+            </form>
+          </section>
+        </>}
+
+        {editorTab === "music" && <>
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>01</span><div><h2>Default music</h2><p>Upload the track that should be selected when this template is used.</p></div></div>
+            <label className="adm-upload-box adm-audio-upload">
+              <input type="file" accept="audio/*" onChange={event => { setMusicFile(event.target.files?.[0] || null); setExistingMusicName(event.target.files?.[0]?.name || ""); }}/>
+              <Icon name="upload"/>
+              <strong>{musicFile?.name || existingMusicName || "Choose default music track"}</strong>
+              <small>Audio file · stored in this browser's IndexedDB</small>
+            </label>
+            {(musicFile || assetUrls[existingMusicKey]) && (
+              <audio className="adm-audio-preview" controls src={filePreviewUrls.music || assetUrls[existingMusicKey]}/>
+            )}
+          </section>
+
+          <section className="adm-simple-card">
+            <div className="adm-card-title"><span>02</span><div><h2>Customer music permissions</h2><p>These options are saved with the template for the customer form integration.</p></div></div>
+            <label className="adm-switch-row">
+              <input type="checkbox" checked={allowCustomerMusic} onChange={event => setAllowCustomerMusic(event.target.checked)}/>
+              <span><b>Customers can upload their own music</b><small>Allow customers to replace the default track with their own upload.</small></span><i/>
+            </label>
+            <label className="adm-switch-row">
+              <input type="checkbox" checked={allowCustomerRemoveMusic} onChange={event => setAllowCustomerRemoveMusic(event.target.checked)}/>
+              <span><b>Customers can remove music</b><small>Allow a silent invitation even when a default track exists.</small></span><i/>
+            </label>
+            <p className="adm-music-rights-notice"><strong>Music upload rights notice</strong><span>{MUSIC_RIGHTS_NOTICE}</span><small>Stored with this template for display beside the customer upload control when the customer form is connected. This pass does not edit the live customer site.</small></p>
+          </section>
+        </>}
 
         {formError && <p className="adm-form-error" role="alert">{formError}</p>}
-        <footer className="adm-simple-footer"><button className="adm-quiet-btn" type="button" onClick={() => setEditorOpen(false)}>Cancel</button><div><button className="adm-secondary-btn" type="button" disabled={saving} onClick={() => saveTemplate(false)}>{saving ? "Saving…" : "Save draft"}</button><button className="adm-primary-btn" type="button" disabled={saving} onClick={() => saveTemplate(true)}>{saving ? "Saving…" : "Publish template"}</button></div></footer>
-        <p className="adm-storage-note">Prototype storage: template details are saved in localStorage; uploaded design, thumbnail and music files are saved in this browser's IndexedDB only.</p>
+        <footer className="adm-simple-footer">
+          <button className="adm-quiet-btn" type="button" onClick={() => setEditorOpen(false)}>Cancel</button>
+          <div>
+            <button className="adm-secondary-btn" type="button" disabled={saving} onClick={() => saveTemplate(false)}>{saving ? "Saving…" : "Save draft"}</button>
+            <button className="adm-primary-btn" type="button" disabled={saving} onClick={() => saveTemplate(true)}>{saving ? "Saving…" : "Publish template"}</button>
+          </div>
+        </footer>
+        <p className="adm-storage-note">Admin-only prototype: template settings are saved in localStorage; the background, thumbnail and default music files are stored in this browser's IndexedDB. Nothing is sent to the customer site or a database.</p>
       </div>
     </main>;
   }
