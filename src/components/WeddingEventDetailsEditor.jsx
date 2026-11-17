@@ -4,7 +4,7 @@ import { WeddingTemplateMotionPreview } from "./WeddingTemplateMotionPreview.jsx
 import { VintageStorybookMotionPreview } from "./VintageStorybookMotionPreview.jsx";
 import { WeddingMediaUploadControls } from "./WeddingMediaUploadControls.jsx";
 import { VideoRenderPanel } from "./VideoRenderPanel.jsx";
-import { buildRoyalPalaceInvitationHtml, ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL } from "../templates/royalPalaceInvitation.js";
+import { buildRoyalPalaceInvitationHtml, createRoyalPalaceDefaultMusicDataUrl } from "../templates/royalPalaceInvitation.js";
 import {
   WEDDING_VIDEO_DURATION_FRAMES,
   WEDDING_VIDEO_FPS,
@@ -46,7 +46,7 @@ async function imageUrlToDataUrl(url) {
 }
 
 async function audioUrlToDataUrl(url) {
-  if (!url) return ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL;
+  if (!url) return createRoyalPalaceDefaultMusicDataUrl();
   const response = await fetch(url);
   if (!response.ok) throw new Error("Could not read the selected music.");
   const blob = await response.blob();
@@ -63,7 +63,7 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
   const [saved, setSaved] = useState(false);
   const [media, setMedia] = useState({ photos: [], videos: [], musicUrl: "" });
   const [royalPhotoDataUrl, setRoyalPhotoDataUrl] = useState("");
-  const [royalMusicDataUrl, setRoyalMusicDataUrl] = useState(ROYAL_PALACE_DEFAULT_MUSIC_DATA_URL);
+  const [royalMusicDataUrl, setRoyalMusicDataUrl] = useState(createRoyalPalaceDefaultMusicDataUrl());
   const [royalMediaError, setRoyalMediaError] = useState("");
   const isRoyalPalaceTemplate = template.styleId === "royal" || template.compositionId === "royal-palace-html";
 
