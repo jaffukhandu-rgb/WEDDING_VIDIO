@@ -6,17 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "render:server": "node server/render-server.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@remotion/player": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "remotion": "latest",
-    "express": "^4.21.2",
-    "ffmpeg-static": "^5.2.0",
-    "playwright": "^1.52.0"
+    "remotion": "latest"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "latest",

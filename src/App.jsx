@@ -18,7 +18,6 @@ import {
   WEDDING_VIDEO_FPS,
 } from "./data/weddingVideoConfig.js";
 import { TemplateArtwork } from "./components/TemplateArtwork.jsx";
-import { AdminPanel } from "./components/AdminPanel.jsx";
 import { buildRoyalPalaceInvitationHtml } from "./templates/royalPalaceInvitation.js";
 
 const SORT_OPTIONS = [
@@ -39,21 +38,6 @@ const INITIAL_WEDDING_DETAILS = {
 };
 
 const STORAGE_KEY = "event-video-template-usage-v1";
-const ADMIN_TEMPLATE_STORAGE_KEY = "wedding-template-manager-v1";
-
-function readRoyalTemplatePublished() {
-  if (typeof window === "undefined") return true;
-  try {
-    const saved = JSON.parse(window.localStorage.getItem(ADMIN_TEMPLATE_STORAGE_KEY) || "[]");
-    const royal = Array.isArray(saved)
-      ? saved.find((template) => template?.builtInTemplateKey === "royal-palace")
-      : null;
-    return royal ? royal.status === "Published" : true;
-  } catch {
-    return true;
-  }
-}
-
 function readTemplateUsage() {
   if (typeof window === "undefined") return {};
 
@@ -85,16 +69,12 @@ export default function App() {
   const [templateUsage, setTemplateUsage] = useState(readTemplateUsage);
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [weddingDetails, setWeddingDetails] = useState(INITIAL_WEDDING_DETAILS);
-  const [royalTemplatePublished] = useState(readRoyalTemplatePublished);
 
 
-  const designs = useMemo(() => {
-    const occasionTemplates = getTemplatesForOccasion(selectedOccasion, null);
-    if (selectedOccasion === "wedding" && !royalTemplatePublished) {
-      return occasionTemplates.filter((design) => design.styleId !== "royal");
-    }
-    return occasionTemplates;
-  }, [selectedOccasion, royalTemplatePublished]);
+  const designs = useMemo(
+    () => getTemplatesForOccasion(selectedOccasion, null),
+    [selectedOccasion],
+  );
 
   const visibleDesigns = useMemo(() => {
     const filtered = designs.filter((design) => {
@@ -185,10 +165,6 @@ export default function App() {
     setPreviewTemplate(design);
   };
 
-  if (typeof window !== "undefined" && window.location.pathname === "/admin") {
-    return <AdminPanel />;
-  }
-
   return (
     <main className="app-shell">
       <section className="hero-section">
@@ -198,7 +174,6 @@ export default function App() {
         <nav className="topbar" aria-label="Main">
           <div className="brand-mark" aria-hidden="true">W</div>
           <span className="brand-name">Event Video Maker</span>
-          <a className="step-label" href="/admin" style={{ textDecoration: "none" }}>Admin ↗</a>
         </nav>
 
         <div className="hero-copy">
