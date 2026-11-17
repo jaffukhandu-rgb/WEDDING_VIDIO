@@ -44,3 +44,8 @@ For a deployed application, deploy this service to a host that supports persiste
 - One render runs at a time; HTML input is limited to 1 MB.
 - Outbound network requests from the render browser are blocked for safety. Use embedded/data-URI images, fonts and media in the HTML.
 - The renderer uses browser screenshots as video frames. Very complex pages may render slower than real time.
+
+
+### Optional invitation music
+
+The `POST /api/render` request may include `audioBase64` and `audioMimeType` alongside `html`. Supported audio MIME types are MP3, WAV, M4A/MP4, AAC, OGG and WebM. Music is limited to 8 MB, looped to the 30-second video duration, and faded out during the final 3 seconds. Requests without an audio track continue to render silently.
