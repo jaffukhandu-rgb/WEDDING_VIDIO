@@ -340,3 +340,11 @@
 .adm-built-in-preview__frame{width:220px;height:391px;overflow:hidden;border:1px solid rgba(217,189,131,.35);border-radius:12px;background:#160b10}
 .adm-built-in-preview__frame iframe{width:540px;height:960px;display:block;border:0;transform:scale(.4074);transform-origin:top left}
 @media(max-width:700px){.adm-built-in-preview{grid-template-columns:1fr;justify-items:center}.adm-built-in-preview__copy{width:100%}}
+
+.adm-built-in-card-art{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 38%,#83513d 0,#4c1c2c 44%,#1b0a14 100%);text-align:center}
+.adm-built-in-card-art:before,.adm-built-in-card-art:after{position:absolute;content:"";width:66%;height:130%;top:-15%;border:1px solid rgba(235,197,126,.58);border-radius:50% 50% 0 0}
+.adm-built-in-card-art:after{width:54%;top:-10%;border-color:rgba(255,229,174,.24)}
+.adm-built-in-card-art span,.adm-built-in-card-art strong,.adm-built-in-card-art small{position:relative;z-index:1}
+.adm-built-in-card-art span{color:#eed4a2;font:10px Georgia,serif;letter-spacing:3px}
+.adm-built-in-card-art strong{color:#fff0d2;font:600 18px Manrope,serif;letter-spacing:.04em;text-shadow:0 2px 18px rgba(0,0,0,.45)}
+.adm-built-in-card-art small{color:#d7b87c;font:8px 'DM Sans',sans-serif;letter-spacing:2px}
