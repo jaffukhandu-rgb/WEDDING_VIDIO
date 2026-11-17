@@ -38,13 +38,135 @@ const FIELD_PRESETS = {
   Other: [["Main title", "mainTitle"], ["Event date", "eventDate"], ["Event time", "eventTime"], ["Venue", "venue"], ["Message", "message"], ["Photos", "photos"]]
 };
 
+const ALWAYS_EDITABLE_FIELDS = [
+  { label: "Bride name", key: "brideName", type: "text", required: true, maxLength: 100 },
+  { label: "Groom name", key: "groomName", type: "text", required: true, maxLength: 100 },
+  { label: "Event date", key: "eventDate", type: "date", required: true, maxLength: 40 },
+  { label: "Event time", key: "eventTime", type: "time", required: false, maxLength: 40 },
+  { label: "Venue name", key: "venueName", type: "text", required: true, maxLength: 120 },
+  { label: "Venue address", key: "venueAddress", type: "textarea", required: false, maxLength: 240 },
+  { label: "Invitation message", key: "invitationMessage", type: "textarea", required: false, maxLength: 500 }
+];
+const ALWAYS_EDITABLE_KEYS = new Set(ALWAYS_EDITABLE_FIELDS.map(field => field.key));
+
+const SAMPLE_CUSTOMER_VALUES = {
+  brideName: "Aarav",
+  groomName: "Kiara",
+  eventDate: "24 April 2027",
+  eventTime: "6:30 PM",
+  venueName: "The Royal Garden",
+  venueAddress: "Pune, Maharashtra",
+  invitationMessage: "With joyful hearts, we invite you to celebrate our special day."
+};
+
+const LAYOUT_PRESETS = [
+  {
+    id: "names-photo-details",
+    name: "Names + photo + details",
+    description: "Couple names at the top, one large photo in the middle, date and venue below.",
+    elements: [
+      { key: "brideName", label: "Bride name", x: 8, y: 8, w: 84, h: 7, fontSize: 5.2, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1, end: 29 },
+      { key: "groomName", label: "Groom name", x: 8, y: 16, w: 84, h: 7, fontSize: 5.2, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1.5, end: 29 },
+      { key: "photo1", label: "Main photo", type: "photo", x: 17, y: 29, w: 66, h: 32, start: 4, end: 27 },
+      { key: "eventDate", label: "Date", x: 10, y: 66, w: 80, h: 5, fontSize: 3.5, font: "Arial", color: "#f2d39b", align: "center", weight: 700, start: 7, end: 29 },
+      { key: "venueName", label: "Venue", x: 8, y: 73, w: 84, h: 6, fontSize: 4, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 9, end: 29 },
+      { key: "venueAddress", label: "Address", x: 8, y: 80, w: 84, h: 5, fontSize: 2.5, font: "Arial", color: "#f4e5d0", align: "center", weight: 400, start: 10, end: 29 },
+      { key: "invitationMessage", label: "Message", x: 9, y: 87, w: 82, h: 7, fontSize: 2.4, font: "Georgia", color: "#f4e5d0", align: "center", weight: 400, start: 12, end: 29 }
+    ]
+  },
+  {
+    id: "names-only",
+    name: "Names only",
+    description: "A clean typographic treatment with names, date and venue. No photo slots.",
+    elements: [
+      { key: "brideName", label: "Bride name", x: 8, y: 27, w: 84, h: 9, fontSize: 6, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1, end: 29 },
+      { key: "groomName", label: "Groom name", x: 8, y: 38, w: 84, h: 9, fontSize: 6, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 2, end: 29 },
+      { key: "eventDate", label: "Date", x: 10, y: 56, w: 80, h: 6, fontSize: 3.8, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 5, end: 29 },
+      { key: "venueName", label: "Venue", x: 8, y: 65, w: 84, h: 7, fontSize: 4.2, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 7, end: 29 },
+      { key: "invitationMessage", label: "Message", x: 12, y: 76, w: 76, h: 10, fontSize: 2.7, font: "Georgia", color: "#f4e5d0", align: "center", weight: 400, start: 9, end: 29 }
+    ]
+  },
+  {
+    id: "photo-heavy-three-slots",
+    name: "Photo-heavy · 3 slots",
+    description: "Three stacked photo moments with couple names and a compact event footer.",
+    elements: [
+      { key: "brideName", label: "Bride name", x: 8, y: 5, w: 84, h: 6, fontSize: 4.5, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1, end: 29 },
+      { key: "groomName", label: "Groom name", x: 8, y: 12, w: 84, h: 6, fontSize: 4.5, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 1.5, end: 29 },
+      { key: "photo1", label: "Photo slot 1", type: "photo", x: 12, y: 22, w: 76, h: 17, start: 3, end: 29 },
+      { key: "photo2", label: "Photo slot 2", type: "photo", x: 12, y: 42, w: 76, h: 17, start: 6, end: 29 },
+      { key: "photo3", label: "Photo slot 3", type: "photo", x: 12, y: 62, w: 76, h: 17, start: 9, end: 29 },
+      { key: "eventDate", label: "Date", x: 8, y: 82, w: 84, h: 5, fontSize: 3, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 12, end: 29 },
+      { key: "venueName", label: "Venue", x: 8, y: 88, w: 84, h: 5, fontSize: 3.1, font: "Georgia", color: "#fff1dc", align: "center", weight: 600, start: 13, end: 29 }
+    ]
+  },
+  {
+    id: "centred-minimal",
+    name: "Centred minimal",
+    description: "One calm central composition with the names, message, date and venue.",
+    elements: [
+      { key: "brideName", label: "Bride name", x: 10, y: 26, w: 80, h: 8, fontSize: 5.4, font: "Georgia", color: "#fff4e4", align: "center", weight: 500, start: 1, end: 29 },
+      { key: "groomName", label: "Groom name", x: 10, y: 36, w: 80, h: 8, fontSize: 5.4, font: "Georgia", color: "#fff4e4", align: "center", weight: 500, start: 2, end: 29 },
+      { key: "invitationMessage", label: "Message", x: 14, y: 47, w: 72, h: 12, fontSize: 2.8, font: "Georgia", color: "#f0dfc7", align: "center", weight: 400, start: 4, end: 29 },
+      { key: "photo1", label: "Photo", type: "photo", x: 32, y: 62, w: 36, h: 15, start: 7, end: 27 },
+      { key: "eventDate", label: "Date", x: 10, y: 80, w: 80, h: 5, fontSize: 3.3, font: "Arial", color: "#e6c58d", align: "center", weight: 700, start: 10, end: 29 },
+      { key: "venueName", label: "Venue", x: 10, y: 86, w: 80, h: 5, fontSize: 3.4, font: "Georgia", color: "#fff4e4", align: "center", weight: 500, start: 12, end: 29 }
+    ]
+  }
+];
+
 function getDefaultFields(category) {
-  return (FIELD_PRESETS[category] || FIELD_PRESETS.Other).map(([label, key]) => ({
-    label, key, enabled: ["brideName", "groomName", "eventDate", "venueName"].includes(key) || (category !== "Wedding" && ["celebrantName", "eventDate", "venueName", "mainTitle"].includes(key)),
-    required: ["brideName", "groomName", "celebrantName", "eventDate", "venueName", "mainTitle"].includes(key),
-    type: key === "eventDate" ? "date" : key === "eventTime" ? "time" : key === "photos" ? "photos" : ["invitationMessage", "venueAddress", "message", "greetingMessage"].includes(key) ? "textarea" : "text",
-    maxLength: key === "invitationMessage" || key === "message" || key === "greetingMessage" ? 300 : 100
+  const defaults = ALWAYS_EDITABLE_FIELDS.map(field => ({
+    ...field, enabled: true, custom: false
   }));
+  const extra = (FIELD_PRESETS[category] || FIELD_PRESETS.Other)
+    .filter(([, key]) => !ALWAYS_EDITABLE_KEYS.has(key))
+    .map(([label, key]) => ({
+      label, key, enabled: true, required: false, custom: false,
+      type: key === "eventDate" ? "date" : key === "eventTime" ? "time" : key === "photos" ? "photos" : ["invitationMessage", "venueAddress", "message", "greetingMessage"].includes(key) ? "textarea" : "text",
+      maxLength: key === "invitationMessage" || key === "message" || key === "greetingMessage" ? 300 : 100
+    }));
+  const seen = new Set();
+  return [...defaults, ...extra].filter(field => {
+    if (seen.has(field.key)) return false;
+    seen.add(field.key);
+    return true;
+  });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+  })[character]);
+}
+
+function buildLayoutPreviewDocument(backgroundUrl, backgroundType, preset, sampleValues) {
+  const background = backgroundUrl
+    ? (backgroundType.startsWith("video/")
+      ? '<video class="background" src="' + escapeHtml(backgroundUrl) + '" autoplay muted loop playsinline></video>'
+      : '<img class="background" src="' + escapeHtml(backgroundUrl) + '" alt="">')
+    : '<div class="background-empty">Your Canva background will appear here</div>';
+
+  const elements = (preset?.elements || []).map(element => {
+    const isPhoto = element.type === "photo";
+    const content = isPhoto
+      ? '<span>PHOTO SLOT</span><small>' + escapeHtml(element.label) + '</small>'
+      : escapeHtml(sampleValues[element.key] || element.label);
+    const delay = Number(element.start || 0);
+    const hideDelay = Math.max(delay, Number(element.end || 30) - 0.35);
+    return '<div class="layout-item ' + (isPhoto ? "photo-slot" : "text-slot") + '" data-field="' + escapeHtml(element.key) + '" data-start="' + delay + '" data-end="' + Number(element.end || 30) + '" style="left:' + element.x + '%;top:' + element.y + '%;width:' + element.w + '%;height:' + element.h + '%;font-size:' + element.fontSize + 'cqw;font-family:' + escapeHtml(element.font || "Georgia") + ';font-weight:' + Number(element.weight || 400) + ';color:' + escapeHtml(element.color || "#fff") + ';text-align:' + escapeHtml(element.align || "center") + ';--enter-delay:' + delay + 's;--exit-delay:' + hideDelay + 's">' + content + '</div>';
+  }).join("");
+
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
+    '*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#151015;font-family:Georgia,serif}' +
+    '#stage{position:relative;width:100%;height:100%;aspect-ratio:9/16;container-type:inline-size;overflow:hidden;background:linear-gradient(150deg,#4d2533,#151015)}' +
+    '.background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.background-empty{position:absolute;inset:0;display:grid;place-items:center;padding:12%;color:#efdfbd;text-align:center;background:linear-gradient(150deg,#4d2533,#151015);font:4cqw Arial,sans-serif}' +
+    '.safe-margin{position:absolute;inset:8%;border:1px dashed rgba(255,255,255,.24);pointer-events:none}' +
+    '.layout-item{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding:1.2%;line-height:1.2;overflow-wrap:anywhere;opacity:0;animation:reveal .55s ease var(--enter-delay) both,hide .35s ease var(--exit-delay) both}' +
+    '.photo-slot{border:2px dashed rgba(255,244,220,.9);border-radius:3cqw;background:rgba(26,13,18,.48);color:#fff4df;text-shadow:0 1px 6px #000;font:3cqw Arial,sans-serif;letter-spacing:.12em}' +
+    '.photo-slot small{margin-top:1.5%;font-size:2.1cqw;opacity:.82}.text-slot{text-shadow:0 2px 9px rgba(0,0,0,.52)}' +
+    '@keyframes reveal{from{opacity:0;transform:translateY(1.6cqw)}to{opacity:1;transform:translateY(0)}}@keyframes hide{to{opacity:0}}' +
+    '</style></head><body><main id="stage">' + background + '<div class="safe-margin"></div>' + elements + '</main></body></html>';
 }
 
 const INITIAL_WEDDING = {
