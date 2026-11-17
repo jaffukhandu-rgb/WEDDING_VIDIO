@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./AdminPanel.css";
+import { buildRoyalPalaceInvitationHtml } from "../templates/royalPalaceInvitation.js";
 
 const TEMPLATE_STORAGE_KEY = "wedding-template-manager-v1";
 const ASSET_DB_NAME = "wedding-template-assets";
@@ -149,6 +150,16 @@ function Icon({ name }) {
 
 export function AdminPanel() {
   const [templates, setTemplates] = useState(readTemplates);
+  const builtInRoyalPreviewHtml = useMemo(() => buildRoyalPalaceInvitationHtml({
+    brideName: "Aarav",
+    groomName: "Kiara",
+    date: "24 April 2027",
+    time: "6:30 PM",
+    venue: "The Royal Garden",
+    address: "Pune, Maharashtra",
+    message: "With joyful hearts, we invite you to celebrate our wedding day.",
+    host: "Together with our families"
+  }), []);
   const [activeSection, setActiveSection] = useState("library");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -342,6 +353,10 @@ export function AdminPanel() {
           {!existingBuiltInTemplateKey && canvaUrl && <p className="adm-canva-source">Canva source: <a href={canvaUrl} target="_blank" rel="noreferrer">Open editable design ↗</a></p>}
           {!existingBuiltInTemplateKey && <p className="adm-simple-note"><b>Important:</b> A Canva-exported MP4 is a finished flat video. Customer names, dates and photos can be collected separately, but replacing text inside the video needs a personalization/rendering step. Uploading alone does not edit the MP4.</p>}
           {existingBuiltInTemplateKey && <p className="adm-simple-note">The Royal Palace composition is already connected to the wedding details form, live preview and 30-second MP4 export.</p>}
+          {existingBuiltInTemplateKey === "royal-palace" && <div className="adm-built-in-preview">
+            <div><strong>Animated template preview</strong><small>30 seconds · vertical 9:16 · editable customer details</small></div>
+            <iframe title="Royal Palace animated invitation preview" srcDoc={builtInRoyalPreviewHtml} sandbox="allow-scripts" />
+          </div>}
           {(designFile?.type.startsWith("video/") || assetUrls[existingDesignKey]) && <video className="adm-upload-preview" controls muted src={filePreviewUrls.design || assetUrls[existingDesignKey]}/>}
           {(thumbnailFile || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl) && <img className="adm-thumbnail-preview" src={filePreviewUrls.thumbnail || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl} alt="Template thumbnail preview"/>}
         </section>
