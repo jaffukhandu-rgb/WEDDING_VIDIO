@@ -3,7 +3,7 @@ import "./VideoRenderPanel.css";
 
 const RENDER_API = (import.meta.env.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
 
-export function VideoRenderPanel({ html, title }) {
+export function VideoRenderPanel({ html, title, audioDataUrl = "" }) {
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
@@ -22,17 +22,24 @@ export function VideoRenderPanel({ html, title }) {
     setError("");
   // A new source means the previous MP4 is stale.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html]);
+  }, [html, audioDataUrl]);
 
   const generateVideo = async () => {
     if (rendering) return;
     setRendering(true);
     setError("");
     try {
+      let audioPayload = {};
+      if (audioDataUrl) {
+        const match = audioDataUrl.match(/^data:(audio\\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+        if (!match) throw new Error("The selected music could not be prepared for export.");
+        if (match[2].length > 11 * 1024 * 1024) throw new Error("Choose a music file smaller than 8 MB.");
+        audioPayload = { audioMimeType: match[1], audioBase64: match[2] };
+      }
       const response = await fetch(`${RENDER_API}/api/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html }),
+        body: JSON.stringify({ html, ...audioPayload }),
       });
       if (!response.ok) {
         let message = "Video generation failed. Please try again.";
@@ -67,7 +74,7 @@ export function VideoRenderPanel({ html, title }) {
         <div>
           <p className="visual-eyebrow">VIDEO EXPORT</p>
           <h3>Generate your invitation video</h3>
-          <p>Render the current HTML, CSS and JavaScript into a real 30-second MP4 file.</p>
+          <p>Render this exact invitation preview into a 30-second MP4, including the selected music.</p>
         </div>
         <button type="button" onClick={generateVideo} disabled={rendering || !html?.trim()}>
           {rendering ? "Rendering 30-second video…" : videoUrl ? "↻ Regenerate MP4" : "▶ Generate 30-second MP4"}
@@ -98,7 +105,7 @@ export function VideoRenderPanel({ html, title }) {
           <p>Your finished video will appear here after rendering.</p>
         </div>
       )}
-      <p className="video-render-footnote">The rendering service must be running. For safety, remote network assets are blocked during rendering; embed images, fonts and media in your HTML.</p>
+      <p className="video-render-footnote">The rendering service must be running. Preview text, photos and the selected music are included in the exported MP4.</p>
     </section>
   );
 }
