@@ -220,7 +220,7 @@ export function WeddingEventDetailsEditor({ template, details, onDetailsChange }
         )}
       </aside>
 
-      <WeddingMediaUploadControls onChange={setMedia} />
+      <WeddingMediaUploadControls onChange={setMedia} showVideos={!isRoyalPalaceTemplate} maxPhotos={isRoyalPalaceTemplate ? 1 : 6} />
 
       <div style={{ marginTop: 24 }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
