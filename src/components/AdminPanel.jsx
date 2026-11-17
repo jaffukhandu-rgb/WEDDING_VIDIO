@@ -204,6 +204,14 @@ export function AdminPanel() {
     template.title.toLowerCase().includes(search.trim().toLowerCase())
   ), [templates, categoryFilter, statusFilter, search]);
 
+  const filePreviewUrls = useMemo(() => ({
+    design: designFile ? URL.createObjectURL(designFile) : "",
+    thumbnail: thumbnailFile ? URL.createObjectURL(thumbnailFile) : "",
+    music: musicFile ? URL.createObjectURL(musicFile) : ""
+  }), [designFile, thumbnailFile, musicFile]);
+
+  useEffect(() => () => Object.values(filePreviewUrls).filter(Boolean).forEach(url => URL.revokeObjectURL(url)), [filePreviewUrls]);
+
   const publishedCount = templates.filter(t => t.status === "Published").length;
   const draftCount = templates.filter(t => t.status !== "Published").length;
 
@@ -319,8 +327,8 @@ export function AdminPanel() {
           </div>
           {canvaUrl && <p className="adm-canva-source">Canva source: <a href={canvaUrl} target="_blank" rel="noreferrer">Open editable design ↗</a></p>}
           <p className="adm-simple-note"><b>Important:</b> A Canva-exported MP4 is a finished flat video. Customer names, dates and photos can be collected separately, but replacing text inside the video needs a personalization/rendering step. Uploading alone does not edit the MP4.</p>
-          {(designFile?.type.startsWith("video/") || assetUrls[existingDesignKey]) && <video className="adm-upload-preview" controls muted src={designFile ? URL.createObjectURL(designFile) : assetUrls[existingDesignKey]}/>}
-          {(thumbnailFile || assetUrls[existingThumbnailKey]) && <img className="adm-thumbnail-preview" src={thumbnailFile ? URL.createObjectURL(thumbnailFile) : assetUrls[existingThumbnailKey]} alt="Template thumbnail preview"/>}
+          {(designFile?.type.startsWith("video/") || assetUrls[existingDesignKey]) && <video className="adm-upload-preview" controls muted src={filePreviewUrls.design || assetUrls[existingDesignKey]}/>}
+          {(thumbnailFile || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl) && <img className="adm-thumbnail-preview" src={filePreviewUrls.thumbnail || assetUrls[existingThumbnailKey] || templates.find(t => t.id === editingId)?.thumbnailUrl} alt="Template thumbnail preview"/>}
         </section>
 
         <section className="adm-simple-card">
@@ -338,7 +346,7 @@ export function AdminPanel() {
         <section className="adm-simple-card">
           <div className="adm-card-title"><span>04</span><div><h2>Music options</h2><p>Choose the music you provide and whether customers may use their own.</p></div></div>
           <label className="adm-form-field">Your default music track <input type="file" accept="audio/*" onChange={e => setMusicFile(e.target.files?.[0] || null)}/><small>{musicFile?.name || existingMusicName || "No default music selected yet"}</small></label>
-          {(musicFile || assetUrls[existingMusicKey]) && <audio className="adm-audio-preview" controls src={musicFile ? URL.createObjectURL(musicFile) : assetUrls[existingMusicKey]}/>}
+          {(musicFile || assetUrls[existingMusicKey]) && <audio className="adm-audio-preview" controls src={filePreviewUrls.music || assetUrls[existingMusicKey]}/>}
           <label className="adm-switch-row"><input type="checkbox" checked={allowCustomerMusic} onChange={e => setAllowCustomerMusic(e.target.checked)}/><span><b>Allow customers to upload their own music</b><small>Customers can keep your default track or choose their own.</small></span><i/></label>
         </section>
 
@@ -371,7 +379,7 @@ export function AdminPanel() {
         <div className="adm-library-toolbar"><label className="adm-search"><Icon name="search"/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search templates…"/></label><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option>All</option><option>Draft</option><option>Published</option></select></div>
         <div className="adm-category-pills">{["All", ...CATEGORIES].map(c => <button key={c} className={categoryFilter === c ? "active" : ""} onClick={() => setCategoryFilter(c)} type="button">{c}</button>)}</div>
         {filteredTemplates.length ? <div className="adm-template-grid">{filteredTemplates.map(template => <article className="adm-template-card" key={template.id}>
-          <div className="adm-template-art">{assetUrls[template.thumbnailKey] ? <img src={assetUrls[template.thumbnailKey]} alt=""/> : <><span className="adm-art-orbit"/><span className="adm-art-monogram">✦</span><span className="adm-art-label">{template.category.toUpperCase()}</span></>}<span className="adm-card-status">{template.status}</span></div>
+          <div className="adm-template-art">{assetUrls[template.thumbnailKey] || template.thumbnailUrl ? <img src={assetUrls[template.thumbnailKey] || template.thumbnailUrl} alt=""/> : <><span className="adm-art-orbit"/><span className="adm-art-monogram">✦</span><span className="adm-art-label">{template.category.toUpperCase()}</span></>}<span className="adm-card-status">{template.status}</span></div>
           <div className="adm-template-info"><div className="adm-template-title-row"><div><h3>{template.title}</h3><span>{template.category}</span></div></div><p>{template.description || "No description added"} </p><div className="adm-template-meta"><span>{template.fields?.filter(f => f.enabled).length || 0} customer details</span><span>{template.musicKey ? "Music included" : "No default music"}</span></div>
             {template.sourceLabel && <small className="adm-canva-draft-note">{template.sourceLabel}</small>}
             <div className="adm-template-actions"><button type="button" onClick={() => openEditor(template)}>Edit</button>{template.status === "Published" ? <button type="button" onClick={() => setTemplateStatus(template.id, "Draft")}>Unpublish</button> : <button type="button" disabled={!template.designKey || !template.thumbnailKey} onClick={() => setTemplateStatus(template.id, "Published")}>Publish</button>}<button className="adm-delete-btn" type="button" onClick={() => removeTemplate(template)}>Delete</button></div>
