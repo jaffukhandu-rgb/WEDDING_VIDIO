@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./AdminPanel.css";
 import { buildRoyalPalaceInvitationHtml } from "../templates/royalPalaceInvitation.js";
+import { WeddingVideoEditor } from "./WeddingVideoEditor.jsx";
 
 const TEMPLATE_STORAGE_KEY = "wedding-template-manager-v1";
 const ASSET_DB_NAME = "wedding-template-assets";
@@ -169,6 +170,22 @@ function buildLayoutPreviewDocument(backgroundUrl, backgroundType, preset, sampl
     '</style></head><body><main id="stage">' + background + '<div class="safe-margin"></div>' + elements + '</main></body></html>';
 }
 
+
+function mergeCustomerFields(category, savedFields = []) {
+  const savedByKey = new Map(savedFields.map(field => [field.key, field]));
+  const defaults = getDefaultFields(category).map(field => {
+    const saved = savedByKey.get(field.key);
+    savedByKey.delete(field.key);
+    return {
+      ...field,
+      ...(saved || {}),
+      enabled: ALWAYS_EDITABLE_KEYS.has(field.key) ? true : (saved?.enabled ?? field.enabled),
+      required: ALWAYS_EDITABLE_KEYS.has(field.key) ? field.required : (saved?.required ?? field.required)
+    };
+  });
+  return defaults.concat([...savedByKey.values()].map(field => ({ ...field, custom: true })));
+}
+
 const INITIAL_WEDDING = {
   id: "canva-royal-palace-wedding",
   title: "Royal Palace Wedding Invitation · 30s",
@@ -284,6 +301,12 @@ export function AdminPanel() {
     host: "Together with our families"
   }), []);
   const [activeSection, setActiveSection] = useState("library");
+  const [editorTab, setEditorTab] = useState("design");
+  const [layoutPresetId, setLayoutPresetId] = useState("names-photo-details");
+  const [layoutMode, setLayoutMode] = useState("preset");
+  const [manualLayoutHtml, setManualLayoutHtml] = useState("");
+  const [sampleValues, setSampleValues] = useState({ ...SAMPLE_CUSTOMER_VALUES });
+  const [customFieldLabel, setCustomFieldLabel] = useState("");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -305,9 +328,11 @@ export function AdminPanel() {
   const [existingMusicName, setExistingMusicName] = useState("");
   const [fields, setFields] = useState(getDefaultFields("Wedding"));
   const [allowCustomerMusic, setAllowCustomerMusic] = useState(true);
+  const [allowCustomerRemoveMusic, setAllowCustomerRemoveMusic] = useState(false);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [assetUrls, setAssetUrls] = useState({});
+  const [assetFiles, setAssetFiles] = useState({});
   const urlsRef = useRef([]);
 
   useEffect(() => {
@@ -333,9 +358,11 @@ export function AdminPanel() {
         results.filter(Boolean).forEach(([, url]) => URL.revokeObjectURL(url));
         return;
       }
-      const next = Object.fromEntries(results.filter(Boolean));
+      const loaded = Object.fromEntries(results.filter(Boolean));
+      const next = Object.fromEntries(Object.entries(loaded).map(([key, file]) => [key, URL.createObjectURL(file)]));
       urlsRef.current.forEach(URL.revokeObjectURL);
       urlsRef.current = Object.values(next);
+      setAssetFiles(loaded);
       setAssetUrls(next);
     });
     return () => { cancelled = true; };
@@ -356,6 +383,27 @@ export function AdminPanel() {
   }), [designFile, thumbnailFile, musicFile]);
 
   useEffect(() => () => Object.values(filePreviewUrls).filter(Boolean).forEach(url => URL.revokeObjectURL(url)), [filePreviewUrls]);
+  const backgroundPreviewUrl = designFile ? filePreviewUrls.design : assetUrls[existingDesignKey] || "";
+  const backgroundPreviewType = designFile?.type || assetFiles[existingDesignKey]?.type || "";
+  const selectedLayoutPreset = LAYOUT_PRESETS.find(preset => preset.id === layoutPresetId) || LAYOUT_PRESETS[0];
+  const layoutPreviewDocument = useMemo(() => {
+    if (layoutMode === "fine-tune" && manualLayoutHtml) {
+      return manualLayoutHtml.split("__TEMPLATE_BACKGROUND__").join(backgroundPreviewUrl);
+    }
+    return buildLayoutPreviewDocument(backgroundPreviewUrl, backgroundPreviewType, selectedLayoutPreset, sampleValues);
+  }, [layoutMode, manualLayoutHtml, backgroundPreviewUrl, backgroundPreviewType, selectedLayoutPreset, sampleValues]);
+
+  const saveManualLayout = html => {
+    const savedHtml = backgroundPreviewUrl
+      ? html.split(backgroundPreviewUrl).join("__TEMPLATE_BACKGROUND__")
+      : html;
+    setManualLayoutHtml(savedHtml);
+    setLayoutMode("fine-tune");
+    setFormError("");
+  };
+
+  const resetSampleValues = () => setSampleValues({ ...SAMPLE_CUSTOMER_VALUES });
+
 
   const publishedCount = templates.filter(t => t.status === "Published").length;
   const draftCount = templates.filter(t => t.status !== "Published").length;
@@ -378,6 +426,14 @@ export function AdminPanel() {
     setExistingMusicName(template?.musicName || "");
     setFields(template?.fields?.length ? template.fields.map(f => ({ ...f })) : getDefaultFields(template?.category || "Wedding"));
     setAllowCustomerMusic(template?.allowCustomerMusic ?? true);
+    setAllowCustomerRemoveMusic(template?.allowCustomerRemoveMusic ?? false);
+    setEditorTab("design");
+    setLayoutPresetId(template?.layoutPresetId || "names-photo-details");
+    setLayoutMode(template?.layoutMode === "fine-tune" && template?.manualLayoutHtml ? "fine-tune" : "preset");
+    setManualLayoutHtml(template?.manualLayoutHtml || "");
+    setSampleValues({ ...SAMPLE_CUSTOMER_VALUES, ...(template?.sampleValues || {}) });
+    setCustomFieldLabel("");
+    setFields(mergeCustomerFields(template?.category || "Wedding", template?.fields || []));
     setFormError("");
     setEditorOpen(true);
   };
@@ -388,7 +444,21 @@ export function AdminPanel() {
   };
 
   const updateField = (key, patch) => {
-    setFields(current => current.map(field => field.key === key ? { ...field, ...patch } : field));
+    setFields(current => current.map(field => field.key === key
+      ? { ...field, ...patch, ...(ALWAYS_EDITABLE_KEYS.has(key) ? { enabled: true, required: field.required } : {}) }
+      : field));
+  };
+
+  const addCustomField = () => {
+    const label = customFieldLabel.trim();
+    if (!label) return;
+    const baseKey = "custom_" + label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    const key = fields.some(field => field.key === baseKey) ? baseKey + "_" + Date.now().toString(36) : baseKey;
+    setFields(current => [...current, {
+      label, key, enabled: true, required: false, type: "text", maxLength: 120, custom: true
+    }]);
+    setSampleValues(current => ({ ...current, [key]: "" }));
+    setCustomFieldLabel("");
   };
 
   const saveTemplate = async publish => {
@@ -415,7 +485,10 @@ export function AdminPanel() {
         designName: designFile?.name || existingDesignName || "",
         thumbnailName: thumbnailFile?.name || existingThumbnailName || "",
         musicName: musicFile?.name || existingMusicName || "",
-        fields, allowCustomerMusic, status: publish ? "Published" : "Draft",
+        fields: mergeCustomerFields(category, fields), allowCustomerMusic, allowCustomerRemoveMusic,
+        musicRightsNotice: "Only upload music you created, own, or have permission to use.",
+        layoutPresetId, layoutMode, manualLayoutHtml, sampleValues,
+        status: publish ? "Published" : "Draft",
         updatedAt: new Date().toISOString()
       };
       setTemplates(current => editingId ? current.map(t => t.id === id ? record : t) : [record, ...current]);
