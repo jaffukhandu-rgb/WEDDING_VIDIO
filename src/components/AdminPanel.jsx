@@ -49,12 +49,14 @@ const ALWAYS_EDITABLE_FIELDS = [
   { label: "Invitation message", key: "invitationMessage", type: "textarea", required: false, maxLength: 500 }
 ];
 const ALWAYS_EDITABLE_KEYS = new Set(ALWAYS_EDITABLE_FIELDS.map(field => field.key));
+const MUSIC_RIGHTS_NOTICE = "Only upload music you created, own, or have permission to use.";
+const ACCEPTED_BACKGROUND_TYPES = ["image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm"];
 
 const SAMPLE_CUSTOMER_VALUES = {
   brideName: "Aarav",
   groomName: "Kiara",
-  eventDate: "24 April 2027",
-  eventTime: "6:30 PM",
+  eventDate: "2027-04-24",
+  eventTime: "18:30",
   venueName: "The Royal Garden",
   venueAddress: "Pune, Maharashtra",
   invitationMessage: "With joyful hearts, we invite you to celebrate our special day."
@@ -135,6 +137,16 @@ function getDefaultFields(category) {
   });
 }
 
+function formatSampleValue(key, value) {
+  if (key === "eventDate" && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(value || ""))) {
+    return new Date(value + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  }
+  if (key === "eventTime" && /^\\d{2}:\\d{2}$/.test(String(value || ""))) {
+    return new Date("2000-01-01T" + value + ":00").toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  return value || "";
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
@@ -152,7 +164,7 @@ function buildLayoutPreviewDocument(backgroundUrl, backgroundType, preset, sampl
     const isPhoto = element.type === "photo";
     const content = isPhoto
       ? '<span>PHOTO SLOT</span><small>' + escapeHtml(element.label) + '</small>'
-      : escapeHtml(sampleValues[element.key] || element.label);
+      : escapeHtml(formatSampleValue(element.key, sampleValues[element.key]) || element.label);
     const delay = Number(element.start || 0);
     const hideDelay = Math.max(delay, Number(element.end || 30) - 0.35);
     return '<div class="layout-item ' + (isPhoto ? "photo-slot" : "text-slot") + '" data-field="' + escapeHtml(element.key) + '" data-start="' + delay + '" data-end="' + Number(element.end || 30) + '" style="left:' + element.x + '%;top:' + element.y + '%;width:' + element.w + '%;height:' + element.h + '%;font-size:' + element.fontSize + 'cqw;font-family:' + escapeHtml(element.font || "Georgia") + ';font-weight:' + Number(element.weight || 400) + ';color:' + escapeHtml(element.color || "#fff") + ';text-align:' + escapeHtml(element.align || "center") + ';--enter-delay:' + delay + 's;--exit-delay:' + hideDelay + 's">' + content + '</div>';
@@ -404,6 +416,38 @@ export function AdminPanel() {
 
   const resetSampleValues = () => setSampleValues({ ...SAMPLE_CUSTOMER_VALUES });
 
+  const handleBackgroundFileChange = event => {
+    const file = event.target.files?.[0] || null;
+    if (!file) return;
+    if (!ACCEPTED_BACKGROUND_TYPES.includes(file.type)) {
+      setFormError("Use a PNG, JPG, WebP, MP4 or WebM background file.");
+      event.target.value = "";
+      return;
+    }
+    setDesignFile(file);
+    setExistingDesignName(file.name);
+    setManualLayoutHtml("");
+    setLayoutMode("preset");
+    setFormError("");
+    event.target.value = "";
+  };
+
+  const handleThumbnailFileChange = event => {
+    const file = event.target.files?.[0] || null;
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setFormError("Thumbnail must be a PNG, JPG or WebP image.");
+      event.target.value = "";
+      return;
+    }
+    setThumbnailFile(file);
+    setExistingThumbnailName(file.name);
+    setFormError("");
+    event.target.value = "";
+  };
+
+
+
 
   const publishedCount = templates.filter(t => t.status === "Published").length;
   const draftCount = templates.filter(t => t.status !== "Published").length;
@@ -424,7 +468,6 @@ export function AdminPanel() {
     setExistingDesignName(template?.designName || template?.sourceLabel || "");
     setExistingThumbnailName(template?.thumbnailName || "");
     setExistingMusicName(template?.musicName || "");
-    setFields(template?.fields?.length ? template.fields.map(f => ({ ...f })) : getDefaultFields(template?.category || "Wedding"));
     setAllowCustomerMusic(template?.allowCustomerMusic ?? true);
     setAllowCustomerRemoveMusic(template?.allowCustomerRemoveMusic ?? false);
     setEditorTab("design");
@@ -468,6 +511,10 @@ export function AdminPanel() {
     if (!thumbnailFile && !existingThumbnailKey && !existingBuiltInTemplateKey) { setFormError("Add a thumbnail image for the customer gallery."); return; }
     if (!designFile && !existingDesignKey && !existingBuiltInTemplateKey) { setFormError("Upload the Canva-exported video or image file."); return; }
     if (!fields.some(field => field.enabled)) { setFormError("Select at least one customer detail."); return; }
+    if (designFile && !ACCEPTED_BACKGROUND_TYPES.includes(designFile.type)) {
+      setFormError("Use a PNG, JPG, WebP, MP4 or WebM background file.");
+      return;
+    }
 
     const id = editingId || "template_" + Date.now();
     const designKey = designFile ? id + "_design" : existingDesignKey;
@@ -486,7 +533,7 @@ export function AdminPanel() {
         thumbnailName: thumbnailFile?.name || existingThumbnailName || "",
         musicName: musicFile?.name || existingMusicName || "",
         fields: mergeCustomerFields(category, fields), allowCustomerMusic, allowCustomerRemoveMusic,
-        musicRightsNotice: "Only upload music you created, own, or have permission to use.",
+        musicRightsNotice: MUSIC_RIGHTS_NOTICE,
         layoutPresetId, layoutMode, manualLayoutHtml, sampleValues,
         status: publish ? "Published" : "Draft",
         updatedAt: new Date().toISOString()
