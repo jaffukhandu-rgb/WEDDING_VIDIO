@@ -73,9 +73,10 @@ function readTemplates() {
     const hasSeed = saved.some(item => item?.id === INITIAL_WEDDING.id);
     if (!hasSeed) return [INITIAL_WEDDING, ...saved];
     return saved.map(item => item.id === INITIAL_WEDDING.id
-      ? { ...INITIAL_WEDDING, ...item, builtInTemplateKey: INITIAL_WEDDING.builtInTemplateKey,
-          designName: INITIAL_WEDDING.designName, sourceLabel: INITIAL_WEDDING.sourceLabel,
-          status: item.builtInTemplateKey ? item.status : "Published" }
+      ? { ...INITIAL_WEDDING, ...item, title: INITIAL_WEDDING.title,
+          description: INITIAL_WEDDING.description, canvaUrl: "", thumbnailUrl: null,
+          builtInTemplateKey: INITIAL_WEDDING.builtInTemplateKey, designName: INITIAL_WEDDING.designName,
+          sourceLabel: INITIAL_WEDDING.sourceLabel, status: item.builtInTemplateKey ? item.status : "Published" }
       : item);
   } catch {
     return [INITIAL_WEDDING];
