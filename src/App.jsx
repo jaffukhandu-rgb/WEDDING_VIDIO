@@ -174,6 +174,13 @@ export default function App() {
         <nav className="topbar" aria-label="Main">
           <div className="brand-mark" aria-hidden="true">W</div>
           <span className="brand-name">Event Video Maker</span>
+          <a
+            href="/admin.html"
+            aria-label="Open Admin Studio"
+            style={{ marginLeft: "auto", color: "inherit", border: "1px solid currentColor", borderRadius: "8px", padding: "8px 14px", textDecoration: "none" }}
+          >
+            Admin
+          </a>
         </nav>
 
         <div className="hero-copy">
