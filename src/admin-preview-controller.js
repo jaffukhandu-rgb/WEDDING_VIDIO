@@ -4,7 +4,7 @@ const CHANNEL = "wedding-admin-preview-controls-v1";
 
 // Runs before the invitation's own scripts. Intercepts its timers so Pause does not
 // leave a scene/replay timeout advancing while CSS animations are stopped.
-const BRIDGE = String.raw\`
+const BRIDGE = String.raw`
 (() => {
   "use strict";
   const CHANNEL = "wedding-admin-preview-controls-v1";
@@ -182,7 +182,7 @@ const BRIDGE = String.raw\`
     window.parent.postMessage({ channel: CHANNEL, state: "ready" }, "*");
   }, { once: true });
 })();
-\`;
+`;
 
 // Avoid putting controls in the user's source or including them in downloaded HTML.
 function makePreviewHtml(html) {
