@@ -97,8 +97,9 @@ export function analyzeTemplate(html){
   if(new TextEncoder().encode(html).length>1024*1024)throw new Error('HTML exceeds 1 MB.');
   if(!/<!doctype\s+html/i.test(html)||!/<main\b/i.test(html))throw new Error('Expected a complete HTML invitation document.');
   const {start,end}=getConfigRange(html),body=html.slice(start+1,end),config={};
-  for(const key of Object.keys(FIELD_TYPES)){const value=readValue(body,key);if(value!==undefined)config[key]=value;}
   const eventData=parseEvents(body);
+  const eventFreeBody=eventData?body.slice(0,eventData.range.start)+body.slice(eventData.range.end+1):body;
+  for(const key of Object.keys(FIELD_TYPES)){const value=readValue(eventFreeBody,key);if(value!==undefined)config[key]=value;}
   if(eventData)config.events=eventData.events;
   if(!Object.keys(config).length)throw new Error('No supported customer fields detected.');
   if(config.date!==undefined&&!validDate(config.date))throw new Error('Invalid sample wedding date.');
