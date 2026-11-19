@@ -46,13 +46,63 @@ function readValue(body,key){
   }
   throw new Error('Only literal strings and a literal photos array are supported for '+key+'.');
 }
+
+function eventRange(body){
+  const match=/\\bevents\\s*:\\s*\\[/.exec(body);
+  if(!match)return null;
+  const start=match.index+match[0].length-1;
+  let depth=0,quote='',escape=false;
+  for(let i=start;i<body.length;i++){
+    const ch=body[i];
+    if(quote){if(escape)escape=false;else if(ch==='\\\\')escape=true;else if(ch===quote)quote='';continue;}
+    if(ch==='"'||ch==="'"){quote=ch;continue;}
+    if(ch==='[')depth++;
+    if(ch===']'&&--depth===0)return {start,end:i};
+  }
+  throw new Error('Events array is incomplete.');
+}
+function parseEvents(body){
+  const range=eventRange(body);
+  if(!range)return null;
+  const raw=body.slice(range.start+1,range.end);
+  const events=[];
+  const objectPattern=/\\{([^{}]*)\\}/g;
+  let match;
+  while((match=objectPattern.exec(raw))){
+    const item={};
+    for(const pair of match[1].matchAll(/(?:^|,)\\s*([a-zA-Z_$][\\w$]*)\\s*:\\s*(["'])(.*?)\\2\\s*(?=,|$)/gs)){
+      item[pair[1]]=pair[3];
+    }
+    if(!Object.keys(item).length)throw new Error('Unsupported event data; use literal string properties.');
+    events.push(item);
+  }
+  if(!events.length||events.length>7)throw new Error('Supported event count is 1 to 7.');
+  const leftover=raw.replace(objectPattern,'').replace(/[\\s,]/g,'');
+  if(leftover)throw new Error('Events must contain simple literal objects; complex expressions require review.');
+  for(const [index,event] of events.entries()){
+    if(typeof event.date!=='string')throw new Error('Event '+(index+1)+' needs a date.');
+  }
+  return {events,range};
+}
+function validDate(value){
+  const match=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(value);
+  if(!match)return false;
+  const year=+match[1],month=+match[2],day=+match[3],utc=new Date(0);
+  utc.setUTCFullYear(year,month-1,day);
+  return utc.getUTCFullYear()===year&&utc.getUTCMonth()===month-1&&utc.getUTCDate()===day;
+}
+
 export function analyzeTemplate(html){
   if(typeof html!=='string'||!html.trim())throw new Error('Upload a nonempty HTML file.');
   if(new TextEncoder().encode(html).length>1024*1024)throw new Error('HTML exceeds 1 MB.');
   if(!/<!doctype\s+html/i.test(html)||!/<main\b/i.test(html))throw new Error('Expected a complete HTML invitation document.');
   const {start,end}=getConfigRange(html),body=html.slice(start+1,end),config={};
   for(const key of Object.keys(FIELD_TYPES)){const value=readValue(body,key);if(value!==undefined)config[key]=value;}
-  if(!config.partner1||!config.partner2||!config.date||!config.venue)throw new Error('Required CONFIG fields: partner1, partner2, date, venue.');
+  const eventData=parseEvents(body);
+  if(eventData)config.events=eventData.events;
+  if(!Object.keys(config).length)throw new Error('No supported customer fields detected.');
+  if(config.date!==undefined&&!validDate(config.date))throw new Error('Invalid sample wedding date.');
+  if(eventData&&eventData.events.some(event=>!validDate(event.date)))throw new Error('An event has an invalid sample date.');
   const scenes=[...html.matchAll(/<section\b[^>]*class=["'][^"']*\bscene\b[^"']*["'][^>]*>/gi)];
   if(!scenes.length)throw new Error('No scene sections found.');
   const indexes=scenes.map(m=>Number(m[0].match(/--i\s*:\s*(\d+)/)?.[1]));
@@ -62,7 +112,7 @@ export function analyzeTemplate(html){
   if(/https?:\/\//i.test(html))warnings.push('Remote fonts and assets are blocked.');
   if(/Math\.random\s*\(/.test(html))warnings.push('Random animations may not render identically.');
   if(/setTimeout\s*\(\s*play\s*,/.test(html))warnings.push('Automatic replay requires an export adapter.');
-  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount:scenes.length,fields:Object.keys(config),config,warnings,range:{start,end}};
+  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount:scenes.length,fields:Object.keys(config),config,warnings,range:{start,end},eventMode:!!eventData};
 }
 export function prepareTemplate(html,values){
   const report=analyzeTemplate(html),config={...report.config};
@@ -74,16 +124,22 @@ export function prepareTemplate(html,values){
     }else if(typeof value!=='string'||value.length>(key==='message'?1000:300))throw new Error('Invalid '+key+'.');
     config[key]=value;
   }
-  if(!config.partner1.trim()||!config.partner2.trim()||!config.venue.trim())throw new Error('Names and venue are required.');
-  // Validate calendar components in UTC; never compare a local date to a UTC ISO string.
-  const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(config.date);
-  if(!match)throw new Error('Wedding date must be in YYYY-MM-DD format. Choose a date in the sample preview.');
-  const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);
-  const utc=new Date(0);
-  utc.setUTCFullYear(year,month-1,day);
-  if(utc.getUTCFullYear()!==year||utc.getUTCMonth()!==month-1||utc.getUTCDate()!==day){
-    throw new Error('Wedding date is not a valid calendar date.');
+  for(const key of ['partner1','partner2','venue']){
+    if(key in config&&!String(config[key]).trim())throw new Error(key+' cannot be empty.');
   }
+  if(report.eventMode&&'events' in values){
+    if(!Array.isArray(values.events)||values.events.length!==config.events.length)throw new Error('Event count must match the template.');
+    config.events=values.events.map((event,i)=>{
+      const original=config.events[i],updated={...original};
+      for(const key of Object.keys(original)){
+        if(typeof event[key]!=='string'||event[key].length>300)throw new Error('Invalid event '+(i+1)+' '+key);
+        updated[key]=event[key];
+      }
+      if(!validDate(updated.date))throw new Error('Invalid date for event '+(i+1));
+      return updated;
+    });
+  }
+  if('date' in config&&!validDate(config.date))throw new Error('Invalid wedding date.');
   const replacement=JSON.stringify(config).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
   const prepared=html.slice(0,report.range.start)+replacement+html.slice(report.range.end+1);
   const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">`;
