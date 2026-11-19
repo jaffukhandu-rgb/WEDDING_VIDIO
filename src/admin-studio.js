@@ -53,7 +53,7 @@ async function analyzeSource(text){
     showProgress(100,'Analysis complete');
     setStatus('Analysis complete. Customer fields detected. Sample values are for preview only.','good');
   }catch(error){
-    showProgress(100,'Analysis stopped with an error');
+    showProgress(0,'Analysis failed — review the error below');
     setStatus(error instanceof Error?error.message:'Unable to analyze template.','error');
   }finally{
     analysisRunning=false;analyzeButton.disabled=false;fileInput.disabled=false;
@@ -100,11 +100,11 @@ editor.addEventListener('submit',event=>{
       const control=editor.elements.namedItem(key);if(!control)continue;
       values[key]=key==='photos'?control.value.split('|').map(v=>v.trim()).filter(Boolean):control.value;
     }
-    prepared=prepareTemplate(source,values);
+    save.disabled=true;prepared=prepareTemplate(source,values);
     const iframe=document.createElement('iframe');iframe.title='Animated invitation preview';
     iframe.setAttribute('sandbox','allow-scripts');iframe.setAttribute('referrerpolicy','no-referrer');iframe.srcdoc=prepared;
     preview.replaceChildren(iframe);save.disabled=false;setStatus('Sample preview prepared. Customer details are not saved.','good');
-  }catch(error){prepared='';save.disabled=true;setStatus(error instanceof Error?error.message:'Preparation failed.','error');}
+  }catch(error){prepared='';save.disabled=true;preview.replaceChildren();setStatus(error instanceof Error?error.message:'Preparation failed.','error');}
 });
 save.addEventListener('click',()=>{
   if(!prepared)return;
