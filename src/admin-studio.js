@@ -1,4 +1,4 @@
-import {analyzeTemplate,prepareTemplate,supportedFields} from './admin-engine.js';
+import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
 const fileInput=document.querySelector('#source'),status=document.querySelector('#status'),report=document.querySelector('#report'),editor=document.querySelector('#editor'),fields=document.querySelector('#fields'),preview=document.querySelector('#preview'),save=document.querySelector('#save');
 const codeInput=document.querySelector('#code-input'),analyzeButton=document.querySelector('#analyze-code'),clearButton=document.querySelector('#clear-code');
 const progress=document.querySelector('#analysis-progress'),progressFill=document.querySelector('#progress-fill'),progressLabel=document.querySelector('#progress-label'),resetSample=document.querySelector('#reset-sample');
@@ -6,13 +6,13 @@ const musicUpload=document.querySelector('#music-upload'),musicPlayer=document.q
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
 const IMAGE_MAX_BYTES=3*1024*1024,AUDIO_MAX_BYTES=8*1024*1024;
 const IMAGE_TYPES=new Set(['image/jpeg','image/png','image/webp']);
-const AUDIO_TYPES=new Set(['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/ogg','audio/mp4','audio/aac','audio/webm']);
+const AUDIO_TYPES=new Set(['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/wave','audio/ogg','audio/mp4','audio/x-m4a','audio/aac','audio/x-aac','audio/webm']);
 function showProgress(percent,label){
   progress.classList.remove('hide');progress.setAttribute('aria-valuenow',String(percent));
   progressFill.style.width=percent+'%';progressLabel.textContent=percent+'% · '+label;
 }
 function nextPaint(){return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
-const labels={partner1:'Partner 1 name',partner2:'Partner 2 name',date:'Wedding date',time:'Wedding time',venue:'Venue',address:'Address',message:'Invitation message',photos:'Photo URLs (data URLs only)',music:'Music (not included in preview)'};
+const labels={partner1:'Partner 1 name',partner2:'Partner 2 name',date:'Wedding date',time:'Wedding time',venue:'Venue',address:'Address',message:'Invitation message'};
 function setStatus(message,type=''){status.textContent=message;status.className=type;}
 function makeField(key,value){
   const wrapper=document.createElement('div');
