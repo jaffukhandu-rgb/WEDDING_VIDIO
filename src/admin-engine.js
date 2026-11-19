@@ -75,8 +75,15 @@ export function prepareTemplate(html,values){
     config[key]=value;
   }
   if(!config.partner1.trim()||!config.partner2.trim()||!config.venue.trim())throw new Error('Names and venue are required.');
-  const date=new Date(config.date+'T00:00:00');
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(config.date)||Number.isNaN(date.valueOf())||date.toISOString().slice(0,10)!==config.date)throw new Error('Invalid wedding date.');
+  // Validate calendar components in UTC; never compare a local date to a UTC ISO string.
+  const match=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(config.date);
+  if(!match)throw new Error('Wedding date must be in YYYY-MM-DD format. Choose a date in the sample preview.');
+  const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);
+  const utc=new Date(0);
+  utc.setUTCFullYear(year,month-1,day);
+  if(utc.getUTCFullYear()!==year||utc.getUTCMonth()!==month-1||utc.getUTCDate()!==day){
+    throw new Error('Wedding date is not a valid calendar date.');
+  }
   const replacement=JSON.stringify(config).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
   const prepared=html.slice(0,report.range.start)+replacement+html.slice(report.range.end+1);
   const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">`;
