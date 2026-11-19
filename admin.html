@@ -115,6 +115,49 @@ main{max-width:1240px;padding:24px 22px 56px}
   .preview-controls{width:100%}
   .preview-controls button{font-size:.82rem}
 }
+
+/* Laptop-first preview: fit the whole 9:16 canvas AND its controls on screen.
+   Keep iframe's intrinsic invitation layout intact; only scale the viewport. */
+.grid>.panel:last-child{min-width:0}
+#preview.preview{
+  position:relative;
+  width:min(100%,300px,max(150px,calc((100dvh - 255px)*9/16)));
+  height:auto;
+  aspect-ratio:9/16;
+  flex:none;
+  margin:10px auto 0;
+}
+#preview.preview iframe{
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  border:0;
+}
+.preview-controls{width:min(100%,300px);max-width:300px;margin:10px auto 0}
+.preview-controls button{min-height:38px;padding:7px 5px;font-size:.84rem}
+.preview-playback-status{font-size:.76rem;margin:6px auto 0}
+.grid>.panel:last-child>.muted{font-size:.76rem;margin:7px auto 0}
+.grid>.panel:last-child{max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.photo-slot{padding:10px;border-color:#43536e;background:#0c1728}
+.photo-slot label{margin-bottom:6px}
+.photo-slot input{font-size:.78rem}
+.photo-slot .photo-thumb.hide{display:none!important}
+.photo-slot .photo-thumb:not(.hide){height:110px;max-height:110px;object-fit:cover}
+.media-editor{padding:12px}
+.media-editor h3{margin-bottom:4px}
+.media-editor .media-note{line-height:1.4}
+.form-card>summary{padding:11px 13px}
+@media(max-width:900px){
+  .grid>.panel:last-child{max-height:none;overflow:visible}
+  #preview.preview{width:min(100%,300px,max(150px,calc((100dvh - 250px)*9/16)))}
+}
+@media(max-height:650px) and (min-width:901px){
+  #preview.preview{width:min(100%,260px,max(130px,calc((100dvh - 220px)*9/16)))}
+  .grid>.panel:last-child{padding:12px}
+  .grid>.panel:last-child h2{margin-bottom:7px}
+}
 </style></head><body><main><header class="top"><div><h1>Invitation Preparation Studio</h1><p>Analyze code, edit sample details and inspect the animated result.</p></div><span class="pill">Development prototype · Not authenticated</span></header><nav class="tabs" aria-label="Upload type"><button class="active" aria-current="page">Via Code</button><button disabled title="Planned for a later phase">Via Canva · Coming later</button></nav><section class="panel"><h2>1. Paste invitation code</h2><p class="muted">Paste a complete, self-contained HTML document with CSS and JavaScript. The current engine supports a literal CONFIG block and numbered scenes (maximum 1 MB).</p><label for="code-input">HTML / CSS / JavaScript code</label><textarea id="code-input" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste your complete HTML invitation code here..." style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;resize:vertical;min-height:230px"></textarea><div class="actions"><button id="analyze-code" class="active" type="button">Analyze Code</button><button id="clear-code" type="button">Clear Code</button></div><details style="margin-top:18px"><summary style="cursor:pointer">Or upload an HTML file</summary><div style="margin-top:12px"><label for="source">Choose HTML file</label><input id="source" type="file" accept=".html,.htm,text/html"></div></details><div id="analysis-progress" class="hide" role="progressbar" aria-label="Code analysis progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div><p class="progress-label" id="progress-label">0% · Waiting</p></div><p id="status" role="status" aria-live="polite">Paste code and click Analyze Code.</p></section><div class="grid"><section class="panel"><h2>2. Detected customer fields</h2><p class="preview-note">Customers will enter their own names, date, venue, photos and other details. Values below are temporary samples for Admin preview only; this page does not publish or save customer details.</p><div id="report" class="muted">Paste a template to analyze scenes and fields.</div><form id="editor" class="hide"><p class="sample-heading">Preview details — not customer submissions</p><div class="fields" id="fields"></div>
 <div class="media-editor" id="music-section">
   <h3>Soundtrack <span class="pill">Optional · All templates</span></h3>
