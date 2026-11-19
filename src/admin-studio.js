@@ -1,8 +1,19 @@
 import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
+import {createPreviewController} from './admin-preview-controller.js';
 const fileInput=document.querySelector('#source'),status=document.querySelector('#status'),report=document.querySelector('#report'),editor=document.querySelector('#editor'),fields=document.querySelector('#fields'),preview=document.querySelector('#preview'),save=document.querySelector('#save');
 const codeInput=document.querySelector('#code-input'),analyzeButton=document.querySelector('#analyze-code'),clearButton=document.querySelector('#clear-code');
 const progress=document.querySelector('#analysis-progress'),progressFill=document.querySelector('#progress-fill'),progressLabel=document.querySelector('#progress-label'),resetSample=document.querySelector('#reset-sample');
 const musicUpload=document.querySelector('#music-upload'),musicPlayer=document.querySelector('#music-player'),removeMusic=document.querySelector('#remove-music'),musicStatus=document.querySelector('#music-status');
+const previewController=createPreviewController({
+  preview,
+  playButton:document.querySelector('#preview-play'),
+  pauseButton:document.querySelector('#preview-pause'),
+  restartButton:document.querySelector('#preview-restart'),
+  playbackStatus:document.querySelector('#preview-playback-status'),
+  musicPlayer,
+  musicUpload,
+  musicStatus
+});
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
 const IMAGE_MAX_BYTES=3*1024*1024,AUDIO_MAX_BYTES=8*1024*1024;
 const IMAGE_TYPES=new Set(['image/jpeg','image/png','image/webp']);
@@ -170,7 +181,8 @@ async function collectPreviewValues(){
   return values;
 }
 function resetPrepared(){
-  source='';prepared='';lastAnalysis=null;save.disabled=true;editor.classList.add('hide');preview.replaceChildren();
+  source='';prepared='';lastAnalysis=null;save.disabled=true;editor.classList.add('hide');
+  previewController.reset();preview.replaceChildren();
   clearMusic();
   report.textContent='Paste a template to analyze scenes and fields.';
 }
@@ -273,20 +285,11 @@ editor.addEventListener('submit',async event=>{
   try{
     const values=await collectPreviewValues();
     prepared=prepareTemplate(source,values);
-    const iframe=document.createElement('iframe');iframe.title='Animated invitation preview';
-    iframe.setAttribute('sandbox','allow-scripts');iframe.setAttribute('referrerpolicy','no-referrer');iframe.srcdoc=prepared;
-    preview.replaceChildren(iframe);
+    previewController.mount(prepared);
     save.disabled=false;
-    const selectedMusic=musicUpload.files?.[0];
-    if(selectedMusic){
-      musicPlayer.currentTime=0;
-      musicPlayer.play().catch(()=>{
-        musicStatus.textContent='Music is ready. Press Play on the soundtrack controls to listen.';
-      });
-    }
     setStatus('Sample preview prepared. Customer details are not saved.','good');
   }catch(error){
-    prepared='';save.disabled=true;preview.replaceChildren();
+    prepared='';save.disabled=true;previewController.reset();preview.replaceChildren();
     setStatus(error instanceof Error?error.message:'Preparation failed.','error');
   }finally{submit.disabled=false;}
 });
