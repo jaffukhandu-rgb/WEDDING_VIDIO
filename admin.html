@@ -158,6 +158,47 @@ main{max-width:1240px;padding:24px 22px 56px}
   .grid>.panel:last-child{padding:12px}
   .grid>.panel:last-child h2{margin-bottom:7px}
 }
+
+/* Preview expansion: never reparent or recreate the running iframe. */
+[hidden]{display:none!important}
+.preview-backdrop{position:fixed;inset:0;z-index:200;background:rgba(2,6,18,.85);backdrop-filter:blur(7px)}
+.preview-modal-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;max-width:100%}
+.preview-modal-heading h2{margin:0}
+.preview-close{min-height:38px;padding:6px 14px;white-space:nowrap;background:#253249;border-color:#64718a}
+.preview-stage{position:relative;width:min(100%,345px);margin:14px auto 0}
+#preview.preview{width:100%;height:auto;aspect-ratio:9/16;margin:0;max-height:none}
+.preview-expand-hitbox{position:absolute;inset:0;z-index:2;width:100%;height:100%;padding:10px;display:flex;align-items:flex-end;justify-content:flex-end;background:transparent;border:0;border-radius:14px;cursor:zoom-in}
+.preview-expand-hitbox:disabled{cursor:default}
+.preview-expand-hitbox span{display:inline-flex;padding:7px 10px;border-radius:8px;color:#fff;background:rgba(5,12,27,.82);border:1px solid rgba(232,234,241,.45);font-size:.78rem;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+.preview-expand-hitbox:hover:not(:disabled){filter:none}
+.preview-expand-hitbox:hover:not(:disabled) span,.preview-expand-hitbox:focus-visible span{background:#263952;border-color:#dfbf82}
+.grid > #preview-panel.is-expanded{
+  position:fixed!important;z-index:201;inset:12px;margin:auto;
+  width:min(860px,calc(100vw - 24px));height:calc(100dvh - 24px);max-height:calc(100dvh - 24px);
+  display:flex;flex-direction:column;align-items:center;overflow-y:auto;overscroll-behavior:contain;
+  border-color:#53627f;background:#10192b;box-shadow:0 24px 100px rgba(0,0,0,.55);
+  padding:18px 22px
+}
+.grid > #preview-panel.is-expanded .preview-modal-heading{max-width:720px}
+.grid > #preview-panel.is-expanded .preview-modal-heading h2{font-size:1.15rem}
+.grid > #preview-panel.is-expanded .preview-stage{
+  width:min(460px,calc((100dvh - 195px)*9/16),calc(100vw - 64px));
+  flex:0 0 auto;margin:10px auto 0
+}
+.grid > #preview-panel.is-expanded .preview-expand-hitbox{display:none}
+.grid > #preview-panel.is-expanded .preview-controls{max-width:460px;width:min(100%,460px);margin:12px auto 0}
+.grid > #preview-panel.is-expanded .preview-controls button{font-size:.92rem;min-height:42px}
+.grid > #preview-panel.is-expanded .preview-playback-status{margin:8px auto 0}
+.grid > #preview-panel.is-expanded > .muted{margin:8px auto 0;max-width:560px}
+@media(max-width:600px){
+  .preview-stage{width:min(100%,330px)}
+  .grid > #preview-panel.is-expanded{inset:0;width:100vw;height:100dvh;max-height:100dvh;border-radius:0;padding:14px}
+  .grid > #preview-panel.is-expanded .preview-stage{width:min(400px,calc((100dvh - 185px)*9/16),calc(100vw - 36px))}
+  .grid > #preview-panel.is-expanded .preview-controls{max-width:360px}
+}
+@media(max-height:520px){
+  .grid > #preview-panel.is-expanded .preview-stage{width:min(460px,calc((100dvh - 170px)*9/16),calc(100vw - 52px))}
+}
 </style></head><body><main><header class="top"><div><h1>Invitation Preparation Studio</h1><p>Analyze code, edit sample details and inspect the animated result.</p></div><span class="pill">Development prototype · Not authenticated</span></header><nav class="tabs" aria-label="Upload type"><button class="active" aria-current="page">Via Code</button><button disabled title="Planned for a later phase">Via Canva · Coming later</button></nav><section class="panel"><h2>1. Paste invitation code</h2><p class="muted">Paste a complete, self-contained HTML document with CSS and JavaScript. The current engine supports a literal CONFIG block and numbered scenes (maximum 1 MB).</p><label for="code-input">HTML / CSS / JavaScript code</label><textarea id="code-input" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste your complete HTML invitation code here..." style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;resize:vertical;min-height:230px"></textarea><div class="actions"><button id="analyze-code" class="active" type="button">Analyze Code</button><button id="clear-code" type="button">Clear Code</button></div><details style="margin-top:18px"><summary style="cursor:pointer">Or upload an HTML file</summary><div style="margin-top:12px"><label for="source">Choose HTML file</label><input id="source" type="file" accept=".html,.htm,text/html"></div></details><div id="analysis-progress" class="hide" role="progressbar" aria-label="Code analysis progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div><p class="progress-label" id="progress-label">0% · Waiting</p></div><p id="status" role="status" aria-live="polite">Paste code and click Analyze Code.</p></section><div class="grid"><section class="panel"><h2>2. Detected customer fields</h2><p class="preview-note">Customers will enter their own names, date, venue, photos and other details. Values below are temporary samples for Admin preview only; this page does not publish or save customer details.</p><div id="report" class="muted">Paste a template to analyze scenes and fields.</div><form id="editor" class="hide"><p class="sample-heading">Preview details — not customer submissions</p><div class="fields" id="fields"></div>
 <div class="media-editor" id="music-section">
   <h3>Soundtrack <span class="pill">Optional · All templates</span></h3>
@@ -168,4 +209,4 @@ main{max-width:1240px;padding:24px 22px 56px}
   <button id="remove-music" type="button" class="hide">Remove music</button>
   <p id="music-status" class="media-note" role="status" aria-live="polite">No music selected.</p>
 </div>
-<div class="actions"><button type="submit" class="active">Preview with sample values</button><button type="button" id="reset-sample">Reset samples</button><button type="button" id="save" disabled>Download prepared HTML</button></div></form></section><section class="panel"><h2>3. Invitation preview</h2><div class="preview" id="preview"><p class="muted" style="padding:20px;text-align:center">Preview will appear here.</p></div><div class="preview-controls" role="group" aria-label="Invitation preview playback controls"><button type="button" id="preview-play" disabled>▶ Play</button><button type="button" id="preview-pause" disabled>⏸ Pause</button><button type="button" id="preview-restart" disabled>↻ Restart</button></div><p class="preview-playback-status" id="preview-playback-status" role="status" aria-live="polite">Preview controls become available after preparing a template.</p><p class="muted">Sandboxed preview · External requests blocked · MP4 export not tested here.</p></section></div><section class="panel"><h2>Publication status</h2><p class="warn">Not publishable yet: MP4 validation, template storage and admin authentication are not integrated.</p></section></main><script type="module" src="/src/admin-studio.js"></script></body></html>
+<div class="actions"><button type="submit" class="active">Preview with sample values</button><button type="button" id="reset-sample">Reset samples</button><button type="button" id="save" disabled>Download prepared HTML</button></div></form></section><div id="preview-backdrop" class="preview-backdrop" hidden></div><section class="panel" id="preview-panel" aria-labelledby="preview-heading"><div class="preview-modal-heading"><h2 id="preview-heading">3. Invitation preview</h2><button id="close-preview" type="button" class="preview-close" hidden aria-label="Close expanded preview">✕ Close</button></div><div class="preview-stage"><div class="preview" id="preview"><p class="muted" style="padding:20px;text-align:center">Preview will appear here.</p></div><button id="expand-preview" type="button" class="preview-expand-hitbox" disabled aria-label="Expand invitation preview"><span>⛶ Expand preview</span></button></div><div class="preview-controls" role="group" aria-label="Invitation preview playback controls"><button type="button" id="preview-play" disabled>▶ Play</button><button type="button" id="preview-pause" disabled>⏸ Pause</button><button type="button" id="preview-restart" disabled>↻ Restart</button></div><p class="preview-playback-status" id="preview-playback-status" role="status" aria-live="polite">Preview controls become available after preparing a template.</p><p class="muted">Sandboxed preview · External requests blocked · MP4 export not tested here.</p></section></div><section class="panel"><h2>Publication status</h2><p class="warn">Not publishable yet: MP4 validation, template storage and admin authentication are not integrated.</p></section></main><script type="module" src="/src/admin-studio.js"></script></body></html>
