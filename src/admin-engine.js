@@ -104,7 +104,7 @@ function detectPhotoSlots(html,body,config){
   if(Array.isArray(config.photos)&&/\bCONFIG\.photos\b/.test(html)){
     const indexed=[...html.matchAll(/\bCONFIG\.photos\s*\[\s*(\d+)\s*\]/g)]
       .map(match=>Number(match[1])).filter(Number.isSafeInteger);
-    const count=Math.min(6,Math.max(config.photos.length,indexed.length?Math.max(...indexed)+1:0));
+    const count=Math.min(6,indexed.length?Math.max(...indexed)+1:config.photos.length);
     for(let index=0;index<count;index++){
       slots.push({key:'photos',index,label:'Photo '+(index+1)});
     }
@@ -121,7 +121,7 @@ function detectPhotoSlots(html,body,config){
 function auditFonts(html){
   const remote=/https?:\/\/(?:fonts\.googleapis\.com|fonts\.gstatic\.com)/i.test(html);
   const families=[...html.matchAll(/[?&]family=([^&"'\s<>]+)/g)]
-    .map(match=>decodeURIComponent(match[1].replace(/\+/g,' ')).split(':')[0]).filter(Boolean);
+    .map(match=>{try{return decodeURIComponent(match[1].replace(/\+/g,' ')).split(':')[0];}catch{return 'Unknown font';}}).filter(Boolean);
   const embedded=/@font-face\s*\{[^}]*src\s*:\s*url\(\s*['"]?data:font\//is.test(html);
   return {remote,remoteFamilies:[...new Set(families)],embedded};
 }
