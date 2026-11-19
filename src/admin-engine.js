@@ -76,7 +76,7 @@ export function prepareTemplate(html,values){
   }
   if(!config.partner1.trim()||!config.partner2.trim()||!config.venue.trim())throw new Error('Names and venue are required.');
   // Validate calendar components in UTC; never compare a local date to a UTC ISO string.
-  const match=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(config.date);
+  const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(config.date);
   if(!match)throw new Error('Wedding date must be in YYYY-MM-DD format. Choose a date in the sample preview.');
   const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);
   const utc=new Date(0);
