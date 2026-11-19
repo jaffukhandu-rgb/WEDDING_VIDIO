@@ -1,7 +1,13 @@
 import {analyzeTemplate,prepareTemplate,supportedFields} from './admin-engine.js';
 const fileInput=document.querySelector('#source'),status=document.querySelector('#status'),report=document.querySelector('#report'),editor=document.querySelector('#editor'),fields=document.querySelector('#fields'),preview=document.querySelector('#preview'),save=document.querySelector('#save');
 const codeInput=document.querySelector('#code-input'),analyzeButton=document.querySelector('#analyze-code'),clearButton=document.querySelector('#clear-code');
-let source='',prepared='';
+const progress=document.querySelector('#analysis-progress'),progressFill=document.querySelector('#progress-fill'),progressLabel=document.querySelector('#progress-label'),resetSample=document.querySelector('#reset-sample');
+let source='',prepared='',lastAnalysis=null,analysisRunning=false;
+function showProgress(percent,label){
+  progress.classList.remove('hide');progress.setAttribute('aria-valuenow',String(percent));
+  progressFill.style.width=percent+'%';progressLabel.textContent=percent+'% · '+label;
+}
+function nextPaint(){return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
 const labels={partner1:'Partner 1 name',partner2:'Partner 2 name',date:'Wedding date',time:'Wedding time',venue:'Venue',address:'Address',message:'Invitation message',photos:'Photo URLs (data URLs only)',music:'Music (not included in preview)'};
 function setStatus(message,type=''){status.textContent=message;status.className=type;}
 function makeField(key,value){
@@ -16,16 +22,22 @@ function makeField(key,value){
   wrapper.append(label,input);return wrapper;
 }
 function resetPrepared(){
-  source='';prepared='';save.disabled=true;editor.classList.add('hide');preview.replaceChildren();
+  source='';prepared='';lastAnalysis=null;save.disabled=true;editor.classList.add('hide');preview.replaceChildren();
   report.textContent='Paste a template to analyze scenes and fields.';
 }
-function analyzeSource(text){
+async function analyzeSource(text){
+  if(analysisRunning)return;
+  analysisRunning=true;analyzeButton.disabled=true;fileInput.disabled=true;
   resetPrepared();
   try{
+    showProgress(0,'Starting analysis');await nextPaint();
+    if(!text.trim())throw new Error('Paste your HTML invitation code first.');
+    showProgress(20,'Reading source');await nextPaint();
     const analysis=analyzeTemplate(text);
-    source=text;report.replaceChildren();
+    showProgress(55,'Validating scenes and fields');await nextPaint();
+    source=text;lastAnalysis=analysis;report.replaceChildren();
     const heading=document.createElement('p');
-    heading.textContent=`${analysis.name} · ${analysis.sceneCount} scenes · ${analysis.fields.length} editable inputs`;
+    heading.textContent=`${analysis.name} · ${analysis.sceneCount} scenes · ${analysis.fields.length} customer-editable inputs`;
     report.append(heading);
     if(analysis.warnings.length){
       const list=document.createElement('ul');
@@ -34,17 +46,23 @@ function analyzeSource(text){
       }
       report.append(list);
     }
+    showProgress(80,'Building sample preview form');await nextPaint();
     fields.replaceChildren();
     for(const key of analysis.fields)fields.append(makeField(key,analysis.config[key]));
     editor.classList.remove('hide');
-    setStatus('Analysis complete. Review fields and prepare preview.','good');
+    showProgress(100,'Analysis complete');
+    setStatus('Analysis complete. Customer fields detected. Sample values are for preview only.','good');
   }catch(error){
+    showProgress(100,'Analysis stopped with an error');
     setStatus(error instanceof Error?error.message:'Unable to analyze template.','error');
+  }finally{
+    analysisRunning=false;analyzeButton.disabled=false;fileInput.disabled=false;
   }
 }
-analyzeButton.addEventListener('click',()=>analyzeSource(codeInput.value));
+analyzeButton.addEventListener('click',()=>{void analyzeSource(codeInput.value);});
 clearButton.addEventListener('click',()=>{
-  codeInput.value='';fileInput.value='';resetPrepared();
+  if(analysisRunning)return;
+  codeInput.value='';fileInput.value='';resetPrepared();progress.classList.add('hide');
   setStatus('Code cleared. Paste a new template.');
   codeInput.focus();
 });
@@ -56,16 +74,24 @@ fileInput.addEventListener('change',async()=>{
   try{
     const text=await file.text();
     codeInput.value=text;
-    analyzeSource(text);
+    await analyzeSource(text);
   }catch(error){
     setStatus(error instanceof Error?error.message:'Unable to read file.','error');
   }
 });
 codeInput.addEventListener('input',()=>{
   if(source||prepared){
-    resetPrepared();
+    resetPrepared();progress.classList.add('hide');
     setStatus('Code changed. Click Analyze Code again.');
   }
+});
+resetSample.addEventListener('click',()=>{
+  if(!lastAnalysis)return;
+  for(const key of lastAnalysis.fields){
+    const control=editor.elements.namedItem(key);
+    if(control)control.value=Array.isArray(lastAnalysis.config[key])?lastAnalysis.config[key].join(' | '):lastAnalysis.config[key];
+  }
+  setStatus('Sample values reset. Customers will enter their own details.','good');
 });
 editor.addEventListener('submit',event=>{
   event.preventDefault();
@@ -77,7 +103,7 @@ editor.addEventListener('submit',event=>{
     prepared=prepareTemplate(source,values);
     const iframe=document.createElement('iframe');iframe.title='Animated invitation preview';
     iframe.setAttribute('sandbox','allow-scripts');iframe.setAttribute('referrerpolicy','no-referrer');iframe.srcdoc=prepared;
-    preview.replaceChildren(iframe);save.disabled=false;setStatus('Prepared successfully. Isolated preview running.','good');
+    preview.replaceChildren(iframe);save.disabled=false;setStatus('Sample preview prepared. Customer details are not saved.','good');
   }catch(error){prepared='';save.disabled=true;setStatus(error instanceof Error?error.message:'Preparation failed.','error');}
 });
 save.addEventListener('click',()=>{
