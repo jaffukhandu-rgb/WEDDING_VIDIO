@@ -169,6 +169,13 @@ const BRIDGE = String.raw`
     mediaToResume.clear();
   }
 
+  // Escape still closes the Admin modal when focus is inside the invitation iframe.
+  window.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      window.parent.postMessage({ channel: CHANNEL, command: "close-modal" }, "*");
+    }
+  });
+
   window.addEventListener("message", event => {
     if (event.source !== window.parent || event.data?.channel !== CHANNEL) return;
     const command = event.data.command;
