@@ -104,8 +104,9 @@ function detectPhotoSlots(html,body,config){
   if(Array.isArray(config.photos)&&/\bCONFIG\.photos\b/.test(html)){
     const indexed=[...html.matchAll(/\bCONFIG\.photos\s*\[\s*(\d+)\s*\]/g)]
       .map(match=>Number(match[1])).filter(Number.isSafeInteger);
-    const count=Math.min(6,indexed.length?Math.max(...indexed)+1:config.photos.length);
-    for(let index=0;index<count;index++){
+    const usedIndexes=indexed.length?[...new Set(indexed)].filter(index=>index>=0&&index<6).sort((a,b)=>a-b)
+      :Array.from({length:Math.min(6,config.photos.length)},(_,index)=>index);
+    for(const index of usedIndexes){
       slots.push({key:'photos',index,label:'Photo '+(index+1)});
     }
   }
