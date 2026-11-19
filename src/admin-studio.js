@@ -13,6 +13,24 @@ function setStatus(message,type=''){status.textContent=message;status.className=
 function makeField(key,value){
   const wrapper=document.createElement('div');wrapper.className='field'+(key==='message'||key==='photos'?' wide':'');
   const label=document.createElement('label');label.textContent=labels[key]||key;
+  if(key==='events'){
+    const title=document.createElement('p');title.textContent='Event schedule — sample values';wrapper.append(title);
+    value.forEach((event,index)=>{
+      const group=document.createElement('fieldset');group.style.cssText='border:1px solid #45536d;border-radius:10px;margin:10px 0;padding:12px;min-width:0';
+      const legend=document.createElement('legend');legend.textContent='Event '+(index+1);group.append(legend);
+      for(const [property,current] of Object.entries(event)){
+        if(typeof current!=='string')continue;
+        const row=document.createElement('div');row.className='field';row.style.marginBottom='10px';
+        const name=document.createElement('label');name.textContent=property.replace(/([A-Z])/g,' $1');
+        const control=document.createElement('input');control.type=property==='date'?'date':'text';control.value=current;control.maxLength=300;
+        control.dataset.eventIndex=String(index);control.dataset.eventKey=property;
+        name.htmlFor='event-'+index+'-'+property;control.id=name.htmlFor;
+        row.append(name,control);group.append(row);
+      }
+      wrapper.append(group);
+    });
+    return wrapper;
+  }
   const input=key==='message'?document.createElement('textarea'):document.createElement('input');
   input.name=key;input.id='field-'+key;label.htmlFor=input.id;
   if(key==='date')input.type='date';else if(key!=='message')input.type='text';
@@ -89,7 +107,11 @@ resetSample.addEventListener('click',()=>{
   if(!lastAnalysis)return;
   for(const key of lastAnalysis.fields){
     const control=editor.elements.namedItem(key);
-    if(control)control.value=Array.isArray(lastAnalysis.config[key])?lastAnalysis.config[key].join(' | '):lastAnalysis.config[key];
+    if(key==='events'){
+      for(const input of fields.querySelectorAll('[data-event-index]')){
+        input.value=lastAnalysis.config.events[Number(input.dataset.eventIndex)][input.dataset.eventKey];
+      }
+    }else if(control)control.value=Array.isArray(lastAnalysis.config[key])?lastAnalysis.config[key].join(' | '):lastAnalysis.config[key];
   }
   setStatus('Sample values reset. Customers will enter their own details.','good');
 });
@@ -99,6 +121,12 @@ editor.addEventListener('submit',event=>{
     const values={};for(const key of Object.keys(supportedFields)){
       const control=editor.elements.namedItem(key);if(!control)continue;
       values[key]=key==='photos'?control.value.split('|').map(v=>v.trim()).filter(Boolean):control.value;
+    }
+    if(lastAnalysis?.eventMode){
+      values.events=lastAnalysis.config.events.map(event=>({...event}));
+      for(const input of fields.querySelectorAll('[data-event-index]')){
+        values.events[Number(input.dataset.eventIndex)][input.dataset.eventKey]=input.value;
+      }
     }
     save.disabled=true;prepared=prepareTemplate(source,values);
     const iframe=document.createElement('iframe');iframe.title='Animated invitation preview';
