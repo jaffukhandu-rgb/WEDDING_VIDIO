@@ -97,6 +97,35 @@ function validDate(value){
   return utc.getUTCFullYear()===year&&utc.getUTCMonth()===month-1&&utc.getUTCDate()===day;
 }
 
+// Discover only photo fields that the original template actually references.
+// This avoids adding irrelevant photo controls to text-only invitations.
+function detectPhotoSlots(html,body,config){
+  const slots=[];
+  if(Array.isArray(config.photos)&&/\bCONFIG\.photos\b/.test(html)){
+    const indexed=[...html.matchAll(/\bCONFIG\.photos\s*\[\s*(\d+)\s*\]/g)]
+      .map(match=>Number(match[1])).filter(Number.isSafeInteger);
+    const count=Math.min(6,Math.max(config.photos.length,indexed.length?Math.max(...indexed)+1:0));
+    for(let index=0;index<count;index++){
+      slots.push({key:'photos',index,label:'Photo '+(index+1)});
+    }
+  }
+  const named=[...body.matchAll(/(?:^|[,\n])\s*(photo\d+)\s*:/g)]
+    .map(match=>match[1]);
+  for(const key of new Set(named)){
+    if(slots.length>=6)break;
+    const used=new RegExp('\\bCONFIG\\.'+key+'\\b|data-bind=["\\x27]'+key+'["\\x27]').test(html);
+    if(used&&typeof config[key]==='string')slots.push({key,index:null,label:key.replace(/(\d+)$/,' $1')});
+  }
+  return slots;
+}
+function auditFonts(html){
+  const remote=/https?:\/\/(?:fonts\.googleapis\.com|fonts\.gstatic\.com)/i.test(html);
+  const families=[...html.matchAll(/[?&]family=([^&"'\s<>]+)/g)]
+    .map(match=>decodeURIComponent(match[1].replace(/\+/g,' ')).split(':')[0]).filter(Boolean);
+  const embedded=/@font-face\s*\{[^}]*src\s*:\s*url\(\s*['"]?data:font\//is.test(html);
+  return {remote,remoteFamilies:[...new Set(families)],embedded};
+}
+
 export function analyzeTemplate(html){
   if(typeof html!=='string'||!html.trim())throw new Error('Upload a nonempty HTML file.');
   if(new TextEncoder().encode(html).length>1024*1024)throw new Error('HTML exceeds 1 MB.');
@@ -106,6 +135,13 @@ export function analyzeTemplate(html){
   const eventFreeBody=eventData?body.slice(0,eventData.range.start)+body.slice(eventData.range.end+1):body;
   for(const key of Object.keys(FIELD_TYPES)){const value=readValue(eventFreeBody,key);if(value!==undefined)config[key]=value;}
   if(eventData)config.events=eventData.events;
+  for(const match of eventFreeBody.matchAll(/(?:^|[,\\n])\\s*(photo\\d+)\\s*:/g)){
+    const key=match[1];
+    if(!(key in config)){
+      const value=readValue(eventFreeBody,key);
+      if(typeof value==='string')config[key]=value;
+    }
+  }
   if(!Object.keys(config).length)throw new Error('No supported customer fields detected.');
   if(config.date!==undefined&&!validDate(config.date))throw new Error('Invalid sample wedding date.');
   if(eventData&&eventData.events.some(event=>!validDate(event.date)))throw new Error('An event has an invalid sample date.');
@@ -118,7 +154,15 @@ export function analyzeTemplate(html){
   if(/https?:\/\//i.test(html))warnings.push('Remote fonts and assets are blocked.');
   if(/Math\.random\s*\(/.test(html))warnings.push('Random animations may not render identically.');
   if(/setTimeout\s*\(\s*play\s*,/.test(html))warnings.push('Automatic replay requires an export adapter.');
-  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount:scenes.length,fields:Object.keys(config),config,warnings,range:{start,end},eventMode:!!eventData};
+  const photoSlots=detectPhotoSlots(html,eventFreeBody,config);
+  const fonts=auditFonts(html);
+  if(fonts.remote)warnings.push('External fonts are blocked in the isolated preview. Fallback fonts will be used unless the font is embedded.');
+  const fields=Object.keys(config).filter(key=>key!=='music'&&key!=='photos'&&!/^photo\d+$/.test(key));
+  if(photoSlots.length)fields.push('photos');
+  if(eventData)fields.push('events');
+  const uniqueFields=[...new Set(fields)];
+  const eventFieldCount=eventData?eventData.events.reduce((count,event)=>count+Object.keys(event).length,0):0;
+  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount:scenes.length,fields:uniqueFields,config,warnings,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
 }
 export function prepareTemplate(html,values){
   const report=analyzeTemplate(html),config={...report.config};
@@ -126,9 +170,17 @@ export function prepareTemplate(html,values){
     if(!(key in values))continue;
     const value=values[key];
     if(key==='photos'){
-      if(!Array.isArray(value)||value.length>2||value.some(v=>typeof v!=='string'||v.length>500000))throw new Error('Invalid photos.');
+      if(!Array.isArray(value)||value.length>6||value.some(v=>typeof v!=='string'||v.length>8*1024*1024))throw new Error('Invalid photos.');
     }else if(typeof value!=='string'||value.length>(key==='message'?1000:300))throw new Error('Invalid '+key+'.');
     config[key]=value;
+  }
+  for(const slot of report.photoSlots){
+    if(slot.key==='photos')continue;
+    if(slot.key in values){
+      const value=values[slot.key];
+      if(typeof value!=='string'||value.length>8*1024*1024)throw new Error('Invalid '+slot.label+'.');
+      config[slot.key]=value;
+    }
   }
   for(const key of ['partner1','partner2','venue']){
     if(key in config&&!String(config[key]).trim())throw new Error(key+' cannot be empty.');
