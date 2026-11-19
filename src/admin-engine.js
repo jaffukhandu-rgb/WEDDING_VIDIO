@@ -135,7 +135,7 @@ export function analyzeTemplate(html){
   const eventFreeBody=eventData?body.slice(0,eventData.range.start)+body.slice(eventData.range.end+1):body;
   for(const key of Object.keys(FIELD_TYPES)){const value=readValue(eventFreeBody,key);if(value!==undefined)config[key]=value;}
   if(eventData)config.events=eventData.events;
-  for(const match of eventFreeBody.matchAll(/(?:^|[,\\n])\\s*(photo\\d+)\\s*:/g)){
+  for(const match of eventFreeBody.matchAll(/(?:^|[,\n])\s*(photo\d+)\s*:/g)){
     const key=match[1];
     if(!(key in config)){
       const value=readValue(eventFreeBody,key);
