@@ -48,13 +48,18 @@ function readValue(body,key){
 }
 
 function eventRange(body){
-  const match=/\\bevents\\s*:\\s*\\[/.exec(body);
+  const match=/\bevents\s*:\s*\[/.exec(body);
   if(!match)return null;
   const start=match.index+match[0].length-1;
-  let depth=0,quote='',escape=false;
+  let depth=0,quote='',escaped=false;
   for(let i=start;i<body.length;i++){
     const ch=body[i];
-    if(quote){if(escape)escape=false;else if(ch==='\\\\')escape=true;else if(ch===quote)quote='';continue;}
+    if(quote){
+      if(escaped)escaped=false;
+      else if(ch==='\\')escaped=true;
+      else if(ch===quote)quote='';
+      continue;
+    }
     if(ch==='"'||ch==="'"){quote=ch;continue;}
     if(ch==='[')depth++;
     if(ch===']'&&--depth===0)return {start,end:i};
@@ -66,18 +71,18 @@ function parseEvents(body){
   if(!range)return null;
   const raw=body.slice(range.start+1,range.end);
   const events=[];
-  const objectPattern=/\\{([^{}]*)\\}/g;
+  const objectPattern=/\{([^{}]*)\}/g;
   let match;
   while((match=objectPattern.exec(raw))){
     const item={};
-    for(const pair of match[1].matchAll(/(?:^|,)\\s*([a-zA-Z_$][\\w$]*)\\s*:\\s*(["'])(.*?)\\2\\s*(?=,|$)/gs)){
+    for(const pair of match[1].matchAll(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(.*?)\2\s*(?=,|$)/gs)){
       item[pair[1]]=pair[3];
     }
     if(!Object.keys(item).length)throw new Error('Unsupported event data; use literal string properties.');
     events.push(item);
   }
   if(!events.length||events.length>7)throw new Error('Supported event count is 1 to 7.');
-  const leftover=raw.replace(objectPattern,'').replace(/[\\s,]/g,'');
+  const leftover=raw.replace(objectPattern,'').replace(/[\s,]/g,'');
   if(leftover)throw new Error('Events must contain simple literal objects; complex expressions require review.');
   for(const [index,event] of events.entries()){
     if(typeof event.date!=='string')throw new Error('Event '+(index+1)+' needs a date.');
@@ -85,7 +90,7 @@ function parseEvents(body){
   return {events,range};
 }
 function validDate(value){
-  const match=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(value);
+  const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if(!match)return false;
   const year=+match[1],month=+match[2],day=+match[3],utc=new Date(0);
   utc.setUTCFullYear(year,month-1,day);
