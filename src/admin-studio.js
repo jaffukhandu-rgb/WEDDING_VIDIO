@@ -187,7 +187,9 @@ async function analyzeSource(text){
     source=text;lastAnalysis=analysis;report.replaceChildren();
     const heading=document.createElement('p');
     heading.className='analysis-stats';
-    heading.textContent=`${analysis.name} · ${analysis.sceneCount} scenes · ${analysis.fields.length+analysis.eventFieldCount-Number(analysis.eventMode)} editable inputs · ${analysis.photoSlots.length} photo slots`;
+    const ordinaryCount=analysis.fields.filter(key=>key!=='events'&&key!=='photos').length;
+    const totalFields=ordinaryCount+analysis.eventFieldCount+analysis.photoSlots.length;
+    heading.textContent=`${analysis.name} · ${analysis.sceneCount} scenes · ${totalFields} editable inputs · ${analysis.photoSlots.length} photo slots`;
     report.append(heading);
     if(analysis.warnings.length){
       const list=document.createElement('ul');
