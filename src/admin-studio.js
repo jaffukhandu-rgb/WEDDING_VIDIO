@@ -15,6 +15,69 @@ const previewController=createPreviewController({
   musicStatus
 });
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
+// Expand the existing preview panel rather than moving/recreating its iframe.
+// Moving an iframe between DOM parents can reload it and restart the animation.
+const previewPanel=document.querySelector('#preview-panel');
+const previewBackdrop=document.querySelector('#preview-backdrop');
+const expandPreview=document.querySelector('#expand-preview');
+const closePreview=document.querySelector('#close-preview');
+let previewExpanded=false;
+let previousBodyOverflow='';
+let previousFocus=null;
+
+function openPreviewModal(){
+  if(previewExpanded||expandPreview.disabled)return;
+  previousFocus=document.activeElement;
+  previousBodyOverflow=document.body.style.overflow;
+  previewExpanded=true;
+  previewBackdrop.hidden=false;
+  previewPanel.classList.add('is-expanded');
+  previewPanel.setAttribute('role','dialog');
+  previewPanel.setAttribute('aria-modal','true');
+  closePreview.hidden=false;
+  expandPreview.hidden=true;
+  expandPreview.setAttribute('aria-expanded','true');
+  document.body.style.overflow='hidden';
+  closePreview.focus();
+}
+
+function closePreviewModal(){
+  if(!previewExpanded)return;
+  previewExpanded=false;
+  previewPanel.classList.remove('is-expanded');
+  previewPanel.removeAttribute('role');
+  previewPanel.removeAttribute('aria-modal');
+  previewBackdrop.hidden=true;
+  closePreview.hidden=true;
+  expandPreview.hidden=false;
+  expandPreview.setAttribute('aria-expanded','false');
+  document.body.style.overflow=previousBodyOverflow;
+  if(previousFocus?.isConnected&&!previousFocus.disabled)previousFocus.focus();
+  else if(!expandPreview.disabled)expandPreview.focus();
+  previousFocus=null;
+}
+expandPreview.addEventListener('click',openPreviewModal);
+closePreview.addEventListener('click',closePreviewModal);
+previewBackdrop.addEventListener('click',closePreviewModal);
+document.addEventListener('keydown',event=>{
+  if(!previewExpanded)return;
+  if(event.key==='Escape'){
+    event.preventDefault();
+    closePreviewModal();
+    return;
+  }
+  if(event.key!=='Tab')return;
+  const focusable=[...previewPanel.querySelectorAll('button:not([disabled]):not([hidden])')]
+    .filter(button=>button.getClientRects().length>0);
+  if(!focusable.length){event.preventDefault();closePreview.focus();return;}
+  const first=focusable[0],last=focusable[focusable.length-1];
+  if(event.shiftKey&&(document.activeElement===first||!previewPanel.contains(document.activeElement))){
+    event.preventDefault();last.focus();
+  }else if(!event.shiftKey&&(document.activeElement===last||!previewPanel.contains(document.activeElement))){
+    event.preventDefault();first.focus();
+  }
+});
+
 const IMAGE_MAX_BYTES=3*1024*1024,AUDIO_MAX_BYTES=8*1024*1024;
 const IMAGE_TYPES=new Set(['image/jpeg','image/png','image/webp']);
 const AUDIO_TYPES=new Set(['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/wave','audio/ogg','audio/mp4','audio/x-m4a','audio/aac','audio/x-aac','audio/webm']);
@@ -182,6 +245,8 @@ async function collectPreviewValues(){
 }
 function resetPrepared(){
   source='';prepared='';lastAnalysis=null;save.disabled=true;editor.classList.add('hide');
+  closePreviewModal();
+  expandPreview.disabled=true;
   previewController.reset();preview.replaceChildren();
   clearMusic();
   report.textContent='Paste a template to analyze scenes and fields.';
@@ -286,10 +351,13 @@ editor.addEventListener('submit',async event=>{
     const values=await collectPreviewValues();
     prepared=prepareTemplate(source,values);
     previewController.mount(prepared);
+    expandPreview.disabled=false;
     save.disabled=false;
     setStatus('Sample preview prepared. Customer details are not saved.','good');
   }catch(error){
-    prepared='';save.disabled=true;previewController.reset();preview.replaceChildren();
+    prepared='';save.disabled=true;
+    closePreviewModal();expandPreview.disabled=true;
+    previewController.reset();preview.replaceChildren();
     setStatus(error instanceof Error?error.message:'Preparation failed.','error');
   }finally{submit.disabled=false;}
 });
