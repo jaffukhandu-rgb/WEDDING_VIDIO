@@ -59,6 +59,12 @@ function closePreviewModal(){
 expandPreview.addEventListener('click',openPreviewModal);
 closePreview.addEventListener('click',closePreviewModal);
 previewBackdrop.addEventListener('click',closePreviewModal);
+window.addEventListener('message',event=>{
+  if(!previewExpanded || event.source!==preview.querySelector('iframe')?.contentWindow)return;
+  if(event.data?.channel==='wedding-admin-preview-controls-v1'&&event.data.command==='close-modal'){
+    closePreviewModal();
+  }
+});
 document.addEventListener('keydown',event=>{
   if(!previewExpanded)return;
   if(event.key==='Escape'){
