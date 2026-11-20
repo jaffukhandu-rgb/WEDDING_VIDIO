@@ -86,6 +86,13 @@ export function validateRuntimeReport(runtime, expectedScenes) {
       detail: 'Preview scene count or visible stage size is incorrect.'
     };
   }
+  const portraitRatio = runtime.stageWidth / runtime.stageHeight;
+  if (Math.abs(portraitRatio - 9 / 16) > 0.04) {
+    return {
+      id: 'runtime', status: 'fail', title: 'Browser preview smoke test',
+      detail: 'Invitation stage is not close to 9:16 portrait size. Check layout and viewport styles.'
+    };
+  }
   if (runtime.errors?.length) {
     return {
       id: 'runtime', status: 'fail', title: 'Browser preview smoke test',
@@ -101,6 +108,6 @@ export function validateRuntimeReport(runtime, expectedScenes) {
   }
   return {
     id: 'runtime', status: 'pass', title: 'Browser preview smoke test',
-    detail: runtime.sceneCount + ' scenes found, stage visible, playback started, and no script errors reported at check time.'
+    detail: runtime.sceneCount + ' scenes found, 9:16 stage visible, playback started, and no script errors reported at check time.'
   };
 }
