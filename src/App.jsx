@@ -106,7 +106,7 @@ export default function App() {
   const selectedDesignData = designs.find(
     (design) => design.id === selectedDesign,
   );
-  const canShowDesigns = Boolean(selectedOccasion);
+  const canShowDesigns = Boolean(selectedOccasion && designs.length > 0);
 
   useEffect(() => {
     try {
@@ -191,8 +191,8 @@ export default function App() {
             <span>Beautifully made.</span>
           </h1>
           <p className="hero-description">
-            Choose an occasion, explore professional styles and preview your favourite design.
-            We’ll handle the video creation for you.
+            Choose an occasion to explore available invitation designs.
+            New templates will appear here when they are ready.
           </p>
         </div>
       </section>
@@ -232,7 +232,16 @@ export default function App() {
         </div>
       </section>
 
-      {selectedOccasion === "wedding" && (
+      {selectedOccasion && designs.length === 0 && (
+        <section className="design-section" aria-labelledby="no-templates-heading">
+          <div className="empty-gallery" role="status">
+            <strong id="no-templates-heading">No templates available yet</strong>
+            <span>The previous sample designs have been cleared. New invitations will appear here when available.</span>
+          </div>
+        </section>
+      )}
+
+      {selectedOccasion === "wedding" && designs.length > 0 && (
         <WeddingTemplateGallery
           designs={designs}
           selectedDesign={selectedDesign}
