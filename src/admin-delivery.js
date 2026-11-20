@@ -8,7 +8,7 @@ async function readMusicAsBase64(file) {
     throw new Error("Music must be smaller than 8 MB.");
   }
   const supported = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav",
-    "audio/ogg", "audio/mp4", "audio/aac", "audio/webm"]);
+    "audio/ogg", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/webm"]);
   if (!supported.has(file.type)) throw new Error("Unsupported music format for MP4 export.");
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
