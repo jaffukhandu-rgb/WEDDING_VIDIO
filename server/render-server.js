@@ -130,6 +130,10 @@ app.post("/api/render", requireAdmin, async (req, res) => {
       serviceWorkers: "block",
     });
 
+    // Virtual JS time plus explicit CSS animation seeking avoid wall-clock frame drift.
+    // Install before loading the template so its own timers are virtualized.
+    await page.clock.install();
+
     // Render user-authored HTML in an isolated browser with outbound network access disabled.
     await page.route("**/*", (route) => {
       const protocol = new URL(route.request().url()).protocol;
@@ -140,7 +144,10 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     await page.evaluate(async () => {
       if (document.fonts?.ready) await document.fonts.ready;
     });
-    await page.waitForTimeout(500);
+    // Advance slightly beyond document initialization, then pause virtual JS time.
+    // Using the browser's own Date avoids trying to rewind the installed clock.
+    const initialClock = await page.evaluate(() => Date.now());
+    await page.clock.pauseAt(new Date(initialClock + 1000));
 
     const ffmpegArgs = [
       "-hide_banner", "-loglevel", "error", "-y",
@@ -167,13 +174,24 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     ffmpeg.stderr.setEncoding("utf8");
     ffmpeg.stderr.on("data", (chunk) => { ffmpegError += chunk; });
 
-    const start = Date.now();
+    let previousVirtualMs = 0;
     for (let frame = 0; frame < DURATION_SECONDS * FPS; frame += 1) {
+      const virtualMs = Math.round((frame * 1000) / FPS);
+      const step = virtualMs - previousVirtualMs;
+      if (step > 0) await page.clock.runFor(step);
+      previousVirtualMs = virtualMs;
+      // CSS animations use the document timeline rather than Playwright's JS
+      // clock. Pause and seek them to each exact presentation timestamp.
+      await page.evaluate((timeMs) => {
+        for (const animation of document.getAnimations()) {
+          if (animation instanceof CSSAnimation) {
+            animation.pause();
+            animation.currentTime = timeMs;
+          }
+        }
+      }, virtualMs);
       const jpeg = await page.screenshot({ type: "jpeg", quality: 86, animations: "allow" });
       if (!ffmpeg.stdin.write(jpeg)) await once(ffmpeg.stdin, "drain");
-      const targetTime = start + ((frame + 1) * 1000) / FPS;
-      const delay = targetTime - Date.now();
-      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
     }
     ffmpeg.stdin.end();
     const [exitCode] = await once(ffmpeg, "close");
