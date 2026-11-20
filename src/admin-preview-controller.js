@@ -169,6 +169,35 @@ const BRIDGE = String.raw`
     mediaToResume.clear();
   }
 
+  // Runtime smoke signals are informational; arbitrary template scripts remain untrusted.
+  const runtimeErrors=[];
+  function sendRuntimeReport(){
+    const stage=document.querySelector(".stage")||document.querySelector("main");
+    const bounds=stage?.getBoundingClientRect();
+    window.parent.postMessage({
+      channel:CHANNEL,
+      kind:"runtime-validation",
+      data:{
+        sceneCount:document.querySelectorAll(".scene").length,
+        stageWidth:bounds?.width||0,
+        stageHeight:bounds?.height||0,
+        started:!!stage?.classList.contains("go"),
+        errors:runtimeErrors.slice()
+      }
+    },"*");
+  }
+  window.addEventListener("error",event=>{
+    if(event.target!==window)return;
+    runtimeErrors.push(String(event.message||"Script error").slice(0,160));
+    if(runtimeErrors.length>5)runtimeErrors.shift();
+    sendRuntimeReport();
+  });
+  window.addEventListener("unhandledrejection",event=>{
+    runtimeErrors.push(String(event.reason?.message||event.reason||"Unhandled rejection").slice(0,160));
+    if(runtimeErrors.length>5)runtimeErrors.shift();
+    sendRuntimeReport();
+  });
+
   // Escape still closes the Admin modal when focus is inside the invitation iframe.
   window.addEventListener("keydown", event => {
     if (event.key === "Escape") {
@@ -179,6 +208,7 @@ const BRIDGE = String.raw`
   window.addEventListener("message", event => {
     if (event.source !== window.parent || event.data?.channel !== CHANNEL) return;
     const command = event.data.command;
+    if (command === "validate") { sendRuntimeReport(); return; }
     if (command === "pause") pause();
     else if (command === "play") play();
     else return;
@@ -187,6 +217,7 @@ const BRIDGE = String.raw`
 
   window.addEventListener("load", () => {
     window.parent.postMessage({ channel: CHANNEL, state: "ready" }, "*");
+    nativeSetTimeout(sendRuntimeReport, 400);
   }, { once: true });
 })();
 `;
@@ -208,7 +239,8 @@ export function createPreviewController({
   playbackStatus,
   musicPlayer,
   musicUpload,
-  musicStatus
+  musicStatus,
+  onRuntimeReport = () => {}
 }) {
   let iframe = null;
   let previewHtml = "";
@@ -258,6 +290,10 @@ export function createPreviewController({
   window.addEventListener("message", event => {
     if (!iframe || event.source !== iframe.contentWindow) return;
     if (event.data?.channel !== CHANNEL) return;
+    if (event.data.kind === "runtime-validation") {
+      onRuntimeReport(event.data.data);
+      return;
+    }
     if (event.data.state === "ready" && state === "loading") {
       showState("playing");
       startMusic();
@@ -298,5 +334,5 @@ export function createPreviewController({
   });
 
   showState("empty");
-  return { mount, reset };
+  return { mount, reset, requestValidation: () => send("validate") };
 }
