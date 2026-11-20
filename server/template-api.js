@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Router } from "express";
+import express from "express";
 import { analyzeTemplate } from "../src/admin-engine.js";
 import { validateTemplateSource } from "../src/admin-template-validator.js";
 import { requireAdmin } from "./admin-access.js";
@@ -23,7 +23,7 @@ function publicError(res, error) {
 }
 
 export function templateRouter() {
-  const router = Router();
+  const router = express.Router();
 
   router.get("/templates", async (req, res) => {
     if (!ALLOWED_CATEGORY.has(req.query.category)) {
