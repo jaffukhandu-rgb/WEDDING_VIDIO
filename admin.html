@@ -236,6 +236,23 @@ main{max-width:1240px;padding:24px 22px 56px}
 .download-link{display:inline-flex;align-items:center;min-height:43px;border-radius:9px;padding:9px 15px;color:#141925;background:#ddc18c;font-weight:700;text-decoration:none}
 .download-link:hover,.download-link:focus-visible{background:#f5d69d}
 #export-status,#publish-status{overflow-wrap:anywhere}
+/* Scoped real-time export loader: dark Admin Studio palette and animated runners */
+.render-loader{margin:16px 0;padding:20px 18px 18px;border:1px solid #4b3946;border-radius:14px;background:linear-gradient(145deg,#0c1423,#09090e 78%);color:#f2f2f4;box-shadow:inset 0 1px 0 #ffffff0b}
+.render-loader-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.render-loader-kicker{display:block;color:#bf9e80;font-size:.72rem;font-weight:750;letter-spacing:.14em}
+.render-loader-title{display:block;margin-top:5px;font-weight:850;font-size:clamp(1.03rem,3vw,1.28rem);letter-spacing:.02em}
+.render-loader-title em{font-style:normal;color:#f0444d}
+.render-loader-percent{font-size:clamp(1.35rem,4vw,1.85rem);font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.render-loader-track{height:11px;margin:41px 13px 17px;position:relative;border-radius:99px;background:#ebe8e9}
+.render-loader-fill{width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#ae1528,#ec3b4c);transition:width .55s linear}
+.render-loader-runners{position:absolute;left:0;top:-35px;display:flex;align-items:center;gap:0;transform:translateX(-42%);transition:left .55s linear;color:white}
+.render-loader-figure{width:32px;height:32px;flex:none;filter:drop-shadow(0 2px 3px #0009);animation:render-run .34s ease-in-out infinite alternate}
+.render-loader-figure:last-child{margin-left:-5px;animation-delay:-.17s}
+.render-loader-figure.chaser{color:#f0444d}
+.render-loader-detail{color:#bfc7d6;font-size:.82rem;line-height:1.5;margin:0;font-variant-numeric:tabular-nums}
+@keyframes render-run{from{transform:translateY(1px) rotate(-7deg)}to{transform:translateY(-4px) rotate(7deg)}}
+@media(prefers-reduced-motion:reduce){.render-loader-figure{animation:none}.render-loader-fill,.render-loader-runners{transition:none}}
+@media(max-width:450px){.render-loader{padding:16px 12px}.render-loader-title{font-size:1rem}.render-loader-track{margin-left:16px;margin-right:16px}}
 #publish-dialog{width:min(440px,calc(100vw - 28px));max-width:440px;margin:auto;padding:24px;border:1px solid #52617d;border-radius:16px;background:#111a2b;color:#f5f2ec;box-shadow:0 24px 80px #0009}
 #publish-dialog::backdrop{background:rgba(2,6,16,.8);backdrop-filter:blur(5px)}
 #publish-dialog form{display:grid;gap:10px}
@@ -271,6 +288,20 @@ main{max-width:1240px;padding:24px 22px 56px}
     <p class="muted">This key is held only in this browser tab's memory and is not saved to local storage.</p>
   </div>
   <div class="actions"><button id="export-mp4" type="button" disabled class="active">Generate 30-second MP4</button></div>
+  <div id="render-loader" class="render-loader hide" aria-label="Video export in progress">
+    <div class="render-loader-head">
+      <div><span class="render-loader-kicker">MP4 EXPORT</span><strong class="render-loader-title">YOUR STORY <em>IN MOTION</em></strong></div>
+      <output id="render-loader-percent" class="render-loader-percent">0%</output>
+    </div>
+    <div id="render-loader-track" class="render-loader-track" role="progressbar" aria-label="Video frames rendered" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="render-loader-fill" class="render-loader-fill"></div>
+      <span id="render-loader-runners" class="render-loader-runners" aria-hidden="true">
+        <svg class="render-loader-figure chaser" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="19" cy="6.5" r="3.2" fill="currentColor"/><path d="M18 12l-5 8 7 3m-7-3-8 3m8-3-1 10m8-7 8-3M18 12l7 5 6-2" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="render-loader-figure" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="19" cy="6.5" r="3.2" fill="currentColor"/><path d="M18 12l-5 8 7 3m-7-3-8 3m8-3-1 10m8-7 8-3M18 12l7 5 6-2" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </div>
+    <p id="render-loader-detail" class="render-loader-detail" role="status" aria-live="polite">Preparing video renderer…</p>
+  </div>
   <p id="export-status" class="muted" role="status" aria-live="polite">Prepare a preview to enable video export.</p>
   <div id="export-result" class="export-result hide">
     <video id="export-video" controls playsinline preload="metadata"></video>
