@@ -1,5 +1,5 @@
 // Contract v1: narrow, non-executing analysis for structured HTML templates.
-const FIELD_TYPES = Object.freeze({partner1:'text',partner2:'text',date:'date',time:'text',venue:'text',address:'text',message:'textarea',photos:'images',music:'audio'});
+const FIELD_TYPES = Object.freeze({partner1:'text',partner2:'text',date:'date',time:'text',venue:'text',address:'text',message:'textarea',blessing:'text',photos:'images',music:'audio'});
 const CONFIG_MARKER = /\bconst\s+CONFIG\s*=\s*\{/g;
 function closingBrace(source,start){
   let depth=0,quote='',escaped=false,comment='';
@@ -22,6 +22,35 @@ function getConfigRange(html){
   const start=matches[0].index+matches[0][0].length-1;
   return {start,end:closingBrace(html,start)};
 }
+// Ignore JavaScript comments between photo URL literals without stripping // inside URLs.
+function removeArrayComments(source){
+  let out='',quote='',escaped=false;
+  for(let i=0;i<source.length;i++){
+    const ch=source[i],next=source[i+1];
+    if(quote){
+      out+=ch;
+      if(escaped)escaped=false;
+      else if(ch==='\\')escaped=true;
+      else if(ch===quote)quote='';
+      continue;
+    }
+    if(ch==='"'||ch==="'"){quote=ch;out+=ch;continue;}
+    if(ch==='/'&&next==='/'){
+      i+=2;
+      while(i<source.length&&source[i]!=='\n')i++;
+      out+='\n';
+      continue;
+    }
+    if(ch==='/'&&next==='*'){
+      const end=source.indexOf('*/',i+2);
+      if(end===-1)throw new Error('Unclosed comment in photos array.');
+      i=end+1;out+=' ';continue;
+    }
+    out+=ch;
+  }
+  return out;
+}
+
 function readValue(body,key){
   const match=body.match(new RegExp('(?:^|[,\\n])\\s*'+key+'\\s*:\\s*','m'));
   if(!match)return undefined;
@@ -38,7 +67,7 @@ function readValue(body,key){
   if(key==='photos'&&rest[0]==='['){
     const end=rest.indexOf(']');
     if(end<0)throw new Error('Unclosed photos array.');
-    const array=rest.slice(1,end).trim();
+    const array=removeArrayComments(rest.slice(1,end)).trim();
     if(!array)return [];
     const values=[...array.matchAll(/(["'])(.*?)\1/g)].map(m=>m[2]);
     if(array.replace(/(["'])(.*?)\1/g,'').replace(/[,\s]/g,'')!=='')throw new Error('Photos must be literal strings.');
