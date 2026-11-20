@@ -1,9 +1,11 @@
 import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
 import {createPreviewController} from './admin-preview-controller.js';
+import {validateTemplateSource,validateRuntimeReport} from './admin-template-validator.js';
 const fileInput=document.querySelector('#source'),status=document.querySelector('#status'),report=document.querySelector('#report'),editor=document.querySelector('#editor'),fields=document.querySelector('#fields'),preview=document.querySelector('#preview'),save=document.querySelector('#save');
 const codeInput=document.querySelector('#code-input'),analyzeButton=document.querySelector('#analyze-code'),clearButton=document.querySelector('#clear-code');
 const progress=document.querySelector('#analysis-progress'),progressFill=document.querySelector('#progress-fill'),progressLabel=document.querySelector('#progress-label'),resetSample=document.querySelector('#reset-sample');
 const musicUpload=document.querySelector('#music-upload'),musicPlayer=document.querySelector('#music-player'),removeMusic=document.querySelector('#remove-music'),musicStatus=document.querySelector('#music-status');
+const validationRun=document.querySelector('#validation-run'),validationSummary=document.querySelector('#validation-summary'),validationResults=document.querySelector('#validation-results'),validationManual=document.querySelector('#validation-manual'),validationNote=document.querySelector('#validation-review-note');
 const previewController=createPreviewController({
   preview,
   playButton:document.querySelector('#preview-play'),
@@ -12,9 +14,82 @@ const previewController=createPreviewController({
   playbackStatus:document.querySelector('#preview-playback-status'),
   musicPlayer,
   musicUpload,
-  musicStatus
+  musicStatus,
+  onRuntimeReport: runtime=>{
+    if(!lastAnalysis||!prepared)return;
+    runtimeValidation=runtime;
+    renderValidation();
+  }
 });
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
+
+let staticValidation=[],runtimeValidation=null,previewValidationError='';
+function renderValidation(){
+  validationResults.replaceChildren();
+  if(!lastAnalysis){
+    validationRun.disabled=true;
+    validationManual.disabled=true;
+    validationManual.checked=false;
+    validationSummary.textContent='Analyze a template to see its validation checklist.';
+    validationNote.textContent='Manual visual review is pending. Nothing is published or saved by these checks.';
+    return;
+  }
+  validationRun.disabled=false;
+  const previewCheck=previewValidationError
+    ? {id:'runtime',status:'fail',title:'Browser preview smoke test',detail:previewValidationError}
+    : validateRuntimeReport(runtimeValidation,lastAnalysis.sceneCount);
+  const manualCheck={
+    id:'visual',status:validationManual.checked?'pass':'pending',
+    title:'Full 30-second visual review',
+    detail:validationManual.checked
+      ? 'Admin confirmed visual review in this browser session only.'
+      : 'Watch all scenes and verify images, dates, text fit, timing, and music manually.'
+  };
+  const items=[...staticValidation,previewCheck,manualCheck];
+  for(const item of items){
+    const li=document.createElement('li');li.dataset.status=item.status;
+    const state=document.createElement('div');state.className='validation-state';
+    state.textContent=({pass:'PASS',warning:'WARNING',pending:'PENDING',fail:'FAILED'})[item.status]||'UNKNOWN';
+    const title=document.createElement('strong');title.textContent=item.title;
+    const detail=document.createElement('p');detail.textContent=item.detail;
+    li.append(state,title,detail);validationResults.append(li);
+  }
+  validationManual.disabled=previewCheck.status!=='pass';
+  if(validationManual.disabled)validationManual.checked=false;
+  const failures=items.filter(item=>item.status==='fail').length;
+  const warnings=items.filter(item=>item.status==='warning').length;
+  const pending=items.filter(item=>item.status==='pending').length;
+  validationSummary.textContent=failures
+    ? failures+' failed check(s). Fix before further testing.'
+    : warnings||pending
+      ? 'Checks available: '+warnings+' warning(s), '+pending+' pending. Review required.'
+      : 'Checklist complete for this session. MP4 export and template security still unverified.';
+  validationNote.textContent=validationManual.checked
+    ? 'Visual review acknowledged locally; this does not publish the template or verify MP4 output.'
+    : 'Manual visual review remains pending. This checklist is not a security or MP4 certification.';
+}
+function resetValidation(){
+  staticValidation=[];runtimeValidation=null;previewValidationError='';
+  validationManual.checked=false;renderValidation();
+}
+function invalidatePreviewValidation(){
+  runtimeValidation=null;previewValidationError='';
+  validationManual.checked=false;renderValidation();
+}
+validationRun.addEventListener('click',()=>{
+  if(!lastAnalysis)return;
+  staticValidation=validateTemplateSource(source,lastAnalysis);
+  if(prepared)previewController.requestValidation();
+  renderValidation();
+});
+validationManual.addEventListener('change',renderValidation);
+editor.addEventListener('input',()=>{
+  if(prepared)invalidatePreviewValidation();
+});
+editor.addEventListener('change',()=>{
+  if(prepared)invalidatePreviewValidation();
+});
+
 // Expand the existing preview panel rather than moving/recreating its iframe.
 // Moving an iframe between DOM parents can reload it and restart the animation.
 const previewPanel=document.querySelector('#preview-panel');
@@ -255,6 +330,7 @@ function resetPrepared(){
   expandPreview.disabled=true;
   previewController.reset();preview.replaceChildren();
   clearMusic();
+  resetValidation();
   report.textContent='Paste a template to analyze scenes and fields.';
 }
 async function analyzeSource(text){
@@ -292,6 +368,8 @@ async function analyzeSource(text){
     showProgress(80,'Building sample preview form');await nextPaint();
     renderDetectedFields(analysis);
     editor.classList.remove('hide');
+    staticValidation=validateTemplateSource(text,analysis);
+    renderValidation();
     showProgress(100,'Analysis complete');
     setStatus('Analysis complete. Customer fields detected. Sample values are for preview only.','good');
   }catch(error){
@@ -356,12 +434,15 @@ editor.addEventListener('submit',async event=>{
   try{
     const values=await collectPreviewValues();
     prepared=prepareTemplate(source,values);
+    invalidatePreviewValidation();
     previewController.mount(prepared);
     expandPreview.disabled=false;
     save.disabled=false;
     setStatus('Sample preview prepared. Customer details are not saved.','good');
   }catch(error){
     prepared='';save.disabled=true;
+    previewValidationError=error instanceof Error?error.message:'Preview preparation failed.';
+    renderValidation();
     closePreviewModal();expandPreview.disabled=true;
     previewController.reset();preview.replaceChildren();
     setStatus(error instanceof Error?error.message:'Preparation failed.','error');
