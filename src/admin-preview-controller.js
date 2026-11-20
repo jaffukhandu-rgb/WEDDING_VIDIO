@@ -174,11 +174,13 @@ const BRIDGE = String.raw`
   function sendRuntimeReport(){
     const stage=document.querySelector(".stage")||document.querySelector("main");
     const bounds=stage?.getBoundingClientRect();
+    const sceneCount=document.querySelectorAll(".scene").length;
+    const bookPageCount=document.querySelectorAll(".book > .pg").length;
     window.parent.postMessage({
       channel:CHANNEL,
       kind:"runtime-validation",
       data:{
-        sceneCount:document.querySelectorAll(".scene").length,
+        sceneCount:sceneCount||bookPageCount,
         stageWidth:bounds?.width||0,
         stageHeight:bounds?.height||0,
         started:!!stage?.classList.contains("go"),
