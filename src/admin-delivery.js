@@ -30,6 +30,28 @@ async function readApiError(response, fallback) {
   }
 }
 
+async function verifyMp4Metadata(video, url) {
+  await new Promise((resolve, reject) => {
+    let timer;
+    function cleanup() {
+      clearTimeout(timer);
+      video.removeEventListener("loadedmetadata", onLoad);
+      video.removeEventListener("error", onError);
+    }
+    function onLoad() { cleanup(); resolve(); }
+    function onError() { cleanup(); reject(new Error("The generated MP4 cannot be opened by this browser.")); }
+    video.addEventListener("loadedmetadata", onLoad);
+    video.addEventListener("error", onError);
+    timer = setTimeout(() => { cleanup(); reject(new Error("MP4 metadata loading timed out.")); }, 15000);
+    video.src = url;
+    video.load();
+  });
+  if (!Number.isFinite(video.duration) || Math.abs(video.duration - 30) > 1 ||
+      video.videoWidth !== 540 || video.videoHeight !== 960) {
+    throw new Error("MP4 dimensions or duration are incorrect. Expected 540×960 and 30 seconds.");
+  }
+}
+
 export function createAdminDelivery({ getState }) {
   const apiKey = document.querySelector("#admin-api-key");
   const exportButton = document.querySelector("#export-mp4");
@@ -116,14 +138,27 @@ export function createAdminDelivery({ getState }) {
         exportStatus.textContent = "Preview changed during rendering. Generate the updated MP4 again.";
         return;
       }
-      mp4Url = URL.createObjectURL(blob);
+      const candidateUrl = URL.createObjectURL(blob);
+      try {
+        await verifyMp4Metadata(exportVideo, candidateUrl);
+      } catch (metadataError) {
+        URL.revokeObjectURL(candidateUrl);
+        exportVideo.removeAttribute("src");
+        exportVideo.load();
+        throw metadataError;
+      }
+      if (requestedVersion !== revision || getState().dirty) {
+        URL.revokeObjectURL(candidateUrl);
+        exportStatus.textContent = "Preview changed during MP4 validation. Export again.";
+        return;
+      }
+      mp4Url = candidateUrl;
       mp4For = state.html;
-      exportVideo.src = mp4Url;
       exportDownload.href = mp4Url;
       exportDownload.download = "wedding-invitation.mp4";
       exportResult.classList.remove("hide");
       exportStatus.textContent = "MP4 generated successfully. Play or download the video below.";
-      publishStatus.textContent = "MP4 verified. Complete the manual review, then choose a category to publish.";
+      publishStatus.textContent = "MP4 header, resolution and duration checked. Review the video, then choose a category to publish.";
     } catch (error) {
       exportStatus.textContent = error instanceof Error ? error.message : "Could not connect to the MP4 renderer.";
     } finally {
