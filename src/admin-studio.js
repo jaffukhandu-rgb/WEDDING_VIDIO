@@ -1,6 +1,7 @@
 import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
 import {createPreviewController} from './admin-preview-controller.js';
 import {validateTemplateSource,validateRuntimeReport} from './admin-template-validator.js';
+import {createAdminDelivery} from './admin-delivery.js';
 const fileInput=document.querySelector('#source'),status=document.querySelector('#status'),report=document.querySelector('#report'),editor=document.querySelector('#editor'),fields=document.querySelector('#fields'),preview=document.querySelector('#preview'),save=document.querySelector('#save');
 const codeInput=document.querySelector('#code-input'),analyzeButton=document.querySelector('#analyze-code'),clearButton=document.querySelector('#clear-code');
 const progress=document.querySelector('#analysis-progress'),progressFill=document.querySelector('#progress-fill'),progressLabel=document.querySelector('#progress-label'),resetSample=document.querySelector('#reset-sample');
@@ -24,6 +25,7 @@ const previewController=createPreviewController({
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
 
 let staticValidation=[],runtimeValidation=null,previewValidationError='',validationDirty=false;
+let delivery=null;
 function renderValidation(){
   validationResults.replaceChildren();
   if(!lastAnalysis){
@@ -32,6 +34,7 @@ function renderValidation(){
     validationManual.checked=false;
     validationSummary.textContent='Analyze a template to see its validation checklist.';
     validationNote.textContent='Manual visual review is pending. Nothing is published or saved by these checks.';
+    delivery?.refresh();
     return;
   }
   validationRun.disabled=false;
@@ -67,16 +70,17 @@ function renderValidation(){
       ? 'Checks available: '+warnings+' warning(s), '+pending+' pending. Review required.'
       : 'Checklist complete for this session. MP4 export and template security still unverified.';
   validationNote.textContent=validationManual.checked
-    ? 'Visual review acknowledged locally; this does not publish the template or verify MP4 output.'
+    ? 'Visual review acknowledged locally; MP4 export and publishing are handled separately.'
     : 'Manual visual review remains pending. This checklist is not a security or MP4 certification.';
+  delivery?.refresh();
 }
 function resetValidation(){
   staticValidation=[];runtimeValidation=null;previewValidationError='';validationDirty=false;
-  validationManual.checked=false;renderValidation();
+  validationManual.checked=false;delivery?.invalidate();renderValidation();
 }
 function invalidatePreviewValidation(){
   runtimeValidation=null;previewValidationError='';validationDirty=true;
-  validationManual.checked=false;renderValidation();
+  validationManual.checked=false;delivery?.invalidate('Sample details changed. Generate the updated MP4 after preparing the preview.');renderValidation();
 }
 validationRun.addEventListener('click',()=>{
   if(!lastAnalysis)return;
@@ -440,6 +444,7 @@ editor.addEventListener('submit',async event=>{
     previewController.mount(prepared);
     validationDirty=false;
     renderValidation();
+    delivery?.refresh();
     expandPreview.disabled=false;
     save.disabled=false;
     setStatus('Sample preview prepared. Customer details are not saved.','good');
@@ -452,6 +457,15 @@ editor.addEventListener('submit',async event=>{
     setStatus(error instanceof Error?error.message:'Preparation failed.','error');
   }finally{submit.disabled=false;}
 });
+delivery=createAdminDelivery({
+  getState:()=>({
+    source,html:prepared,dirty:validationDirty,
+    manualReviewed:validationManual.checked,
+    runtimePassed:Boolean(lastAnalysis && runtimeValidation &&
+      validateRuntimeReport(runtimeValidation,lastAnalysis.sceneCount).status==='pass')
+  })
+});
+
 save.addEventListener('click',()=>{
   if(!prepared)return;
   const url=URL.createObjectURL(new Blob([prepared],{type:'text/html;charset=utf-8'}));
