@@ -92,7 +92,7 @@ function showProgress(percent,label){
   progressFill.style.width=percent+'%';progressLabel.textContent=percent+'% · '+label;
 }
 function nextPaint(){return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
-const labels={partner1:'Partner 1 name',partner2:'Partner 2 name',date:'Wedding date',time:'Wedding time',venue:'Venue',address:'Address',message:'Invitation message'};
+const labels={partner1:'Partner 1 name',partner2:'Partner 2 name',date:'Wedding date',time:'Wedding time',venue:'Venue',address:'Address',message:'Invitation message',blessing:'Blessing (optional)'};
 function setStatus(message,type=''){status.textContent=message;status.className=type;}
 function makeField(key,value){
   const wrapper=document.createElement('div');
