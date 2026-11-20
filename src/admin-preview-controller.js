@@ -319,6 +319,7 @@ export function createPreviewController({
 
   restartButton.addEventListener("click", () => {
     if (!previewHtml || (state !== "playing" && state !== "paused")) return;
+    onRuntimeReport(null);
     musicPlayer.pause();
     try { musicPlayer.currentTime = 0; } catch { /* Audio may not be ready. */ }
     // A fresh isolated iframe resets animations, JS timers and the scene to 0s.
