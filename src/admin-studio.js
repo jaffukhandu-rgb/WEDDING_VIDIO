@@ -16,14 +16,14 @@ const previewController=createPreviewController({
   musicUpload,
   musicStatus,
   onRuntimeReport: runtime=>{
-    if(!lastAnalysis||!prepared)return;
+    if(!lastAnalysis||!prepared||validationDirty)return;
     runtimeValidation=runtime;
     renderValidation();
   }
 });
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
 
-let staticValidation=[],runtimeValidation=null,previewValidationError='';
+let staticValidation=[],runtimeValidation=null,previewValidationError='',validationDirty=false;
 function renderValidation(){
   validationResults.replaceChildren();
   if(!lastAnalysis){
@@ -37,7 +37,9 @@ function renderValidation(){
   validationRun.disabled=false;
   const previewCheck=previewValidationError
     ? {id:'runtime',status:'fail',title:'Browser preview smoke test',detail:previewValidationError}
-    : validateRuntimeReport(runtimeValidation,lastAnalysis.sceneCount);
+    : validationDirty
+      ? {id:'runtime',status:'pending',title:'Browser preview smoke test',detail:'Sample details changed. Click Preview with sample values to recheck the updated invitation.'}
+      : validateRuntimeReport(runtimeValidation,lastAnalysis.sceneCount);
   const manualCheck={
     id:'visual',status:validationManual.checked?'pass':'pending',
     title:'Full 30-second visual review',
@@ -69,17 +71,17 @@ function renderValidation(){
     : 'Manual visual review remains pending. This checklist is not a security or MP4 certification.';
 }
 function resetValidation(){
-  staticValidation=[];runtimeValidation=null;previewValidationError='';
+  staticValidation=[];runtimeValidation=null;previewValidationError='';validationDirty=false;
   validationManual.checked=false;renderValidation();
 }
 function invalidatePreviewValidation(){
-  runtimeValidation=null;previewValidationError='';
+  runtimeValidation=null;previewValidationError='';validationDirty=true;
   validationManual.checked=false;renderValidation();
 }
 validationRun.addEventListener('click',()=>{
   if(!lastAnalysis)return;
   staticValidation=validateTemplateSource(source,lastAnalysis);
-  if(prepared)previewController.requestValidation();
+  if(prepared&&!validationDirty)previewController.requestValidation();
   renderValidation();
 });
 validationManual.addEventListener('change',renderValidation);
@@ -436,6 +438,8 @@ editor.addEventListener('submit',async event=>{
     prepared=prepareTemplate(source,values);
     invalidatePreviewValidation();
     previewController.mount(prepared);
+    validationDirty=false;
+    renderValidation();
     expandPreview.disabled=false;
     save.disabled=false;
     setStatus('Sample preview prepared. Customer details are not saved.','good');
