@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { OCCASIONS } from "./data/templateCatalog.js";
+import { PublishedTemplateGallery } from "./components/PublishedTemplateGallery.jsx";
 
 // Only the customer landing page remains active until new code-based templates are ready.
 // The Admin Studio and renderer are independent of this customer-facing component.
@@ -75,12 +76,11 @@ export default function App() {
       </section>
 
       {selectedOccasion && (
-        <section className="design-section" aria-labelledby="no-templates-heading">
-          <div className="empty-gallery" role="status">
-            <strong id="no-templates-heading">No templates available yet</strong>
-            <span>New invitation templates will appear here when available.</span>
-          </div>
-        </section>
+        <PublishedTemplateGallery
+          key={selectedOccasion}
+          category={selectedOccasion}
+          categoryName={OCCASIONS.find(occasion => occasion.id === selectedOccasion)?.name || "Invitations"}
+        />
       )}
     </main>
   );
