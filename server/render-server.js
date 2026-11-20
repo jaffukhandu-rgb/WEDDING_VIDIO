@@ -6,13 +6,17 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
+import { requireAdmin, isAdminConfigured } from "./admin-access.js";
+import { templateRouter } from "./template-api.js";
+import { isDatabaseConfigured } from "./template-store.js";
 
 const app = express();
 const HOST = process.env.RENDER_HOST || "127.0.0.1";
 const PORT = Number(process.env.RENDER_PORT || 4174);
 const DURATION_SECONDS = 30;
 const FPS = 30;
-const MAX_HTML_BYTES = 1024 * 1024;
+// Source templates remain limited to 1 MB; personalized photo data URLs may be much larger.
+const MAX_HTML_BYTES = 25 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 const AUDIO_EXTENSIONS = {
   "audio/mpeg": "mp3",
@@ -40,24 +44,27 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
-app.use(express.json({ limit: "12mb", strict: true }));
+app.use(express.json({ limit: "40mb", strict: true }));
+app.use("/api", templateRouter());
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, durationSeconds: DURATION_SECONDS, fps: FPS });
+  res.json({ ok: true, durationSeconds: DURATION_SECONDS, fps: FPS,
+    mongodbConfigured: isDatabaseConfigured(), adminConfigured: isAdminConfigured() });
 });
 
-app.post("/api/render", async (req, res) => {
+// Raw HTML rendering is privileged: never expose arbitrary browser code execution publicly.
+app.post("/api/render", requireAdmin, async (req, res) => {
   const html = req.body?.html;
   if (typeof html !== "string" || !html.trim()) {
     return res.status(400).json({ error: "A non-empty HTML document is required." });
   }
   if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) {
-    return res.status(413).json({ error: "The HTML document is too large (1 MB maximum)." });
+    return res.status(413).json({ error: "Prepared HTML exceeds the 25 MB render limit. Use smaller photos." });
   }
   const audioBase64 = req.body?.audioBase64;
   const audioMimeType = req.body?.audioMimeType;
@@ -109,6 +116,7 @@ app.post("/api/render", async (req, res) => {
       deviceScaleFactor: 1,
       isMobile: true,
       hasTouch: true,
+      serviceWorkers: "block",
     });
 
     // Render user-authored HTML in an isolated browser with outbound network access disabled.
