@@ -31,6 +31,8 @@ const AUDIO_EXTENSIONS = {
   "audio/webm": "webm",
 };
 let rendering = false;
+let activeRenderProgress = null;
+const TOTAL_FRAMES = DURATION_SECONDS * FPS;
 
 app.disable("x-powered-by");
 const allowedOrigins = new Set([
@@ -47,7 +49,7 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key, X-Render-Job");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -62,6 +64,20 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: "40mb", strict: true }));
 app.use("/api", templateRouter());
+
+// Only the authenticated admin with the matching render job ID can check progress.
+app.get("/api/render/progress/:id", requireAdmin, (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (!rendering || !activeRenderProgress || activeRenderProgress.id !== req.params.id) {
+    return res.status(404).json({ error: "Render progress is unavailable." });
+  }
+  const { frame, phase, framesStartedAt } = activeRenderProgress;
+  const elapsed = framesStartedAt ? (Date.now() - framesStartedAt) / 1000 : 0;
+  const remainingSeconds = phase === "rendering" && frame >= 10
+    ? Math.ceil((elapsed / frame) * (TOTAL_FRAMES - frame))
+    : null;
+  return res.json({ frame, totalFrames: TOTAL_FRAMES, phase, remainingSeconds });
+});
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, durationSeconds: DURATION_SECONDS, fps: FPS,
@@ -100,6 +116,14 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   }
 
   rendering = true;
+  const requestedJobId = req.get("X-Render-Job");
+  activeRenderProgress = {
+    id: typeof requestedJobId === "string" && /^[a-f0-9-]{36}$/i.test(requestedJobId)
+      ? requestedJobId : null,
+    frame: 0,
+    phase: "preparing",
+    framesStartedAt: null,
+  };
   let browser;
   let workDir;
   let ffmpeg;
@@ -174,6 +198,8 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     ffmpeg.stderr.setEncoding("utf8");
     ffmpeg.stderr.on("data", (chunk) => { ffmpegError += chunk; });
 
+    activeRenderProgress.phase = "rendering";
+    activeRenderProgress.framesStartedAt = Date.now();
     let previousVirtualMs = 0;
     for (let frame = 0; frame < DURATION_SECONDS * FPS; frame += 1) {
       const virtualMs = Math.round((frame * 1000) / FPS);
@@ -192,7 +218,9 @@ app.post("/api/render", requireAdmin, async (req, res) => {
       }, virtualMs);
       const jpeg = await page.screenshot({ type: "jpeg", quality: 86, animations: "allow" });
       if (!ffmpeg.stdin.write(jpeg)) await once(ffmpeg.stdin, "drain");
+      activeRenderProgress.frame = frame + 1;
     }
+    activeRenderProgress.phase = "encoding";
     ffmpeg.stdin.end();
     const [exitCode] = await once(ffmpeg, "close");
     ffmpeg = null;
@@ -200,6 +228,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
 
     await browser.close();
     browser = null;
+    activeRenderProgress.phase = "delivering";
     res.set({
       "Content-Type": "video/mp4",
       "Content-Disposition": 'inline; filename="wedding-invitation.mp4"',
@@ -227,6 +256,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     if (browser) await browser.close().catch(() => {});
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
     rendering = false;
+    activeRenderProgress = null;
   }
 });
 
