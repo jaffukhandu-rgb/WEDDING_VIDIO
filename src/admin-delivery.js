@@ -56,6 +56,12 @@ export function createAdminDelivery({ getState }) {
   const apiKey = document.querySelector("#admin-api-key");
   const exportButton = document.querySelector("#export-mp4");
   const exportStatus = document.querySelector("#export-status");
+  const loader = document.querySelector("#render-loader");
+  const loaderTrack = document.querySelector("#render-loader-track");
+  const loaderFill = document.querySelector("#render-loader-fill");
+  const loaderRunners = document.querySelector("#render-loader-runners");
+  const loaderPercent = document.querySelector("#render-loader-percent");
+  const loaderDetail = document.querySelector("#render-loader-detail");
   const exportResult = document.querySelector("#export-result");
   const exportVideo = document.querySelector("#export-video");
   const exportDownload = document.querySelector("#export-download");
@@ -107,6 +113,21 @@ export function createAdminDelivery({ getState }) {
     updateButtons();
   }
 
+  function showRenderProgress(percent, detail) {
+    const progress = Math.max(0, Math.min(100, percent));
+    loaderFill.style.width = progress + "%";
+    loaderRunners.style.left = progress + "%";
+    loaderTrack.setAttribute("aria-valuenow", String(progress));
+    loaderPercent.textContent = progress + "%";
+    loaderDetail.textContent = detail;
+  }
+
+  function formatRemaining(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "";
+    if (seconds < 60) return " · About " + seconds + "s remaining";
+    return " · About " + Math.floor(seconds / 60) + "m " + (seconds % 60) + "s remaining";
+  }
+
   async function generateMp4() {
     const state = getState();
     if (rendering || publishing || !currentReady()) return;
@@ -118,17 +139,42 @@ export function createAdminDelivery({ getState }) {
     discardVideo("Preparing MP4 export…");
     const requestedVersion = revision;
     rendering = true;
+    loader.classList.remove("hide");
+    showRenderProgress(0, "Preparing video renderer…");
     exportStatus.textContent = "Rendering 900 frames at 540 × 960. Keep this tab open.";
     updateButtons();
+    let progressTimer;
     try {
       const audio = await readMusicAsBase64(musicInput.files?.[0]);
+      const jobId = crypto.randomUUID();
+      const pollProgress = async () => {
+        try {
+          const progressResponse = await fetch(API_ROOT + "/api/render/progress/" + jobId, {
+            headers: { "X-Admin-Key": keyValue() },
+            cache: "no-store"
+          });
+          if (!progressResponse.ok) return;
+          const progress = await progressResponse.json();
+          const percent = Math.min(99, Math.floor(100 * progress.frame / progress.totalFrames));
+          const detail = progress.phase === "encoding" ? "Finishing video encoding…"
+            : progress.phase === "delivering" ? "Preparing MP4 download…"
+            : progress.phase === "rendering" ? "Rendered " + progress.frame + " / " + progress.totalFrames +
+              " frames" + (progress.remainingSeconds == null ? " · Estimating…" : formatRemaining(progress.remainingSeconds))
+            : "Preparing video renderer…";
+          showRenderProgress(percent, detail);
+        } catch {
+          // Temporary progress-poll errors must not interrupt video export.
+        }
+      };
+      progressTimer = setInterval(() => { void pollProgress(); }, 900);
       const response = await fetch(API_ROOT + "/api/render", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": keyValue() },
+        headers: { "Content-Type": "application/json", "X-Admin-Key": keyValue(), "X-Render-Job": jobId },
         body: JSON.stringify({ html: state.html, ...audio })
       });
       if (!response.ok) throw new Error(await readApiError(response, "MP4 rendering failed."));
       const blob = await response.blob();
+      showRenderProgress(99, "Validating the finished MP4…");
       if (!blob.type.includes("video/mp4") || blob.size < 16) {
         throw new Error("The renderer did not return a valid MP4.");
       }
@@ -152,6 +198,7 @@ export function createAdminDelivery({ getState }) {
         exportStatus.textContent = "Preview changed during MP4 validation. Export again.";
         return;
       }
+      showRenderProgress(100, "MP4 ready.");
       mp4Url = candidateUrl;
       mp4For = state.html;
       exportDownload.href = mp4Url;
@@ -162,6 +209,8 @@ export function createAdminDelivery({ getState }) {
     } catch (error) {
       exportStatus.textContent = error instanceof Error ? error.message : "Could not connect to the MP4 renderer.";
     } finally {
+      clearInterval(progressTimer);
+      loader.classList.add("hide");
       rendering = false;
       updateButtons();
     }
