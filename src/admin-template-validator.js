@@ -5,7 +5,9 @@ export function validateTemplateSource(html, analysis) {
   const add = (id, status, title, detail) => checks.push({ id, status, title, detail });
 
   add('structure', 'pass', 'Supported template structure',
-    analysis.sceneCount + ' sequential scenes and a readable CONFIG block detected.');
+    analysis.sceneCount + (analysis.layoutType==='book'
+      ? ' animated book pages and a readable CONFIG block detected.'
+      : ' sequential scenes and a readable CONFIG block detected.'));
 
   const dates = Array.isArray(analysis.config.events)
     ? analysis.config.events.map(event => event.date)
@@ -20,9 +22,14 @@ export function validateTemplateSource(html, analysis) {
   const delayMatch = css.match(/animation-delay\s*:\s*calc\(\s*var\(--i\)\s*\*\s*(\d+(?:\.\d+)?)s\s*\)/);
   const duration = durationMatch ? Number(durationMatch[1]) : null;
   const step = delayMatch ? Number(delayMatch[1]) : null;
-  const total = duration != null && step != null
-    ? (analysis.sceneCount - 1) * step + duration
-    : null;
+  // Book layouts have page flips instead of a .scene timing schedule.
+  // A 30s progress track is a duration hint; manual video review is still required.
+  const bookTrack=/\.go\s+\.bar\s+i\s*\{[^}]*\banimation\s*:\s*fill\s+30s\b/i.test(html);
+  const total = analysis.layoutType==='book'
+    ? (bookTrack?30:null)
+    : duration != null && step != null
+      ? (analysis.sceneCount - 1) * step + duration
+      : null;
   add('timeline', total === 30 ? 'pass' : 'warning', '30-second scene schedule',
     total == null
       ? 'Scene durations could not be confirmed statically. Review all scenes in the preview.'
