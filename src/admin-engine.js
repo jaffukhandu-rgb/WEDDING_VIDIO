@@ -139,12 +139,12 @@ function detectPhotoSlots(html,body,config){
       slots.push({key:'photos',index,label:'Photo '+(index+1)});
     }
   }
-  const named=[...body.matchAll(/(?:^|[,\n])\s*(photo\d+)\s*:/g)]
+  const named=[...body.matchAll(/(?:^|[,\n])\s*(photo\d*)\s*:/g)]
     .map(match=>match[1]);
   for(const key of new Set(named)){
     if(slots.length>=6)break;
     const used=new RegExp('\\bCONFIG\\.'+key+'\\b|data-bind=["\\x27]'+key+'["\\x27]').test(html);
-    if(used&&typeof config[key]==='string')slots.push({key,index:null,label:key.replace(/(\d+)$/,' $1')});
+    if(used&&typeof config[key]==='string')slots.push({key,index:null,label:key==='photo'?'Photo':key.replace(/(\d+)$/,' $1')});
   }
   return slots;
 }
@@ -156,6 +156,15 @@ function auditFonts(html){
   return {remote,remoteFamilies:[...new Set(families)],embedded};
 }
 
+// Match exact CSS classes, never substrings such as "not-book" or "fake-scene".
+function tagsWithClass(html,tagName,className){
+  const elements=[...html.matchAll(new RegExp('<'+tagName+'\\b[^>]*>','gi'))];
+  return elements.filter(match=>{
+    const attribute=match[0].match(/\bclass\s*=\s*(["'])([^"']*)\1/i);
+    return Boolean(attribute&&attribute[2].split(/\s+/).includes(className));
+  });
+}
+
 export function analyzeTemplate(html){
   if(typeof html!=='string'||!html.trim())throw new Error('Upload a nonempty HTML file.');
   if(new TextEncoder().encode(html).length>1024*1024)throw new Error('HTML exceeds 1 MB.');
@@ -164,6 +173,9 @@ export function analyzeTemplate(html){
   const eventData=parseEvents(body);
   const eventFreeBody=eventData?body.slice(0,eventData.range.start)+body.slice(eventData.range.end+1):body;
   for(const key of Object.keys(FIELD_TYPES)){const value=readValue(eventFreeBody,key);if(value!==undefined)config[key]=value;}
+  // Page-turn book templates commonly expose a single CONFIG.photo.
+  const singlePhoto=readValue(eventFreeBody,'photo');
+  if(singlePhoto!==undefined)config.photo=singlePhoto;
   if(eventData)config.events=eventData.events;
   for(const match of eventFreeBody.matchAll(/(?:^|[,\n])\s*(photo\d+)\s*:/g)){
     const key=match[1];
@@ -175,10 +187,22 @@ export function analyzeTemplate(html){
   if(!Object.keys(config).length)throw new Error('No supported customer fields detected.');
   if(config.date!==undefined&&!validDate(config.date))throw new Error('Invalid sample wedding date.');
   if(eventData&&eventData.events.some(event=>!validDate(event.date)))throw new Error('An event has an invalid sample date.');
-  const scenes=[...html.matchAll(/<section\b[^>]*class=["'][^"']*\bscene\b[^"']*["'][^>]*>/gi)];
-  if(!scenes.length)throw new Error('No scene sections found.');
-  const indexes=scenes.map(m=>Number(m[0].match(/--i\s*:\s*(\d+)/)?.[1]));
-  if(indexes.some((n,i)=>n!==i))throw new Error('Scenes must have sequential --i indexes.');
+  const scenes=tagsWithClass(html,'section','scene');
+  let layoutType='scenes',sceneCount=scenes.length;
+  if(sceneCount){
+    const indexes=scenes.map(m=>Number(m[0].match(/--i\s*:\s*(\d+)/)?.[1]));
+    if(indexes.some((n,i)=>n!==i))throw new Error('Scenes must have sequential --i indexes.');
+  }else{
+    // Page-turn books use stacked .pg pages, not numbered .scene sections.
+    const stage=tagsWithClass(html,'main','stage').length>0||tagsWithClass(html,'div','stage').length>0;
+    const book=tagsWithClass(html,'div','book').length>0;
+    const pages=tagsWithClass(html,'div','pg');
+    if(!stage||!book||pages.length<2||pages.length>12){
+      throw new Error('Unsupported layout: use numbered scene sections, or a .stage with a .book containing 2–12 .pg pages.');
+    }
+    layoutType='book';
+    sceneCount=pages.length;
+  }
   const warnings=[];
   if(/<script\b[^>]*\bsrc\s*=/i.test(html))warnings.push('External scripts are blocked.');
   if(/https?:\/\//i.test(html))warnings.push('Remote fonts and assets are blocked.');
@@ -187,12 +211,12 @@ export function analyzeTemplate(html){
   const photoSlots=detectPhotoSlots(html,eventFreeBody,config);
   const fonts=auditFonts(html);
   if(fonts.remote)warnings.push('External fonts are blocked in the isolated preview. Fallback fonts will be used unless the font is embedded.');
-  const fields=Object.keys(config).filter(key=>key!=='music'&&key!=='photos'&&!/^photo\d+$/.test(key));
+  const fields=Object.keys(config).filter(key=>key!=='music'&&key!=='photos'&&!/^photo\d*$/.test(key));
   if(photoSlots.length)fields.push('photos');
   if(eventData)fields.push('events');
   const uniqueFields=[...new Set(fields)];
   const eventFieldCount=eventData?eventData.events.reduce((count,event)=>count+Object.keys(event).length,0):0;
-  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount:scenes.length,fields:uniqueFields,config,warnings,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
+  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount,layoutType,fields:uniqueFields,config,warnings,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
 }
 export function prepareTemplate(html,values){
   const report=analyzeTemplate(html),config={...report.config};
