@@ -354,7 +354,7 @@ async function analyzeSource(text){
     heading.className='analysis-stats';
     const ordinaryCount=analysis.fields.filter(key=>key!=='events'&&key!=='photos').length;
     const totalFields=ordinaryCount+analysis.eventFieldCount+analysis.photoSlots.length;
-    heading.textContent=`${analysis.name} · ${analysis.sceneCount} scenes · ${totalFields} editable inputs · ${analysis.photoSlots.length} photo slots`;
+    heading.textContent=`${analysis.name} · ${analysis.sceneCount} ${analysis.layoutType==='book'?'book pages':'scenes'} · ${totalFields} editable inputs · ${analysis.photoSlots.length} photo slots`;
     report.append(heading);
     if(analysis.warnings.length){
       const list=document.createElement('ul');
