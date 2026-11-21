@@ -192,7 +192,12 @@ const BRIDGE = String.raw`
         started:!!stage?.classList.contains("go"),
         monogram:monogramExpected==null?null
           : {expected:monogramExpected,actual:monogramActual},
-        errors:runtimeErrors.slice()
+        errors:runtimeErrors.slice(),
+        brokenImages:[...document.images].filter(img=>!img.complete||(img.currentSrc&&img.naturalWidth===0)).length,
+        overflowingText:[...document.querySelectorAll('h1,h2,h3,p,[data-bind]')].filter(node=>{
+          const rect=node.getBoundingClientRect();
+          return rect.width>0&&rect.height>0&&(node.scrollWidth>node.clientWidth+3||node.scrollHeight>node.clientHeight+3);
+        }).length
       }
     },"*");
   }
