@@ -1,40 +1,48 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { WeddingMediaLayer } from "./WeddingMediaLayer.jsx";
+import { RoyalNoirComposition, MaharajaLegacyComposition, ModernHeirloomComposition } from "./PremiumWeddingCompositions.jsx";
 
 const SEGMENT_FRAMES = 150;
 const TOTAL_SCENES = 6;
 
 const SCENES = [
   {
+    key: "intro",
     eyebrow: "A BEAUTIFUL CELEBRATION",
     title: "preview",
     subtitle: "previewSubtitle",
     note: "AN INVITATION TO CELEBRATE",
   },
   {
+    key: "couple",
     eyebrow: "TWO FAMILIES · ONE STORY",
     title: "A & R",
     subtitle: "Together, forever",
     note: "A NEW CHAPTER BEGINS",
   },
   {
+    key: "date",
     eyebrow: "SAVE THE DATE",
     title: "YOUR WEDDING DATE",
     subtitle: "A day to remember",
     note: "DATE · TIME · CELEBRATION",
   },
   {
+    key: "invitation",
     eyebrow: "TOGETHER WITH THEIR FAMILIES",
     title: "THE WEDDING INVITATION",
     subtitle: "Request the pleasure of your company",
     note: "YOU ARE CORDIALLY INVITED",
   },
   {
+    key: "venue",
     eyebrow: "THE CELEBRATION",
     title: "YOUR VENUE",
     subtitle: "Venue and location details",
     note: "WE LOOK FORWARD TO WELCOMING YOU",
   },
   {
+    key: "finale",
     eyebrow: "WITH LOVE",
     title: "WE CAN'T WAIT TO CELEBRATE",
     subtitle: "Your presence will make our day complete",
@@ -51,18 +59,50 @@ const clamp = (value, input, output) =>
 function SceneTypography({
   scene,
   template,
+  eventDetails,
   opacity,
   translateY,
   color,
   accent,
   isLight,
 }) {
+  const brideName = String(eventDetails?.brideName || "").trim();
+  const groomName = String(eventDetails?.groomName || "").trim();
+  const coupleNames = [brideName, groomName].filter(Boolean).join(" & ");
+  const weddingDate = eventDetails?.weddingDate
+    ? new Date(eventDetails.weddingDate + "T00:00:00").toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+  const weddingTime = String(eventDetails?.weddingTime || "").trim();
+  const venueName = String(eventDetails?.venueName || "").trim();
+  const venueAddress = String(eventDetails?.venueAddress || "").trim();
+  const invitationMessage = String(eventDetails?.invitationMessage || "").trim();
+
   const title =
-    scene.title === "preview" ? template.previewTitle : scene.title;
+    scene.key === "couple" && coupleNames
+      ? coupleNames
+      : scene.key === "date" && weddingDate
+        ? weddingDate
+        : scene.key === "venue" && venueName
+          ? venueName
+          : scene.key === "finale" && coupleNames
+            ? coupleNames
+            : scene.title === "preview"
+              ? template.previewTitle
+              : scene.title;
   const subtitle =
-    scene.subtitle === "previewSubtitle"
-      ? template.previewSubtitle
-      : scene.subtitle;
+    scene.key === "date" && weddingTime
+      ? "Celebration begins at " + weddingTime
+      : scene.key === "invitation" && invitationMessage
+        ? invitationMessage
+        : scene.key === "venue" && venueAddress
+          ? venueAddress
+          : scene.subtitle === "previewSubtitle"
+            ? template.previewSubtitle
+            : scene.subtitle;
   const titleSize =
     title.length > 23 ? 43 : title.length > 16 ? 51 : 65;
 
@@ -567,9 +607,19 @@ function MonogramArchitecture({ scene, progress, accent }) {
 }
 
 function ArtDirection({ template, scene, progress, frame }) {
-  const styleId = template.styleId;
   const accent = template.colors?.accent || "#d7b46f";
 
+  if (template.compositionId === "royal-noir") {
+    return <RoyalNoirComposition scene={scene} progress={progress} accent={accent} />;
+  }
+  if (template.compositionId === "maharaja-legacy") {
+    return <MaharajaLegacyComposition scene={scene} progress={progress} accent={accent} />;
+  }
+  if (template.compositionId === "modern-heirloom") {
+    return <ModernHeirloomComposition scene={scene} progress={progress} accent={accent} />;
+  }
+
+  const styleId = template.styleId;
   if (styleId === "royal") return <RoyalArchitecture scene={scene} progress={progress} accent={accent} />;
   if (styleId === "glass") return <GlassArchitecture scene={scene} progress={progress} accent={accent} />;
   if (styleId === "three-d") return <VintageArchitecture scene={scene} progress={progress} accent={accent} />;
@@ -584,8 +634,7 @@ function ArtDirection({ template, scene, progress, frame }) {
   if (styleId === "monogram") return <MonogramArchitecture scene={scene} progress={progress} accent={accent} />;
   return <RoyalArchitecture scene={scene} progress={progress} accent={accent} />;
 }
-
-export function WeddingTemplateMotionPreview({ template }) {
+export function WeddingTemplateMotionPreview({ template, eventDetails = {}, photos = [], videos = [], musicUrl = "" }) {
   const frame = useCurrentFrame();
   const colors = template.colors || {};
   const sceneIndex = Math.min(TOTAL_SCENES - 1, Math.floor(frame / SEGMENT_FRAMES));
@@ -600,7 +649,7 @@ export function WeddingTemplateMotionPreview({ template }) {
   const artScale = clamp(localFrame, [0, 149], [1.08, 1]);
   const drift = Math.sin(progress * Math.PI * 2) * 8;
   const accent = colors.accent || "#d7b46f";
-  const isLight = ["floral", "editorial", "mediterranean"].includes(template.styleId);
+  const isLight = ["floral", "editorial", "mediterranean"].includes(template.styleId) || template.compositionId === "modern-heirloom";
   const foreground = isLight ? "#352d25" : colors.ink || "#fff4df";
   const background = colors.background || "#101112";
 
@@ -658,12 +707,15 @@ export function WeddingTemplateMotionPreview({ template }) {
       <SceneTypography
         scene={scene}
         template={template}
+        eventDetails={eventDetails}
         opacity={sceneOpacity}
         translateY={titleY}
         color={foreground}
         accent={accent}
         isLight={isLight}
       />
+
+      <WeddingMediaLayer photos={photos} videos={videos} musicUrl={musicUrl} />
 
       <div
         style={{

@@ -1,0 +1,337 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invitation Preparation Studio</title><style>
+:root{font:16px/1.5 system-ui,sans-serif;color:#e8eaf1;background:#0b1020}*{box-sizing:border-box}body{margin:0}main{max-width:1160px;margin:auto;padding:28px 20px 64px}h1{font-size:clamp(1.6rem,3vw,2.4rem);margin:0}h2{font-size:1.15rem;margin:0 0 14px}p{color:#aeb8cc}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:26px}.pill{border:1px solid #866b42;border-radius:30px;padding:6px 12px;color:#e9ce9c;font-size:.8rem}.tabs{display:flex;gap:10px;margin-bottom:18px}button{font:inherit;border:1px solid #65718a;background:#19243a;color:#fff;padding:10px 16px;border-radius:9px;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.active{background:#a98b59;color:#111827;border-color:#a98b59}.panel{background:#111a2b;border:1px solid #34405a;border-radius:16px;padding:22px;margin-bottom:20px}.grid{display:grid;grid-template-columns:minmax(290px,1fr) minmax(280px,1fr);gap:20px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:5px}.wide{grid-column:1/-1}label{font-size:.87rem;color:#d4d9e5}input,textarea{font:inherit;background:#090f1c;color:#fff;border:1px solid #53617b;border-radius:8px;padding:10px;width:100%}input:focus,textarea:focus{outline:2px solid #b99a68;outline-offset:1px}.preview{width:min(100%,310px);aspect-ratio:9/16;border:1px solid #44506a;background:#030711;margin:auto;overflow:hidden}.preview iframe{width:100%;height:100%;border:0}.muted{color:#9ca9bf;font-size:.9rem}.error{color:#ff9b9b}.good{color:#a7e0b3}.warn{color:#f1ce8d}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.hide{display:none}ul{padding-left:20px}li{margin-bottom:5px}@media(max-width:760px){.grid{grid-template-columns:1fr}.fields{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+.progress-track{height:12px;border-radius:99px;background:#26334a;overflow:hidden;margin-top:12px}.progress-fill{height:100%;width:0;background:#b99a68;transition:width .15s ease}.progress-label{font-variant-numeric:tabular-nums;margin:8px 0 0}.preview-note{font-size:.88rem;color:#b9c7dc}.sample-heading{font-weight:600;color:#e8eaf1;margin-top:14px}
+/* Focused usability improvements; existing layout and functionality retained */
+main{max-width:1320px;padding:32px 24px 72px}.top{padding-bottom:12px;border-bottom:1px solid #26334a}.panel{box-shadow:0 8px 30px rgba(0,0,0,.12)}.grid{grid-template-columns:minmax(0,1fr) minmax(360px,.9fr);align-items:start}.grid>.panel{min-width:0}.preview{width:min(100%,390px);background:#02040d;border-radius:12px}.preview iframe{display:block}.preview-note{line-height:1.65}#code-input{min-height:340px!important;line-height:1.6;tab-size:2}#report{line-height:1.7}#status{font-weight:500}button{min-height:44px}button:hover:not(:disabled){filter:brightness(1.12)}button:focus-visible,summary:focus-visible{outline:3px solid #e8c78f;outline-offset:3px}.progress-track{height:10px}.field input,.field textarea{min-height:46px}.field textarea{min-height:110px}@media(max-width:850px){main{padding:20px 14px 50px}.grid{grid-template-columns:minmax(0,1fr)}.preview{width:min(100%,350px)}#code-input{min-height:270px!important}}@media(max-width:520px){.panel{padding:16px}.fields{grid-template-columns:1fr}.top{margin-bottom:18px}.tabs{flex-wrap:wrap}}
+/* Compact Admin form and media workspace */
+:root{color-scheme:dark}
+body{background:linear-gradient(180deg,#080f1e,#0b1222 55%,#0a1020)}
+main{max-width:1320px}
+.panel{background:#111a2b;border-color:#2e3b53}
+.panel h2{letter-spacing:-.02em}
+.grid{grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr);align-items:start}
+.grid>.panel:last-child{position:sticky;top:18px}
+.fields{display:block}
+.form-card{border:1px solid #34445f;background:#0d1627;border-radius:12px;margin:0 0 12px;overflow:hidden}
+.form-card>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;cursor:pointer;color:#f0e9da;font-weight:600;list-style:none}
+.form-card>summary::-webkit-details-marker{display:none}
+.form-card>summary::after{content:"⌄";color:#d5b479;font-size:1.15rem;flex:none}
+.form-card[open]>summary::after{transform:rotate(180deg)}
+.form-card[open]>summary{border-bottom:1px solid #34445f}
+.form-card>.form-card-content{padding:16px}
+.form-card-content>.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.form-card .field{min-width:0}
+.form-card .field.wide{grid-column:1/-1}
+.event-list{display:grid;gap:8px}
+.event-card{margin:0}
+.event-card>summary{font-weight:500}
+.summary-date{margin-left:auto;color:#a9b7ce;font-size:.85rem;font-weight:400}
+.media-note{font-size:.86rem;color:#a7b6cb}
+.photo-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.photo-slot{border:1px dashed #5d6b84;background:#0a1323;border-radius:12px;padding:12px}
+.photo-slot input{width:100%;padding:7px;font-size:.82rem}
+.photo-thumb{display:block;max-width:100%;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;margin-top:10px}
+.media-editor{border:1px solid #34445f;background:#0d1627;border-radius:12px;padding:16px;margin-top:14px}
+.media-editor h3{font-size:1rem;margin:0 0 6px}
+.media-editor input[type=file]{max-width:100%;font-size:.88rem}
+.media-editor audio{width:100%;margin-top:12px}
+#analysis-progress{max-width:100%}
+.preview{width:min(100%,400px)}
+#report .analysis-stats{font-weight:600;color:#d3bb8d}
+#report .font-report{border-left:3px solid #aa8655;padding:7px 12px;background:#1d2434}
+.actions{align-items:center}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.grid>.panel:last-child{position:static}.preview{width:min(100%,360px)}}
+@media(max-width:540px){.form-card-content>.field-grid,.photo-slots{grid-template-columns:1fr}.form-card{margin-bottom:10px}.form-card>.form-card-content{padding:12px}}
+
+/* Preview transport controls sit immediately below the portrait preview. */
+.preview-controls{display:flex;justify-content:center;align-items:center;gap:10px;max-width:400px;margin:14px auto 0}
+.preview-controls button{flex:1 1 0;white-space:nowrap;padding:10px 12px;font-weight:600;min-width:0}
+.preview-controls button:not(:disabled):hover{border-color:#bc9c67}
+.preview-controls button:disabled{opacity:.45}
+.preview-playback-status{text-align:center;color:#bec9da;font-size:.87rem;margin:10px auto 4px;max-width:400px}
+@media(max-width:390px){.preview-controls{gap:6px}.preview-controls button{padding:9px 6px;font-size:.84rem}}
+
+/* Admin layout refinement: keep the entire portrait preview and controls usable
+   within a laptop-height viewport without altering invitation source code. */
+:root{--admin-accent:#d8b779;--admin-border:#344157}
+main{max-width:1240px;padding:24px 22px 56px}
+.top{align-items:center;gap:16px;margin-bottom:20px;padding-bottom:20px}
+.top h1{font-size:clamp(1.5rem,2.5vw,2rem);letter-spacing:-.035em;line-height:1.2}
+.top p{margin:9px 0 0;max-width:56ch;font-size:.93rem}
+.top .pill{white-space:nowrap}
+.tabs{margin-bottom:18px}
+.tabs button{min-height:42px;padding:9px 16px}
+.panel{padding:20px;border:1px solid var(--admin-border);border-radius:16px;background:#101a2b;box-shadow:0 10px 26px rgba(0,0,0,.11)}
+.panel h2{font-size:1.1rem;line-height:1.3}
+.grid{grid-template-columns:minmax(0,1fr) minmax(300px,.82fr);gap:18px;align-items:start}
+.grid>.panel:last-child{position:sticky;top:12px;padding:18px}
+#code-input{min-height:220px!important;height:clamp(220px,29dvh,310px);font-size:13px;line-height:1.55}
+#preview.preview{
+  width:min(100%,300px,31dvh);
+  aspect-ratio:9/16;
+  height:auto;
+  max-height:none;
+  margin:12px auto 0;
+  border:1px solid #5c6272;
+  border-radius:14px;
+  background:#050813;
+  overflow:hidden;
+  box-shadow:0 12px 30px rgba(0,0,0,.22)
+}
+#preview.preview iframe{display:block;width:100%;height:100%;border:0}
+.preview-controls{width:min(100%,338px);max-width:338px;gap:8px;margin:12px auto 0}
+.preview-controls button{min-height:40px;padding:8px 6px;font-size:.89rem;border-radius:9px}
+.preview-controls button:focus-visible{outline:2px solid var(--admin-accent);outline-offset:3px}
+.preview-playback-status{margin:8px auto 0;max-width:340px;font-size:.8rem}
+.grid>.panel:last-child>.muted{max-width:360px;margin:10px auto 0;font-size:.8rem;line-height:1.5;text-align:center}
+.form-card{margin-bottom:10px;border-radius:11px}
+.form-card>summary{padding:12px 14px}
+.form-card>.form-card-content{padding:13px}
+.photo-slots{gap:10px}
+.photo-slot{padding:12px;min-width:0;border-radius:10px}
+.photo-slot label{display:block;font-weight:600;margin-bottom:7px}
+.photo-slot input{padding:7px 6px;font-size:.8rem}
+.photo-thumb{max-height:145px;margin-top:10px}
+.photo-thumb.hide{display:none!important}
+.media-editor{padding:14px;border-radius:11px}
+.media-editor p{margin:8px 0}
+.media-editor h3{font-size:.96rem}
+.media-editor .pill{font-size:.7rem}
+.actions{gap:9px}
+.actions button{min-height:40px}
+#report{font-size:.91rem}
+.preview-note{margin:8px 0 12px;line-height:1.55}
+@media(max-width:900px){
+  main{padding:18px 14px 48px}
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .grid>.panel:last-child{position:static}
+  #preview.preview{width:min(100%,280px,30dvh)}
+}
+@media(max-width:540px){
+  .panel{padding:15px}
+  .top{align-items:flex-start;gap:10px}
+  .top .pill{white-space:normal}
+  .photo-slots{grid-template-columns:1fr}
+  .preview-controls{width:100%}
+  .preview-controls button{font-size:.82rem}
+}
+
+/* Laptop-first preview: fit the whole 9:16 canvas AND its controls on screen.
+   Keep iframe's intrinsic invitation layout intact; only scale the viewport. */
+.grid>.panel:last-child{min-width:0}
+#preview.preview{
+  position:relative;
+  width:min(100%,300px,max(150px,calc((100dvh - 255px)*9/16)));
+  height:auto;
+  aspect-ratio:9/16;
+  flex:none;
+  margin:10px auto 0;
+}
+#preview.preview iframe{
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  border:0;
+}
+.preview-controls{width:min(100%,300px);max-width:300px;margin:10px auto 0}
+.preview-controls button{min-height:38px;padding:7px 5px;font-size:.84rem}
+.preview-playback-status{font-size:.76rem;margin:6px auto 0}
+.grid>.panel:last-child>.muted{font-size:.76rem;margin:7px auto 0}
+.grid>.panel:last-child{max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.photo-slot{padding:10px;border-color:#43536e;background:#0c1728}
+.photo-slot label{margin-bottom:6px}
+.photo-slot input{font-size:.78rem}
+.photo-slot .photo-thumb.hide{display:none!important}
+.photo-slot .photo-thumb:not(.hide){height:110px;max-height:110px;object-fit:cover}
+.media-editor{padding:12px}
+.media-editor h3{margin-bottom:4px}
+.media-editor .media-note{line-height:1.4}
+.form-card>summary{padding:11px 13px}
+@media(max-width:900px){
+  .grid>.panel:last-child{max-height:none;overflow:visible}
+  #preview.preview{width:min(100%,300px,max(150px,calc((100dvh - 250px)*9/16)))}
+}
+@media(max-height:650px) and (min-width:901px){
+  #preview.preview{width:min(100%,260px,max(130px,calc((100dvh - 220px)*9/16)))}
+  .grid>.panel:last-child{padding:12px}
+  .grid>.panel:last-child h2{margin-bottom:7px}
+}
+
+/* Preview expansion: never reparent or recreate the running iframe. */
+[hidden]{display:none!important}
+.preview-backdrop{position:fixed;inset:0;z-index:200;background:rgba(2,6,18,.85);backdrop-filter:blur(7px)}
+.preview-modal-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;max-width:100%}
+.preview-modal-heading h2{margin:0}
+.preview-close{min-height:38px;padding:6px 14px;white-space:nowrap;background:#253249;border-color:#64718a}
+.preview-stage{position:relative;width:min(100%,345px);margin:14px auto 0}
+#preview.preview{width:100%;height:auto;aspect-ratio:9/16;margin:0;max-height:none}
+.preview-expand-hitbox{position:absolute;inset:0;z-index:2;width:100%;height:100%;padding:10px;display:flex;align-items:flex-end;justify-content:flex-end;background:transparent;border:0;border-radius:14px;cursor:zoom-in}
+.preview-expand-hitbox:disabled{cursor:default}
+.preview-expand-hitbox span{display:inline-flex;padding:7px 10px;border-radius:8px;color:#fff;background:rgba(5,12,27,.82);border:1px solid rgba(232,234,241,.45);font-size:.78rem;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+.preview-expand-hitbox:hover:not(:disabled){filter:none}
+.preview-expand-hitbox:hover:not(:disabled) span,.preview-expand-hitbox:focus-visible span{background:#263952;border-color:#dfbf82}
+.grid > #preview-panel.is-expanded{
+  position:fixed!important;z-index:201;inset:12px;margin:auto;
+  width:min(860px,calc(100vw - 24px));height:calc(100dvh - 24px);max-height:calc(100dvh - 24px);
+  display:flex;flex-direction:column;align-items:center;overflow-y:auto;overscroll-behavior:contain;
+  border-color:#53627f;background:#10192b;box-shadow:0 24px 100px rgba(0,0,0,.55);
+  padding:18px 22px
+}
+.grid > #preview-panel.is-expanded .preview-modal-heading{max-width:720px}
+.grid > #preview-panel.is-expanded .preview-modal-heading h2{font-size:1.15rem}
+.grid > #preview-panel.is-expanded .preview-stage{
+  width:min(460px,calc(56.25dvh - 110px),calc(100vw - 64px));
+  flex:0 0 auto;margin:10px auto 0
+}
+.grid > #preview-panel.is-expanded .preview-expand-hitbox{display:none}
+.grid > #preview-panel.is-expanded .preview-controls{max-width:460px;width:min(100%,460px);margin:12px auto 0}
+.grid > #preview-panel.is-expanded .preview-controls button{font-size:.92rem;min-height:42px}
+.grid > #preview-panel.is-expanded .preview-playback-status{margin:8px auto 0}
+.grid > #preview-panel.is-expanded > .muted{margin:8px auto 0;max-width:560px}
+@media(max-width:600px){
+  .preview-stage{width:min(100%,330px)}
+  .grid > #preview-panel.is-expanded{inset:0;width:100vw;height:100dvh;max-height:100dvh;border-radius:0;padding:14px}
+  .grid > #preview-panel.is-expanded .preview-stage{width:min(400px,calc(56.25dvh - 104px),calc(100vw - 36px))}
+  .grid > #preview-panel.is-expanded .preview-controls{max-width:360px}
+}
+@media(max-height:520px){
+  .grid > #preview-panel.is-expanded .preview-stage{width:min(460px,calc(56.25dvh - 96px),calc(100vw - 52px))}
+}
+
+/* Conservative template verification checklist */
+.validation-panel{margin-top:18px}
+.validation-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.validation-top h2{margin-bottom:6px}
+.validation-top p{margin:0}
+.validation-top button{flex:none}
+.validation-summary{font-weight:650;margin:15px 0 10px;color:#dfc697}
+.validation-results{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.validation-results li{margin:0;border:1px solid #3a4860;border-radius:11px;padding:12px;background:#0a1526}
+.validation-results li strong{display:block;font-size:.91rem;color:#e8eaf1}
+.validation-results li p{font-size:.82rem;line-height:1.45;margin:5px 0 0}
+.validation-results li[data-status="pass"]{border-left:3px solid #68ab8e}
+.validation-results li[data-status="warning"]{border-left:3px solid #ddb36d}
+.validation-results li[data-status="pending"]{border-left:3px solid #8895aa}
+.validation-results li[data-status="fail"]{border-left:3px solid #ee8787}
+.validation-state{font-size:.75rem;font-weight:750;letter-spacing:.02em;margin-bottom:5px}
+.validation-results li[data-status="pass"] .validation-state{color:#a6dec0}
+.validation-results li[data-status="warning"] .validation-state{color:#e9c37f}
+.validation-results li[data-status="pending"] .validation-state{color:#bbc5d5}
+.validation-results li[data-status="fail"] .validation-state{color:#ffaaa4}
+.validation-review{display:flex;align-items:flex-start;gap:10px;margin-top:15px;font-size:.89rem}
+.validation-review input{width:18px;min-width:18px;height:18px;margin:1px 0 0;accent-color:#b99a68}
+#validation-review-note{margin:8px 0 0;font-size:.81rem}
+@media(max-width:780px){.validation-results{grid-template-columns:1fr}}
+@media(max-width:510px){.validation-top{flex-direction:column}.validation-top button{width:100%}}
+
+/* MP4 export + category publishing; scoped to new panels */
+.secure-key-field{max-width:440px;display:grid;gap:6px;margin:16px 0 4px}
+.secure-key-field label{font-weight:600}
+.secure-key-field small{font-weight:400;color:#9cacc2}
+.secure-key-field p{font-size:.78rem;margin:0}
+.export-result{margin-top:15px;display:grid;justify-items:start;gap:12px}
+.export-result video{max-width:min(300px,100%);width:100%;aspect-ratio:9/16;background:#05070d;border:1px solid #42516c;border-radius:10px}
+.download-link{display:inline-flex;align-items:center;min-height:43px;border-radius:9px;padding:9px 15px;color:#141925;background:#ddc18c;font-weight:700;text-decoration:none}
+.download-link:hover,.download-link:focus-visible{background:#f5d69d}
+#export-status,#publish-status{overflow-wrap:anywhere}
+/* Scoped real-time export loader: dark Admin Studio palette and animated runners */
+.render-loader{margin:16px 0;padding:20px 18px 18px;border:1px solid #4b3946;border-radius:14px;background:linear-gradient(145deg,#0c1423,#09090e 78%);color:#f2f2f4;box-shadow:inset 0 1px 0 #ffffff0b}
+.render-loader-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.render-loader-kicker{display:block;color:#bf9e80;font-size:.72rem;font-weight:750;letter-spacing:.14em}
+.render-loader-title{display:block;margin-top:5px;font-weight:850;font-size:clamp(1.03rem,3vw,1.28rem);letter-spacing:.02em}
+.render-loader-title em{font-style:normal;color:#f0444d}
+.render-loader-percent{font-size:clamp(1.35rem,4vw,1.85rem);font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.render-loader-track{height:11px;margin:41px 13px 17px;position:relative;border-radius:99px;background:#ebe8e9}
+.render-loader-fill{width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#ae1528,#ec3b4c);transition:width .55s linear}
+.render-loader-runners{position:absolute;left:0;top:-35px;display:flex;align-items:center;gap:0;transform:translateX(-42%);transition:left .55s linear;color:white}
+.render-loader-figure{width:32px;height:32px;flex:none;filter:drop-shadow(0 2px 3px #0009);animation:render-run .34s ease-in-out infinite alternate}
+.render-loader-figure:last-child{margin-left:-5px;animation-delay:-.17s}
+.render-loader-figure.chaser{color:#f0444d}
+.render-loader-detail{color:#bfc7d6;font-size:.82rem;line-height:1.5;margin:0;font-variant-numeric:tabular-nums}
+@keyframes render-run{from{transform:translateY(1px) rotate(-7deg)}to{transform:translateY(-4px) rotate(7deg)}}
+@media(prefers-reduced-motion:reduce){.render-loader-figure{animation:none}.render-loader-fill,.render-loader-runners{transition:none}}
+@media(max-width:450px){.render-loader{padding:16px 12px}.render-loader-title{font-size:1rem}.render-loader-track{margin-left:16px;margin-right:16px}}
+#publish-dialog{width:min(440px,calc(100vw - 28px));max-width:440px;margin:auto;padding:24px;border:1px solid #52617d;border-radius:16px;background:#111a2b;color:#f5f2ec;box-shadow:0 24px 80px #0009}
+#publish-dialog::backdrop{background:rgba(2,6,16,.8);backdrop-filter:blur(5px)}
+#publish-dialog form{display:grid;gap:10px}
+#publish-dialog h2{margin:0}
+#publish-dialog p{margin:0 0 8px}
+#publish-dialog select{min-height:45px;width:100%;background:#081121;color:#f9f1e4;border:1px solid #54627e;border-radius:9px;padding:10px;font:inherit}
+#publish-dialog .actions{margin-top:8px}
+/* Keep all template compatibility problems readable in the status area. */
+#status.error{white-space:pre-line}
+</style></head><body><main><header class="top"><div><h1>Invitation Preparation Studio</h1><p>Analyze code, edit sample details and inspect the animated result.</p></div><span class="pill">Development prototype · Not authenticated</span></header><nav class="tabs" aria-label="Upload type"><button class="active" aria-current="page">Via Code</button><button disabled title="Planned for a later phase">Via Canva · Coming later</button></nav><section class="panel"><h2>1. Paste invitation code</h2><p class="muted">Paste a complete, self-contained HTML document with CSS and JavaScript. Supported formats: a literal CONFIG block with numbered scenes or an animated book layout (maximum 1 MB).</p><label for="code-input">HTML / CSS / JavaScript code</label><textarea id="code-input" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste your complete HTML invitation code here..." style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;resize:vertical;min-height:230px"></textarea><div class="actions"><button id="analyze-code" class="active" type="button">Analyze Code</button><button id="clear-code" type="button">Clear Code</button></div><details style="margin-top:18px"><summary style="cursor:pointer">Or upload an HTML file</summary><div style="margin-top:12px"><label for="source">Choose HTML file</label><input id="source" type="file" accept=".html,.htm,text/html"></div></details><div id="analysis-progress" class="hide" role="progressbar" aria-label="Code analysis progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div><p class="progress-label" id="progress-label">0% · Waiting</p></div><p id="status" role="status" aria-live="polite">Paste code and click Analyze Code.</p></section><div class="grid"><section class="panel"><h2>2. Detected customer fields</h2><p class="preview-note">Customers will enter their own names, date, venue, photos and other details. Values below are temporary samples for Admin preview only; this page does not publish or save customer details.</p><div id="report" class="muted">Paste a template to analyze scenes and fields.</div><form id="editor" class="hide"><p class="sample-heading">Preview details — not customer submissions</p><div class="fields" id="fields"></div>
+<div class="media-editor" id="music-section">
+  <h3>Soundtrack <span class="pill">Optional · All templates</span></h3>
+  <p class="media-note">Upload music independently of the invitation code. Audio can be heard in the Admin preview; MP4 audio export is not connected yet.</p>
+  <label for="music-upload">Choose MP3, WAV, OGG, M4A or WebM audio (maximum 8 MB)</label>
+  <input type="file" id="music-upload" accept=".mp3,.wav,.ogg,.m4a,.webm,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/webm">
+  <audio id="music-player" controls class="hide" preload="metadata"></audio>
+  <button id="remove-music" type="button" class="hide">Remove music</button>
+  <p id="music-status" class="media-note" role="status" aria-live="polite">No music selected.</p>
+</div>
+<div class="actions"><button type="submit" class="active">Preview with sample values</button><button type="button" id="reset-sample">Reset samples</button><button type="button" id="save" disabled>Download prepared HTML</button></div></form></section><div id="preview-backdrop" class="preview-backdrop" hidden></div><section class="panel" id="preview-panel" aria-labelledby="preview-heading"><div class="preview-modal-heading"><h2 id="preview-heading">3. Invitation preview</h2><button id="close-preview" type="button" class="preview-close" hidden aria-label="Close expanded preview">✕ Close</button></div><div class="preview-stage"><div class="preview" id="preview"><p class="muted" style="padding:20px;text-align:center">Preview will appear here.</p></div><button id="expand-preview" type="button" class="preview-expand-hitbox" disabled aria-label="Expand invitation preview"><span>⛶ Expand preview</span></button></div><div class="preview-controls" role="group" aria-label="Invitation preview playback controls"><button type="button" id="preview-play" disabled>▶ Play</button><button type="button" id="preview-pause" disabled>⏸ Pause</button><button type="button" id="preview-restart" disabled>↻ Restart</button></div><p class="preview-playback-status" id="preview-playback-status" role="status" aria-live="polite">Preview controls become available after preparing a template.</p><p class="muted">Sandboxed preview · External requests blocked · MP4 export not tested here.</p></section></div><section class="panel validation-panel" id="validation-panel" aria-labelledby="validation-heading">
+  <div class="validation-top"><div><h2 id="validation-heading">4. Template validation</h2>
+    <p class="muted">Source checks and browser smoke test. This is not a security audit or an MP4 export test.</p>
+  </div><button id="validation-run" type="button" disabled>Run checks</button></div>
+  <p id="validation-summary" class="validation-summary" role="status" aria-live="polite">Analyze a template to see its validation checklist.</p>
+  <ul id="validation-results" class="validation-results" aria-label="Validation results"></ul>
+  <label class="validation-review"><input type="checkbox" id="validation-manual" disabled>
+    I watched the complete invitation and checked all scenes, names, dates, photos and timing.
+  </label>
+  <p id="validation-review-note" class="muted">Manual visual review is pending. Nothing is published or saved by these checks.</p>
+</section><section class="panel" id="export-panel" aria-labelledby="export-heading">
+  <h2 id="export-heading">5. Export MP4</h2>
+  <p class="muted">Render the prepared invitation into a 30-second video (540 × 960 at 30 FPS). Export uses the protected local rendering service and selected music.</p>
+  <div class="secure-key-field"><label for="admin-api-key">Admin access key <small>(required for exporting and publishing)</small></label>
+    <input id="admin-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter server ADMIN_API_KEY">
+    <p class="muted">This key is held only in this browser tab's memory and is not saved to local storage.</p>
+  </div>
+  <div class="actions"><button id="export-mp4" type="button" disabled class="active">Generate 30-second MP4</button></div>
+  <div id="render-loader" class="render-loader hide" aria-label="Video export in progress">
+    <div class="render-loader-head">
+      <div><span class="render-loader-kicker">MP4 EXPORT</span><strong class="render-loader-title">YOUR STORY <em>IN MOTION</em></strong></div>
+      <output id="render-loader-percent" class="render-loader-percent">0%</output>
+    </div>
+    <div id="render-loader-track" class="render-loader-track" role="progressbar" aria-label="Video frames rendered" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="render-loader-fill" class="render-loader-fill"></div>
+      <span id="render-loader-runners" class="render-loader-runners" aria-hidden="true">
+        <svg class="render-loader-figure chaser" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="19" cy="6.5" r="3.2" fill="currentColor"/><path d="M18 12l-5 8 7 3m-7-3-8 3m8-3-1 10m8-7 8-3M18 12l7 5 6-2" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="render-loader-figure" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="19" cy="6.5" r="3.2" fill="currentColor"/><path d="M18 12l-5 8 7 3m-7-3-8 3m8-3-1 10m8-7 8-3M18 12l7 5 6-2" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </div>
+    <p id="render-loader-detail" class="render-loader-detail" role="status" aria-live="polite">Preparing video renderer…</p>
+  </div>
+  <p id="export-status" class="muted" role="status" aria-live="polite">Prepare a preview to enable video export.</p>
+  <div id="export-result" class="export-result hide">
+    <video id="export-video" controls playsinline preload="metadata"></video>
+    <a id="export-download" href="#" download="invitation.mp4" class="download-link">Download MP4</a>
+  </div>
+</section>
+<section class="panel" id="publish-panel" aria-labelledby="publish-heading">
+  <h2 id="publish-heading">6. Publish template</h2>
+  <p class="muted">Only publish reviewed templates that have generated a valid MP4. The original template and detected fields will be saved to MongoDB. Customer photos and edited sample values are not stored.</p>
+  <div class="actions"><button id="publish-template" type="button" disabled>Choose category &amp; publish</button></div>
+  <p id="publish-status" class="muted" role="status" aria-live="polite">Complete validation, review all scenes and generate an MP4 first.</p>
+</section>
+<dialog id="publish-dialog" aria-labelledby="publish-dialog-heading">
+  <form id="publish-form">
+    <h2 id="publish-dialog-heading">Publish invitation template</h2>
+    <p class="muted">Choose where this template should appear for customers.</p>
+    <label for="publish-category">Customer category</label>
+    <select id="publish-category" required>
+      <option value="">Select a category</option>
+      <option value="wedding">Wedding</option>
+      <option value="engagement">Engagement</option>
+      <option value="birthday">Birthday</option>
+      <option value="anniversary">Anniversary</option>
+      <option value="baby-shower">Baby Shower</option>
+      <option value="festival">Festival</option>
+      <option value="corporate">Corporate</option>
+    </select>
+    <div class="actions"><button id="publish-confirm" class="active" type="submit">Publish to MongoDB</button>
+      <button id="publish-cancel" type="button">Cancel</button></div>
+  </form>
+</dialog></main><script type="module" src="/src/admin-studio.js"></script></body></html>

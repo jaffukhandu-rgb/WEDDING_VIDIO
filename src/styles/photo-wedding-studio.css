@@ -1,0 +1,122 @@
+.photo-wedding-studio {
+  margin: 28px 0 56px;
+  padding: clamp(20px, 4vw, 36px);
+  border: 1px solid rgba(196, 169, 122, .35);
+  border-radius: 24px;
+  background: linear-gradient(145deg, #fffdf8, #f5f0e7);
+  color: #2e2923;
+  box-shadow: 0 18px 55px rgba(43, 34, 24, .08);
+}
+.photo-studio-heading, .photo-preview-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.photo-studio-eyebrow {
+  margin: 0 0 8px;
+  color: #9b784b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+.photo-studio-heading h2 {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: clamp(28px, 4vw, 38px);
+}
+.photo-studio-heading p:not(.photo-studio-eyebrow) {
+  max-width: 600px;
+  margin: 10px 0 0;
+  color: #746b60;
+  line-height: 1.6;
+}
+.photo-count {
+  flex: 0 0 auto;
+  padding: 9px 13px;
+  border-radius: 99px;
+  background: #eee5d6;
+  color: #6e5637;
+  font-size: 12px;
+  font-weight: 700;
+}
+.photo-studio-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, .75fr);
+  gap: 28px;
+  align-items: start;
+  margin-top: 26px;
+}
+.photo-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.photo-upload-slot { min-width: 0; }
+.photo-slot-empty, .photo-slot-filled {
+  width: 100%;
+  min-height: 170px;
+  overflow: hidden;
+  border: 1px dashed #c9b99f;
+  border-radius: 15px;
+  background: #faf7f0;
+}
+.photo-slot-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 16px;
+  color: #5b5145;
+  cursor: pointer;
+  text-align: center;
+}
+.photo-slot-empty:hover { border-color: #9d7a4d; background: #f5efe4; }
+.photo-slot-plus {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9decc;
+  color: #785b36;
+  font-size: 23px;
+}
+.photo-slot-empty strong, .photo-slot-filled span { font-size: 13px; }
+.photo-slot-empty small { color: #918577; font-size: 11px; }
+.photo-slot-filled { position: relative; border-style: solid; background: #fff; }
+.photo-slot-filled img { display: block; width: 100%; height: 122px; object-fit: cover; }
+.photo-slot-filled > span { display: block; padding: 8px 10px 3px; color: #5b5145; }
+.photo-slot-actions { display: flex; gap: 8px; padding: 5px 10px 10px; }
+.photo-slot-actions button {
+  border: 0; padding: 4px 8px; border-radius: 6px; background: #eee7dc;
+  color: #5b4934; font-size: 11px; cursor: pointer;
+}
+.photo-upload-help { margin: 12px 0 0; color: #81786d; font-size: 11px; line-height: 1.5; }
+.photo-upload-error { margin: 9px 0 0; color: #a23a35; font-size: 12px; }
+.photo-live-preview { min-width: 0; }
+.photo-preview-heading { align-items: center; margin-bottom: 10px; color: #51483d; font-size: 13px; }
+.photo-preview-heading span { color: #8a7e70; font-size: 11px; }
+.photo-player-frame {
+  width: min(100%, 310px);
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  margin: 0 auto;
+  border: 5px solid #302a25;
+  border-radius: 18px;
+  background: #1c1a19;
+  box-shadow: 0 15px 40px rgba(30, 24, 18, .2);
+}
+.photo-preview-hint { margin: 10px 0 0; color: #8a7e70; font-size: 11px; text-align: center; }
+@media (max-width: 760px) {
+  .photo-studio-heading { align-items: flex-start; flex-direction: column; }
+  .photo-studio-layout { grid-template-columns: 1fr; }
+  .photo-player-frame { width: min(76%, 300px); }
+}
+@media (max-width: 420px) {
+  .photo-wedding-studio { padding: 17px; border-radius: 18px; }
+  .photo-slot-grid { gap: 8px; }
+  .photo-slot-empty, .photo-slot-filled { min-height: 150px; }
+  .photo-slot-filled img { height: 105px; }
+}
