@@ -176,6 +176,12 @@ const BRIDGE = String.raw`
     const bounds=stage?.getBoundingClientRect();
     const sceneCount=document.querySelectorAll(".scene").length;
     const bookPageCount=document.querySelectorAll(".book > .pg").length;
+    const monogramNode=document.querySelector('[data-bind-initials="partner1,partner2"]');
+    const monogramExpected=monogramNode?.getAttribute('data-expected-initials');
+    const monogramActual=monogramNode
+      ? [...monogramNode.querySelectorAll('text')].map(node=>node.textContent.trim()).join('')
+        || monogramNode.textContent.replace(/\s+/g,'')
+      : null;
     window.parent.postMessage({
       channel:CHANNEL,
       kind:"runtime-validation",
@@ -184,6 +190,8 @@ const BRIDGE = String.raw`
         stageWidth:bounds?.width||0,
         stageHeight:bounds?.height||0,
         started:!!stage?.classList.contains("go"),
+        monogram:monogramExpected==null?null
+          : {expected:monogramExpected,actual:monogramActual},
         errors:runtimeErrors.slice()
       }
     },"*");
