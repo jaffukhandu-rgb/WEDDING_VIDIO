@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import express from "express";
 import { analyzeTemplate } from "../src/admin-engine.js";
 import { validateTemplateSource } from "../src/admin-template-validator.js";
+import { findVideoBackground, isVideoBackgroundMarkerPresent } from "../src/video-html-contract.js";
+import { backgroundExists } from "./video-backgrounds.js";
 import { requireAdmin } from "./admin-access.js";
 import {
   isDatabaseConfigured,
@@ -85,6 +87,21 @@ export function templateRouter() {
       analysis = analyzeTemplate(html);
     } catch (error) {
       return res.status(400).json({ error: "Template analysis failed: " + String(error.message || error).slice(0, 200) });
+    }
+    // Video + HTML templates must reference an existing uploaded MP4 asset.
+    // Ordinary code-only templates continue through the unchanged publishing path.
+    if (isVideoBackgroundMarkerPresent(html)) {
+      const background = findVideoBackground(html);
+      if (!background) {
+        return res.status(400).json({ error: "Invalid Video + HTML background reference." });
+      }
+      try {
+        if (!await backgroundExists(background.id)) {
+          return res.status(400).json({ error: "The Video + HTML background MP4 was not found." });
+        }
+      } catch (error) {
+        return publicError(res, error);
+      }
     }
     const checks = validateTemplateSource(html, analysis);
     if (checks.some(check => check.status === "fail")) {
