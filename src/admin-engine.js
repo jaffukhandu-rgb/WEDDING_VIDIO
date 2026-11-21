@@ -165,6 +165,19 @@ function tagsWithClass(html,tagName,className){
   });
 }
 
+// Warn when hand-drawn SVG letters cannot follow changes to the customer names.
+function findArtworkBindingIssues(html, config) {
+  const issues = [];
+  const hasNames = typeof config.partner1 === 'string' && typeof config.partner2 === 'string';
+  const hasMonogram = /\bid\s*=\s*(["'])mono\1/i.test(html);
+  const fixedLetters = /<g\b[^>]*\bid\s*=\s*(["'])[A-Z]\1/i.test(html);
+  const boundInitials = /\bdata-bind-initials\s*=\s*(["'])partner1,partner2\1/i.test(html);
+  if (hasNames && hasMonogram && fixedLetters && !boundInitials) {
+    issues.push('The SVG monogram uses fixed letters. The names will change, but the artwork initials will not. Add a dynamic data-bind-initials="partner1,partner2" text layer, and hide the fixed letters for other initials.');
+  }
+  return issues;
+}
+
 // One-pass compatibility diagnostics. Reject templates that cannot render safely
 // instead of reporting a CONFIG error now and an external-library error later.
 export function diagnoseTemplate(html){
@@ -252,13 +265,14 @@ export function analyzeTemplate(html){
   if(/setTimeout\s*\(\s*play\s*,/.test(html))warnings.push('Automatic replay requires an export adapter.');
   const photoSlots=detectPhotoSlots(html,eventFreeBody,config);
   const fonts=auditFonts(html);
+  const artworkBindingIssues=findArtworkBindingIssues(html,config);
   if(fonts.remote)warnings.push('External fonts are blocked in the isolated preview. Fallback fonts will be used unless the font is embedded.');
   const fields=Object.keys(config).filter(key=>key!=='music'&&key!=='photos'&&!/^photo\d*$/.test(key));
   if(photoSlots.length)fields.push('photos');
   if(eventData)fields.push('events');
   const uniqueFields=[...new Set(fields)];
   const eventFieldCount=eventData?eventData.events.reduce((count,event)=>count+Object.keys(event).length,0):0;
-  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount,layoutType,fields:uniqueFields,config,warnings,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
+  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount,layoutType,fields:uniqueFields,config,warnings,artworkBindingIssues,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
 }
 export function prepareTemplate(html,values){
   const report=analyzeTemplate(html),config={...report.config};
@@ -296,7 +310,16 @@ export function prepareTemplate(html,values){
   if('date' in config&&!validDate(config.date))throw new Error('Invalid wedding date.');
   const replacement=JSON.stringify(config).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
   const prepared=html.slice(0,report.range.start)+replacement+html.slice(report.range.end+1);
+  // Stamp the expected initials into prepared output only; do not change source HTML.
+  const firstInitial=value=>Array.from(String(value||'').trim())[0]?.toLocaleUpperCase()||'';
+  const initials=firstInitial(config.partner1)+firstInitial(config.partner2);
+  const escapedInitials=initials.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const withInitials=prepared.replace(
+    /(data-bind-initials\s*=\s*(["'])partner1,partner2\2)/gi,
+    '$1 data-expected-initials="'+escapedInitials+'"'
+  );
   const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">`;
-  return prepared.replace(/<head\b[^>]*>/i,m=>m+csp);
+  return withInitials.replace(/<head\b[^>]*>/i,m=>m+csp);
 }
 export const supportedFields=FIELD_TYPES;
