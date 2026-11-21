@@ -144,7 +144,7 @@ export function videoBackgroundRouter() {
         if (!res.headersSent) res.status(503).end();
         else res.destroy(error);
       });
-      req.on("close", () => {
+      res.on("close", () => {
         if (!res.writableFinished) stream.destroy();
       });
       stream.pipe(res);
