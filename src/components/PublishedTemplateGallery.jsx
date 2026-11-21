@@ -131,9 +131,7 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
     <article className="published-card" ref={cardRef}
       onMouseEnter={() => { if (canHover()) setHovering(true); }}
       onMouseLeave={() => setHovering(false)}>
-      <button className="published-card-art" type="button"
-        aria-label={"Preview " + template.title}
-        disabled={busy} onClick={() => onPreview(template)}>
+      <div className="published-card-art">
         {thumbnail ? (
           <iframe key={hovering ? "playing" : "cover"} title=""
             tabIndex={-1} aria-hidden="true" sandbox="allow-scripts"
@@ -146,7 +144,10 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
         )}
         {thumbnail?.sample && <span className="published-sample-note">Sample image</span>}
         <span className="published-cover-hint">{hovering ? "Playing preview" : "View invitation"}</span>
-      </button>
+        <button className="published-card-open" type="button"
+          aria-label={"Preview " + template.title}
+          disabled={busy} onClick={() => onPreview(template)} />
+      </div>
       <div className="published-card-footer">
         <h3>{template.title}</h3>
         <p>{template.eventCount} events · {template.photoCount} photo slots</p>
