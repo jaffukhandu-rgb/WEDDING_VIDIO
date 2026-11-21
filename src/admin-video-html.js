@@ -35,8 +35,16 @@ export function buildVideoInvitationSource({ id, url, title }) {
       parsed.search || parsed.hash) {
     throw new Error("Invalid internal background URL.");
   }
-  const sample = JSON.stringify(DEFAULT_CONFIG, null, 2)
-    .replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+  // The existing analyzer intentionally accepts bare-key literal CONFIG fields,
+  // not JSON stringified property names. Preserve its established contract.
+  const fieldLines = Object.entries(DEFAULT_CONFIG)
+    .filter(([key]) => key !== "events")
+    .map(([key, value]) => "  " + key + ": " + JSON.stringify(value) + ",");
+  const eventLines = Object.entries(DEFAULT_CONFIG.events[0])
+    .map(([key, value]) => "      " + key + ": " + JSON.stringify(value))
+    .join(",\n");
+  const sample = "{\n" + fieldLines.join("\n") +
+    "\n  events: [{\n" + eventLines + "\n  }]\n}";
   const styles = [
     "*{box-sizing:border-box}",
     "html,body{height:100%;width:100%;margin:0;overflow:hidden;background:#100b09}",
@@ -218,7 +226,7 @@ function initVideoHtmlTab() {
       codeInput.value = source;
       analyzeButton.click();
       status.textContent = "Video + HTML created. Edit the sample fields below, then preview, validate and export MP4. Original video stays separate from HTML.";
-      selectTab("code");
+      // Stay on Video + HTML; existing editable fields appear below this panel.
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to create video template.";
     } finally {
