@@ -265,6 +265,14 @@ main{max-width:1240px;padding:24px 22px 56px}
 .video-html-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.65fr);gap:14px}
 #video-html-panel p{line-height:1.55}
 #video-html-status{overflow-wrap:anywhere;color:#e7d0a3}
+#video-html-panel .video-html-editor{margin-top:18px}
+#video-html-panel .video-html-editor textarea{display:block;min-height:230px;max-width:100%;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;resize:vertical;tab-size:2}
+#video-html-panel .video-html-editor .actions{margin-top:10px}
+#video-html-storage-status{color:#c9d8e9;font-size:.88rem;line-height:1.6}
+#video-html-panel details{margin-top:9px}
+#video-html-panel details summary{cursor:pointer;color:#e4c892;font-weight:600}
+#video-html-panel details p{margin:9px 0 0}
+
 @media(max-width:680px){.video-html-fields{grid-template-columns:1fr}}
 /* Keep all template compatibility problems readable in the status area. */
 #status.error{white-space:pre-line}
@@ -276,9 +284,20 @@ main{max-width:1240px;padding:24px 22px 56px}
     <div class="field"><label for="video-html-file">Background MP4 · H.264 recommended · 9:16 · maximum 32 MB</label><input id="video-html-file" type="file" accept=".mp4,video/mp4"></div>
     <div class="field"><label for="video-html-title">Invitation template name</label><input id="video-html-title" type="text" maxlength="120" value="Royal Wedding Film Invitation"></div>
   </div>
-  <p class="muted">Enter your Admin access key in section 5 before uploading. MongoDB must be connected to save video assets. Video audio is muted; the separate soundtrack control remains available.</p>
-  <div class="actions"><button id="video-html-create" class="active" type="button">Create Video + HTML template</button></div>
-  <p id="video-html-status" role="status" aria-live="polite">Choose your finished background MP4 to begin.</p>
+  <p class="muted">Enter the Admin access key in section 5 before uploading. Video audio is muted; the separate soundtrack control remains available.</p>
+  <p id="video-html-storage-status" role="status" aria-live="polite">Checking video storage configuration…</p>
+  <details>
+    <summary>Cloudinary setup (server configuration)</summary>
+    <p class="muted">Add <code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code> and <code>CLOUDINARY_API_SECRET</code> to the renderer's private <code>.env</code> file, then restart the renderer. Keep these credentials out of HTML, browser code and GitHub. MongoDB remains necessary for published template records.</p>
+  </details>
+  <div class="actions"><button id="video-html-create" class="active" type="button">Upload video and generate HTML</button></div>
+  <p id="video-html-status" role="status" aria-live="polite">Choose a finished 30-second MP4, or paste an existing Video + HTML template below.</p>
+  <div class="video-html-editor">
+    <label for="video-html-code">HTML / CSS / JavaScript invitation code</label>
+    <p class="muted">Generated HTML appears here after upload. You can edit its text layout, styling and animations, then analyze it. Keep the embedded video-background reference and editable CONFIG block intact.</p>
+    <textarea id="video-html-code" rows="12" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Upload an MP4 to generate compatible HTML, or paste an existing Video + HTML invitation document…"></textarea>
+    <div class="actions"><button id="video-html-analyze" type="button">Analyze HTML Code</button></div>
+  </div>
 </section>
 <div class="grid"><section class="panel"><h2>2. Detected customer fields</h2><p class="preview-note">Customers will enter their own names, date, venue, photos and other details. Values below are temporary samples for Admin preview only; this page does not publish or save customer details.</p><div id="report" class="muted">Paste a template to analyze scenes and fields.</div><form id="editor" class="hide"><p class="sample-heading">Preview details — not customer submissions</p><div class="fields" id="fields"></div>
 <div class="media-editor" id="music-section">
