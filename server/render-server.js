@@ -44,14 +44,18 @@ const allowedOrigins = new Set([
 ].filter(Boolean));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && !allowedOrigins.has(origin)) {
+  // MP4 backgrounds are public gallery assets. Sandboxed srcdoc frames may
+  // send Origin: null; all other renderer/admin endpoints retain strict CORS.
+  const publicBackground = /^(GET|HEAD|OPTIONS)$/.test(req.method) &&
+    /^\/api\/video-backgrounds\/[0-9a-f-]{36}$/i.test(req.path);
+  if (origin && !allowedOrigins.has(origin) && !publicBackground) {
     return res.status(403).json({ error: "This website origin is not allowed to use the renderer." });
   }
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
+  if (origin || publicBackground) {
+    res.setHeader("Access-Control-Allow-Origin", publicBackground ? "*" : origin);
+    if (!publicBackground) res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key, X-Render-Job");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key, X-Render-Job, Range");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
