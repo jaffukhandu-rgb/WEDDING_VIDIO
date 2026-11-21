@@ -82,6 +82,8 @@ export function backgroundByteRange(length, rangeHeader) {
 export function backgroundResponseHeaders(total, range) {
   return {
     "Content-Type": "video/mp4",
+    "Access-Control-Allow-Origin": "*",
+    "Cross-Origin-Resource-Policy": "cross-origin",
     "Accept-Ranges": "bytes",
     "Content-Length": String(range.end - range.start + 1),
     "Cache-Control": "public, max-age=86400",
