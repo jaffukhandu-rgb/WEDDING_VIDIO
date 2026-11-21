@@ -72,7 +72,7 @@
 }
 .published-cover-loading span{font-size:34px}
 .published-cover-loading small{font-size:12px}
-.published-cover-hint{
+.published-card-art .published-cover-hint{
   position:absolute;
   z-index:3;
   bottom:12px;
@@ -108,7 +108,7 @@
   height:100%;
   object-fit:cover;
 }
-.published-sample-note{
+.published-card-art .published-sample-note{
   position:absolute;
   z-index:3;
   top:12px;
