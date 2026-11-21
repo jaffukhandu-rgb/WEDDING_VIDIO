@@ -197,7 +197,7 @@ function initVideoHtmlTab() {
       if (!info.mongodbConfigured) {
         storageStatus.textContent = "MongoDB is not configured on the renderer. Set MONGODB_URI before uploading or publishing.";
       } else if (info.cloudinaryConfigured) {
-        storageStatus.textContent = "Storage: Cloudinary configured for new videos; existing MongoDB videos remain accessible.";
+        storageStatus.textContent = "Cloudinary settings detected (upload connection not yet verified). New videos use Cloudinary; older MongoDB videos stay available.";
       } else {
         storageStatus.textContent = "Storage: MongoDB GridFS. Cloudinary is not configured yet; see Cloudinary setup below.";
       }
