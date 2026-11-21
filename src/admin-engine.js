@@ -107,6 +107,9 @@ function parseEvents(body){
     for(const pair of match[1].matchAll(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(.*?)\2\s*(?=,|$)/gs)){
       item[pair[1]]=pair[3];
     }
+    // Reject unsupported or malformed properties instead of silently dropping them.
+    const consumed=match[1].replace(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(?:\\.|(?!\2)[^\\])*?\2\s*(?=,|$)/gs,'');
+    if(consumed.replace(/[\s,]/g,'')!=='')throw new Error('Event '+(events.length+1)+' has unsupported properties; use literal strings only.');
     if(!Object.keys(item).length)throw new Error('Unsupported event data; use literal string properties.');
     events.push(item);
   }
@@ -242,6 +245,7 @@ export function analyzeTemplate(html){
   if(!Object.keys(config).length)throw new Error('No supported customer fields detected.');
   if(config.date!==undefined&&!validDate(config.date))throw new Error('Invalid sample wedding date.');
   if(eventData&&eventData.events.some(event=>!validDate(event.date)))throw new Error('An event has an invalid sample date.');
+  if(eventData&&eventData.events.some(event=>!event.name?.trim()||!event.time?.trim()||!event.venue?.trim()))throw new Error('Every event needs a name, time and venue.');
   const scenes=tagsWithClass(html,'section','scene');
   let layoutType='scenes',sceneCount=scenes.length;
   if(sceneCount){
