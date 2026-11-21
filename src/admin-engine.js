@@ -108,7 +108,7 @@ function parseEvents(body){
       item[pair[1]]=pair[3];
     }
     // Reject unsupported or malformed properties instead of silently dropping them.
-    const consumed=match[1].replace(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(?:\\.|(?!\2)[^\\])*?\2\s*(?=,|$)/gs,'');
+    const consumed=match[1].replace(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(.*?)\2\s*(?=,|$)/gs,'');
     if(consumed.replace(/[\s,]/g,'')!=='')throw new Error('Event '+(events.length+1)+' has unsupported properties; use literal strings only.');
     if(!Object.keys(item).length)throw new Error('Unsupported event data; use literal string properties.');
     events.push(item);
