@@ -104,17 +104,17 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
       return undefined;
     }
     const observer = new IntersectionObserver(entries => {
-      if (entries.some(entry => entry.isIntersecting)) {
-        setVisible(true);
-        observer.disconnect();
-      }
+      setVisible(entries.some(entry => entry.isIntersecting));
     }, { rootMargin: "180px" });
     observer.observe(cardRef.current);
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    if (!visible) return undefined;
+    if (!visible) {
+      setThumbnail(null);
+      return undefined;
+    }
     let cancelled = false;
     fetchPublished(template.id).then(published => {
       const analysis = analyzeTemplate(published.html);
