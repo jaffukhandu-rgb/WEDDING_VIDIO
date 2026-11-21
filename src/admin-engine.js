@@ -203,14 +203,14 @@ export function diagnoseTemplate(html){
   if(scenes.length){
     const indexes=scenes.map(m=>Number(m[0].match(/--i\s*:\s*(\d+)/)?.[1]));
     if(indexes.some((index,position)=>index!==position)){
-      issues.push('Number scene sections consecutively using --i:0, --i:1, --i:2, and so on.');
+      issues.push('Scenes must have sequential --i indexes: use --i:0, --i:1, --i:2, and so on.');
     }
   }else{
     const stage=tagsWithClass(html,'main','stage').length>0||tagsWithClass(html,'div','stage').length>0;
     const book=tagsWithClass(html,'div','book').length>0;
     const pages=tagsWithClass(html,'div','pg').length;
     if(!stage||!book||pages<2||pages>12){
-      issues.push('Use a supported layout: numbered <section class="scene" style="--i:0"> elements, or a .stage with a .book containing 2–12 .pg pages.');
+      issues.push('Unsupported layout: use numbered <section class="scene" style="--i:0"> elements, or a .stage with a .book containing 2–12 .pg pages.');
     }
   }
   return issues;
