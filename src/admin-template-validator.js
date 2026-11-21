@@ -9,6 +9,11 @@ export function validateTemplateSource(html, analysis) {
       ? ' animated book pages and a readable CONFIG block detected.'
       : ' sequential scenes and a readable CONFIG block detected.'));
 
+  const artworkIssues=analysis.artworkBindingIssues||[];
+  add('bindings',artworkIssues.length?'fail':'pass','Personalized SVG artwork',
+    artworkIssues.length ? artworkIssues.join(' ')
+      : 'No known fixed-initial SVG binding mismatch detected. Confirm all details visually.');
+
   const dates = Array.isArray(analysis.config.events)
     ? analysis.config.events.map(event => event.date)
     : ('date' in analysis.config ? [analysis.config.date] : []);
@@ -105,6 +110,13 @@ export function validateRuntimeReport(runtime, expectedScenes) {
       id: 'runtime', status: 'fail', title: 'Browser preview smoke test',
       detail: runtime.errors.length + ' script error(s) detected: ' +
         runtime.errors.slice(0, 2).join(' | ').slice(0, 250)
+    };
+  }
+  if (runtime.monogram && runtime.monogram.expected !== runtime.monogram.actual) {
+    return {
+      id: 'runtime', status: 'fail', title: 'Browser preview smoke test',
+      detail: 'Monogram initials show '+(runtime.monogram.actual||'(none)')+
+        ', but the edited names require '+runtime.monogram.expected+'. Correct the binding before export.'
     };
   }
   if (!runtime.started) {
