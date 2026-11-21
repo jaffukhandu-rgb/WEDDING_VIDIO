@@ -20,24 +20,3 @@
 .published-preview-dialog iframe{margin:10px 0;width:min(360px,calc(56.25dvh - 85px),calc(100vw - 60px));aspect-ratio:9/16;height:auto;min-height:0;border:0;background:#06030a}
 .published-preview-dialog p{margin:2px 0 0;font-size:.79rem;color:#aeb7c4;text-align:center}
 @media(max-width:620px){.published-gallery{padding:28px 16px 50px}.published-grid{grid-template-columns:repeat(auto-fill,minmax(175px,1fr))}.published-preview-dialog{padding:10px}}
-
-/* Customer gallery: show actual invitation artwork without changing Admin Studio. */
-.published-card-art{position:relative;display:block;width:100%;min-height:0;aspect-ratio:9/12;padding:0;border:0;border-radius:0;overflow:hidden;cursor:pointer;background:#1b1420;color:#f6e6c2}
-.published-card-art iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;display:block;background:#160f1e}
-.published-card-fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:36px;background:radial-gradient(circle at 50% 25%,#604151,#190f1c 70%)}
-.published-card-view{position:absolute;z-index:2;bottom:10px;left:50%;transform:translateX(-50%);padding:7px 13px;border:1px solid #e3c88b88;border-radius:999px;background:#120e19dd;color:#f6e6c2;font-size:12px;font-weight:650;white-space:nowrap}
-.published-card-art:focus-visible{outline:3px solid #e9c78c;outline-offset:-3px}
-.published-card:hover{border-color:#b99255;transform:translateY(-3px);transition:transform .2s,border-color .2s}
-.published-photo-dialog{width:min(480px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:22px;border:1px solid #a58a67;border-radius:16px;background:#140f1e;color:#f9f1e4}
-.published-photo-dialog p{color:#d0c4d5;line-height:1.5}
-.published-photo-fields{display:grid;gap:12px;margin:18px 0}
-.published-photo-field{display:grid;gap:8px;padding:12px;border:1px solid #53435c;border-radius:10px}
-.published-photo-field input{width:100%;max-width:100%;font:inherit;color:inherit}
-.published-photo-actions{display:flex;gap:12px;flex-wrap:wrap}
-.published-photo-actions button{flex:1 1 140px;min-height:44px;border:1px solid #c4a574;border-radius:8px;background:#2b2231;color:#fff;cursor:pointer}
-.published-photo-actions button:last-child{background:#b99255;color:#160e15;font-weight:700}
-.published-photo-actions button:disabled{opacity:.5;cursor:not-allowed}
-@media(max-width:620px){.published-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.published-card-art{aspect-ratio:9/13}.published-card-footer{padding:12px}.published-card-footer h3{font-size:.88rem}.published-photo-dialog{padding:16px}}
-@media(max-width:390px){.published-grid{grid-template-columns:1fr}.published-card-art{aspect-ratio:9/12}}
-@media(hover:none){.published-card:hover{transform:none}}
-@media(prefers-reduced-motion:reduce){.published-card:hover{transform:none}}
