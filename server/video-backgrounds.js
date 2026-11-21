@@ -3,6 +3,7 @@ import express from "express";
 import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import dns from "node:dns";
 import { GridFSBucket, MongoClient } from "mongodb";
 import { requireAdmin } from "./admin-access.js";
 
@@ -16,13 +17,26 @@ async function videoBucket() {
     throw new Error("MongoDB is required to store Video + HTML background files.");
   }
   if (!connectionPromise) {
-    const client = new MongoClient(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 6000,
-      maxPoolSize: 3
-    });
-    connectionPromise = client.connect().catch(async error => {
+    const connect = async () => {
+      const client = new MongoClient(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 6000,
+        maxPoolSize: 3
+      });
+      try {
+        return await client.connect();
+      } catch (error) {
+        await client.close().catch(() => {});
+        throw error;
+      }
+    };
+    connectionPromise = connect().catch(async error => {
+      // Keep compatibility with the existing Windows + MongoDB Atlas SRV fix.
+      if (process.platform !== "win32" ||
+          error?.code !== "ECONNREFUSED" || error?.syscall !== "querySrv") throw error;
+      dns.setServers(["8.8.8.8", "1.1.1.1"]);
+      return connect();
+    }).catch(error => {
       connectionPromise = undefined;
-      await client.close().catch(() => {});
       throw error;
     });
   }
