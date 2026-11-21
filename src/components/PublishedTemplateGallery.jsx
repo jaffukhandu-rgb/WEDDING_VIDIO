@@ -68,7 +68,16 @@ function getPhotoValues(analysis, chosen = {}) {
 
 function prepareDisplayHtml(source, analysis, chosen = {}) {
   const photos = getPhotoValues(analysis, chosen);
-  return { html: prepareTemplate(source, photos.values), sample: photos.hasSample };
+  const displayConfig = { ...analysis.config, ...photos.values };
+  const firstSlot = analysis.photoSlots[0];
+  const firstPhoto = !firstSlot ? null
+    : firstSlot.key === "photos" ? displayConfig.photos?.[firstSlot.index]
+    : displayConfig[firstSlot.key];
+  return {
+    html: prepareTemplate(source, photos.values),
+    sample: photos.hasSample,
+    photo: isEmbeddedPhoto(firstPhoto) ? firstPhoto : null
+  };
 }
 
 // Freeze an early frame *inside the sandboxed thumbnail only*. The original
@@ -113,7 +122,8 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
       if (!cancelled) setThumbnail({
         motion: result.html,
         still: stillFrameHtml(result.html),
-        sample: result.sample
+        sample: result.sample,
+        photo: result.photo
       });
     }).catch(() => {
       // The named card and its preview action remain accessible on a failed fetch.
@@ -142,7 +152,12 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
             <span>✦</span><small>Loading invitation artwork…</small>
           </span>
         )}
-        {thumbnail?.sample && <span className="published-sample-note">Sample image</span>}
+        {thumbnail?.photo && !hovering && (
+          <span className="published-cover-photo" aria-hidden="true">
+            <img src={thumbnail.photo} alt="" />
+          </span>
+        )}
+        {thumbnail?.sample && !hovering && <span className="published-sample-note">Sample image</span>}
         <span className="published-cover-hint">{hovering ? "Playing preview" : "View invitation"}</span>
         <button className="published-card-open" type="button"
           aria-label={"Preview " + template.title}
