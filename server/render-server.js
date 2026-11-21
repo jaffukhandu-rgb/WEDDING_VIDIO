@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { once } from "node:events";
 import { requireAdmin, isAdminConfigured } from "./admin-access.js";
 import { templateRouter } from "./template-api.js";
+import { findVideoBackground, isVideoBackgroundMarkerPresent } from "../src/video-html-contract.js";
+import { videoBackgroundRouter, loadBackgroundBytes, backgroundByteRange, backgroundResponseHeaders } from "./video-backgrounds.js";
 import { isDatabaseConfigured } from "./template-store.js";
 
 const app = express();
@@ -64,6 +66,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: "40mb", strict: true }));
 app.use("/api", templateRouter());
+app.use("/api", videoBackgroundRouter());
 
 // Only the authenticated admin with the matching render job ID can check progress.
 app.get("/api/render/progress/:id", requireAdmin, (req, res) => {
@@ -92,6 +95,10 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   }
   if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) {
     return res.status(413).json({ error: "Prepared HTML exceeds the 25 MB render limit. Use smaller photos." });
+  }
+  const videoBackground = findVideoBackground(html);
+  if (isVideoBackgroundMarkerPresent(html) && !videoBackground) {
+    return res.status(400).json({ error: "Invalid Video + HTML background reference." });
   }
   const audioBase64 = req.body?.audioBase64;
   const audioMimeType = req.body?.audioMimeType;
@@ -130,6 +137,11 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   let renderTimeout;
 
   try {
+    // A single in-memory MP4 is intercepted locally. No renderer network access is enabled.
+    const backgroundBytes = videoBackground ? await loadBackgroundBytes(videoBackground.id) : null;
+    if (videoBackground && !backgroundBytes) {
+      throw new Error("Video + HTML background asset not found. Upload it again.");
+    }
     workDir = await mkdtemp(join(tmpdir(), "wedding-render-"));
     const outputPath = join(workDir, "wedding-invitation.mp4");
     let audioPath = null;
@@ -160,7 +172,18 @@ app.post("/api/render", requireAdmin, async (req, res) => {
 
     // Render user-authored HTML in an isolated browser with outbound network access disabled.
     await page.route("**/*", (route) => {
-      const protocol = new URL(route.request().url()).protocol;
+      const url = route.request().url();
+      if (videoBackground && url === videoBackground.url) {
+        const range = backgroundByteRange(backgroundBytes.length, route.request().headers()["range"]);
+        if (!range) return route.fulfill({ status: 416,
+          headers: { "Content-Range": "bytes */" + backgroundBytes.length }, body: "" });
+        return route.fulfill({
+          status: range.partial ? 206 : 200,
+          headers: backgroundResponseHeaders(backgroundBytes.length, range),
+          body: backgroundBytes.subarray(range.start, range.end + 1)
+        });
+      }
+      const protocol = new URL(url).protocol;
       if (["data:", "blob:", "about:"].includes(protocol)) return route.continue();
       return route.abort("blockedbyclient");
     });
@@ -168,6 +191,15 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     await page.evaluate(async () => {
       if (document.fonts?.ready) await document.fonts.ready;
     });
+    if (videoBackground) {
+      // Fail before encoding if Chromium cannot decode the uploaded MP4.
+      await page.waitForFunction(() => {
+        const video = document.querySelector("video[data-wedding-background]");
+        return Boolean(video && video.readyState >= 2 && video.videoWidth > 0 &&
+          Number.isFinite(video.duration) && video.duration > 0);
+      }, null, { timeout: 20000 });
+      await page.evaluate(() => document.querySelector("video[data-wedding-background]").pause());
+    }
     // Advance slightly beyond document initialization, then pause virtual JS time.
     // Using the browser's own Date avoids trying to rewind the installed clock.
     const initialClock = await page.evaluate(() => Date.now());
@@ -216,6 +248,26 @@ app.post("/api/render", requireAdmin, async (req, res) => {
           }
         }
       }, virtualMs);
+      if (videoBackground) {
+        // Browser playback uses wall-clock time; export must decode the exact
+        // requested video frame before taking each transparent-text composite.
+        await page.evaluate(async timeMs => {
+          const video = document.querySelector("video[data-wedding-background]");
+          const target = Math.min(timeMs / 1000, Math.max(0, video.duration - 0.01));
+          if (Math.abs(video.currentTime - target) < 0.001 && video.readyState >= 2) return;
+          await new Promise((resolve, reject) => {
+            const cleanup = () => {
+              video.removeEventListener("seeked", onSeeked);
+              video.removeEventListener("error", onError);
+            };
+            const onSeeked = () => { cleanup(); resolve(); };
+            const onError = () => { cleanup(); reject(new Error("Background MP4 decoding failed.")); };
+            video.addEventListener("seeked", onSeeked, { once: true });
+            video.addEventListener("error", onError, { once: true });
+            try { video.currentTime = target; } catch (error) { cleanup(); reject(error); }
+          });
+        }, virtualMs);
+      }
       const jpeg = await page.screenshot({ type: "jpeg", quality: 86, animations: "allow" });
       if (!ffmpeg.stdin.write(jpeg)) await once(ffmpeg.stdin, "drain");
       activeRenderProgress.frame = frame + 1;
