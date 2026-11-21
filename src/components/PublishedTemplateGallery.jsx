@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { analyzeTemplate, prepareTemplate } from "../admin-engine.js";
 import "../styles/published-template-gallery.css";
 
-const API_ROOT = (import.meta.env.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\\/$/, "");
+const API_ROOT = (import.meta.env.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function thumbnailHtml(html) {
   // Freeze a representative early frame; hover mounts the original animation instead.
   const freeze = '<style>*,*::before,*::after{animation-play-state:paused!important;animation-delay:-1.5s!important;transition:none!important}</style>';
-  return html.replace(/<head\\b[^>]*>/i, tag => tag + freeze);
+  return html.replace(/<head\b[^>]*>/i, tag => tag + freeze);
 }
 
 function PublishedCard({ template, onOpen, disabled }) {
