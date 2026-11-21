@@ -1,3 +1,4 @@
+import { findVideoBackground } from "./video-html-contract.js";
 // Contract v1: narrow, non-executing analysis for structured HTML templates.
 const FIELD_TYPES = Object.freeze({partner1:'text',partner2:'text',date:'date',time:'text',venue:'text',address:'text',message:'textarea',blessing:'text',photos:'images',music:'audio'});
 const CONFIG_MARKER = /\bconst\s+CONFIG\s*=\s*\{/g;
@@ -264,7 +265,9 @@ export function analyzeTemplate(html){
   }
   const warnings=[];
   if(/<script\b[^>]*\bsrc\s*=/i.test(html))warnings.push('External scripts are blocked.');
-  if(/https?:\/\//i.test(html))warnings.push('Remote fonts and assets are blocked.');
+  const videoBackground=findVideoBackground(html);
+  const otherRemoteSources=videoBackground ? html.replace(videoBackground.url,'') : html;
+  if(/https?:\/\//i.test(otherRemoteSources))warnings.push('Remote fonts and assets are blocked.');
   if(/Math\.random\s*\(/.test(html))warnings.push('Random animations may not render identically.');
   if(/setTimeout\s*\(\s*play\s*,/.test(html))warnings.push('Automatic replay requires an export adapter.');
   const photoSlots=detectPhotoSlots(html,eventFreeBody,config);
@@ -323,7 +326,9 @@ export function prepareTemplate(html,values){
     /(data-bind-initials\s*=\s*(["'])partner1,partner2\2)/gi,
     '$1 data-expected-initials="'+escapedInitials+'"'
   );
-  const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">`;
+  const videoBackground=findVideoBackground(html);
+  const mediaSources=videoBackground?'data: blob: '+videoBackground.origin:'data: blob:';
+  const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src ${mediaSources}; connect-src 'none'; form-action 'none'; base-uri 'none'">`;
   return withInitials.replace(/<head\b[^>]*>/i,m=>m+csp);
 }
 export const supportedFields=FIELD_TYPES;
