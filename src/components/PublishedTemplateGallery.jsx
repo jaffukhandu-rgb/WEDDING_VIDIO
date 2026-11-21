@@ -8,84 +8,61 @@ const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 // Used only when the published design has no usable embedded example photo.
 // Do not substitute anyone's private wedding photograph in a public gallery.
-const SAMPLE_PHOTO = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960" viewBox="0 0 720 960">' +
-  '<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#e8d3bd"/><stop offset=".55" stop-color="#b58489"/><stop offset="1" stop-color="#5d465f"/></linearGradient>' +
-  '<radialGradient id="sun"><stop stop-color="#fff2d6"/><stop offset="1" stop-color="#fff2d6" stop-opacity="0"/></radialGradient></defs>' +
-  '<rect width="720" height="960" fill="url(#bg)"/><circle cx="370" cy="270" r="330" fill="url(#sun)"/>' +
-  '<path d="M0 830Q150 620 360 800Q520 610 720 780V960H0Z" fill="#784d63" opacity=".37"/>' +
-  '<path d="M115 960Q140 645 270 635Q330 630 354 820L365 960Z" fill="#efe4da"/>' +
-  '<path d="M355 960L369 740Q392 626 475 636Q585 655 613 960Z" fill="#443847"/>' +
-  '<ellipse cx="270" cy="538" rx="65" ry="85" fill="#bf8b76"/><ellipse cx="472" cy="538" rx="66" ry="85" fill="#b9836b"/>' +
-  '<path d="M195 510Q215 390 280 425Q342 425 335 525Q320 468 293 466Q235 488 195 510Z" fill="#503b43"/>' +
-  '<path d="M404 510Q406 412 475 418Q551 415 540 515Q500 464 404 510Z" fill="#3c333f"/>' +
-  '<path d="M174 715Q155 570 198 484Q200 650 275 650Q340 644 356 575Q385 670 367 790Z" fill="#f7ede0" opacity=".77"/>' +
-  '<path d="M35 870Q170 785 250 910M468 918Q600 795 700 880" fill="none" stroke="#e9c7b9" stroke-width="22" opacity=".55"/>' +
-  '</svg>'
-);
-
 function slotId(slot) {
   return slot.key === "photos" ? "photos:" + slot.index : slot.key;
 }
 
-function isEmbeddedPhoto(value) {
-  return typeof value === "string" && /^data:image\/(?:jpeg|png|webp|svg\+xml);/i.test(value);
+// Preserve the image supplied with the published design. Do not invent one.
+function isOriginalPhoto(value) {
+  return typeof value === "string" &&
+    (/^data:image\/(?:jpeg|png|webp);base64,/i.test(value) ||
+     /^https?:\/\/[^\s"'<>]+$/i.test(value)) &&
+    !/example\.com|placeholder|YOUR[-_ ]?PHOTO/i.test(value);
 }
 
 function getPhotoValues(analysis, chosen = {}) {
   const values = {};
-  const original = analysis.config;
-  let photos = Array.isArray(original.photos) ? original.photos.slice() : null;
-  let hasSample = false;
+  let photos = null;
 
   for (const slot of analysis.photoSlots) {
     const selected = chosen[slotId(slot)];
+    if (!selected) continue;
     if (slot.key === "photos") {
-      if (!photos) photos = [];
+      if (!photos) {
+        photos = Array.isArray(analysis.config.photos)
+          ? analysis.config.photos.slice() : [];
+      }
       while (photos.length <= slot.index) photos.push("");
-      if (selected) {
-        photos[slot.index] = selected;
-      } else if (!isEmbeddedPhoto(photos[slot.index])) {
-        photos[slot.index] = SAMPLE_PHOTO;
-        hasSample = true;
-      }
+      photos[slot.index] = selected;
     } else {
-      const sample = original[slot.key];
-      if (selected) {
-        values[slot.key] = selected;
-      } else if (!isEmbeddedPhoto(sample)) {
-        values[slot.key] = SAMPLE_PHOTO;
-        hasSample = true;
-      }
+      values[slot.key] = selected;
     }
   }
-
-  if (photos && analysis.photoSlots.some(slot => slot.key === "photos")) {
-    values.photos = photos;
-  }
-  return { values, hasSample };
+  if (photos) values.photos = photos;
+  return values;
 }
 
 function prepareDisplayHtml(source, analysis, chosen = {}) {
-  const photos = getPhotoValues(analysis, chosen);
-  const displayConfig = { ...analysis.config, ...photos.values };
+  const values = getPhotoValues(analysis, chosen);
+  const displayConfig = { ...analysis.config, ...values };
   const firstSlot = analysis.photoSlots[0];
   const firstPhoto = !firstSlot ? null
     : firstSlot.key === "photos" ? displayConfig.photos?.[firstSlot.index]
     : displayConfig[firstSlot.key];
   return {
-    html: prepareTemplate(source, photos.values),
-    sample: photos.hasSample,
-    photo: isEmbeddedPhoto(firstPhoto) ? firstPhoto : null
+    html: prepareTemplate(source, values),
+    photo: isOriginalPhoto(firstPhoto) ? firstPhoto : null
   };
 }
 
-// Freeze an early frame *inside the sandboxed thumbnail only*. The original
-// HTML and full-size preview continue running their own untouched animations.
-function stillFrameHtml(html) {
+// Seek only the isolated gallery thumbnail to a useful moment. The original
+// invitation, full preview and export timing remain untouched.
+function stillFrameHtml(html, timeMs = 1500) {
+  const frameTime = Math.max(0, Math.min(29000, Number(timeMs) || 0));
   const freezeStyle = '<style>*,*::before,*::after{animation-play-state:paused!important;transition:none!important}</style>';
   const freezeScript = '<script>window.addEventListener("load",function(){requestAnimationFrame(function(){' +
-    'document.getAnimations().forEach(function(animation){try{animation.pause();animation.currentTime=1200}catch(error){}});' +
+    'document.getAnimations().forEach(function(animation){try{animation.pause();animation.currentTime=' +
+    frameTime + '}catch(error){}});' +
     'document.querySelectorAll("video,audio").forEach(function(media){media.pause()});' +
     '})},{once:true});</script>';
   return html.replace(/<\/head>/i, closing => freezeStyle + freezeScript + closing);
@@ -121,8 +98,7 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
       const result = prepareDisplayHtml(published.html, analysis);
       if (!cancelled) setThumbnail({
         motion: result.html,
-        still: stillFrameHtml(result.html),
-        sample: result.sample,
+        still: stillFrameHtml(result.html, analysis.photoSlots.length ? 15500 : 1500),
         photo: result.photo
       });
     }).catch(() => {
@@ -154,10 +130,9 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
         )}
         {thumbnail?.photo && !hovering && (
           <span className="published-cover-photo" aria-hidden="true">
-            <img src={thumbnail.photo} alt="" />
+            <img src={thumbnail.photo} alt="" onError={event => { event.currentTarget.hidden = true; }} />
           </span>
         )}
-        {thumbnail?.sample && !hovering && <span className="published-sample-note">Sample image</span>}
         <span className="published-cover-hint">{hovering ? "Playing preview" : "View invitation"}</span>
         <button className="published-card-open" type="button"
           aria-label={"Preview " + template.title}
