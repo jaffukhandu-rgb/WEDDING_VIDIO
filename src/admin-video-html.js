@@ -1,6 +1,6 @@
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
 // stays the source of truth for editable customer fields and export/publishing.
-const API_ROOT = (import.meta.env.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
+const API_ROOT = (import.meta.env?.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
 const MAX_FILE_BYTES = 32 * 1024 * 1024;
 const DEFAULT_CONFIG = {
   partner1: "Ayaan",
