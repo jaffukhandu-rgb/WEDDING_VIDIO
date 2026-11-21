@@ -88,7 +88,7 @@ function stillFrameHtml(html) {
     'document.getAnimations().forEach(function(animation){try{animation.pause();animation.currentTime=1200}catch(error){}});' +
     'document.querySelectorAll("video,audio").forEach(function(media){media.pause()});' +
     '})},{once:true});</script>';
-  return html.replace(/<head\b[^>]*>/i, opening => opening + freezeStyle + freezeScript);
+  return html.replace(/<\/head>/i, closing => freezeStyle + freezeScript + closing);
 }
 
 function InvitationCard({ template, fetchPublished, onPreview, busy }) {
