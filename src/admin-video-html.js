@@ -163,13 +163,14 @@ function initVideoHtmlTab() {
   const createButton = document.querySelector("#video-html-create");
   const status = document.querySelector("#video-html-status");
   const storageStatus = document.querySelector("#video-html-storage-status");
+  const assetLink = document.querySelector("#video-html-asset-link");
   const videoHtmlCode = document.querySelector("#video-html-code");
   const analyzeVideoButton = document.querySelector("#video-html-analyze");
   const keyInput = document.querySelector("#admin-api-key");
   const codeInput = document.querySelector("#code-input");
   const analyzeButton = document.querySelector("#analyze-code");
   if (![codeTab, videoTab, codePanel, videoPanel, fileInput,
-    titleInput, createButton, status, storageStatus, videoHtmlCode,
+    titleInput, createButton, status, storageStatus, assetLink, videoHtmlCode,
     analyzeVideoButton, keyInput, codeInput, analyzeButton].every(Boolean)) return;
 
   function selectTab(mode) {
@@ -284,6 +285,12 @@ function initVideoHtmlTab() {
       if (new TextEncoder().encode(source).length > 1024 * 1024) {
         throw new Error("Generated HTML unexpectedly exceeds the 1 MB source limit.");
       }
+      // This is an accessible, stable local video URL even if Cloudinary is used.
+      assetLink.href = url;
+      assetLink.hidden = false;
+      storageStatus.textContent = result.provider === "cloudinary"
+        ? "Uploaded to Cloudinary. The video is accessible through the website renderer URL below."
+        : "Uploaded to MongoDB GridFS. The video is accessible through the website renderer URL below.";
       // Reuse the existing analyzer and editor, but keep the HTML visible here.
       videoHtmlCode.value = source;
       analyzeVideoHtml();
