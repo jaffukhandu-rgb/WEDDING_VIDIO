@@ -1,3 +1,5 @@
+import { findVideoBackground } from "./video-html-contract.js";
+
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
 // stays the source of truth for editable customer fields and export/publishing.
 const API_ROOT = (import.meta.env?.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
@@ -160,11 +162,15 @@ function initVideoHtmlTab() {
   const titleInput = document.querySelector("#video-html-title");
   const createButton = document.querySelector("#video-html-create");
   const status = document.querySelector("#video-html-status");
+  const storageStatus = document.querySelector("#video-html-storage-status");
+  const videoHtmlCode = document.querySelector("#video-html-code");
+  const analyzeVideoButton = document.querySelector("#video-html-analyze");
   const keyInput = document.querySelector("#admin-api-key");
   const codeInput = document.querySelector("#code-input");
   const analyzeButton = document.querySelector("#analyze-code");
   if (![codeTab, videoTab, codePanel, videoPanel, fileInput,
-    titleInput, createButton, status, keyInput, codeInput, analyzeButton].every(Boolean)) return;
+    titleInput, createButton, status, storageStatus, videoHtmlCode,
+    analyzeVideoButton, keyInput, codeInput, analyzeButton].every(Boolean)) return;
 
   function selectTab(mode) {
     const isVideo = mode === "video";
@@ -180,6 +186,58 @@ function initVideoHtmlTab() {
   codeTab.addEventListener("click", () => selectTab("code"));
   videoTab.addEventListener("click", () => selectTab("video"));
 
+  async function checkStorage() {
+    try {
+      const response = await fetch(API_ROOT + "/api/video-backgrounds/status", {
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error("Renderer unavailable.");
+      const info = await response.json();
+      if (!info.mongodbConfigured) {
+        storageStatus.textContent = "MongoDB is not configured on the renderer. Set MONGODB_URI before uploading or publishing.";
+      } else if (info.cloudinaryConfigured) {
+        storageStatus.textContent = "Storage: Cloudinary configured for new videos; existing MongoDB videos remain accessible.";
+      } else {
+        storageStatus.textContent = "Storage: MongoDB GridFS. Cloudinary is not configured yet; see Cloudinary setup below.";
+      }
+    } catch {
+      storageStatus.textContent = "Cannot check storage. Start the renderer server on port 4174 and check its settings.";
+    }
+  }
+  void checkStorage();
+
+  function analyzeVideoHtml() {
+    const html = videoHtmlCode.value.trim();
+    const background = findVideoBackground(html);
+    if (!background || background.origin !== new URL(API_ROOT).origin) {
+      status.textContent = "Paste a complete Video + HTML document with a valid video-background reference from this renderer, or upload an MP4 first.";
+      return;
+    }
+    codeInput.value = videoHtmlCode.value;
+    codeInput.dispatchEvent(new Event("input", { bubbles: true }));
+    analyzeButton.click();
+    status.textContent = "Analyzing Video + HTML. Customer fields and preview controls appear below.";
+  }
+
+  analyzeVideoButton.addEventListener("click", analyzeVideoHtml);
+  videoHtmlCode.addEventListener("input", () => {
+    // Invalidate prepared previews when the Video + HTML source is edited.
+    codeInput.value = videoHtmlCode.value;
+    codeInput.dispatchEvent(new Event("input", { bubbles: true }));
+    status.textContent = "HTML code changed. Click Analyze HTML Code to refresh the preview.";
+  });
+
+  const originalStatus = document.querySelector("#status");
+  if (originalStatus && typeof MutationObserver !== "undefined") {
+    const observer = new MutationObserver(() => {
+      if (!videoPanel.hidden && originalStatus.classList.contains("error")) {
+        status.textContent = originalStatus.textContent;
+      }
+    });
+    observer.observe(originalStatus, { childList: true, characterData: true,
+      subtree: true, attributes: true, attributeFilter: ["class"] });
+  }
+
   createButton.addEventListener("click", async () => {
     const file = fileInput.files?.[0];
     if (!file) {
@@ -191,6 +249,10 @@ function initVideoHtmlTab() {
     if (!key) {
       status.textContent = "Enter your Admin access key in the Export MP4 section before uploading.";
       keyInput.focus();
+      return;
+    }
+    if ((videoHtmlCode.value.trim() || codeInput.value.trim()) &&
+        !window.confirm("Generate new HTML from this MP4? This will replace the current invitation code in the editor.")) {
       return;
     }
     createButton.disabled = true;
@@ -222,10 +284,10 @@ function initVideoHtmlTab() {
       if (new TextEncoder().encode(source).length > 1024 * 1024) {
         throw new Error("Generated HTML unexpectedly exceeds the 1 MB source limit.");
       }
-      // Reuse the existing, validated code analyzer and customer editor.
-      codeInput.value = source;
-      analyzeButton.click();
-      status.textContent = "Video + HTML created. Edit the sample fields below, then preview, validate and export MP4. Original video stays separate from HTML.";
+      // Reuse the existing analyzer and editor, but keep the HTML visible here.
+      videoHtmlCode.value = source;
+      analyzeVideoHtml();
+      status.textContent = "Video + HTML code generated below. Edit the code or sample fields, then preview, validate and export MP4. Original video stays separate from HTML.";
       // Stay on Video + HTML; existing editable fields appear below this panel.
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to create video template.";
