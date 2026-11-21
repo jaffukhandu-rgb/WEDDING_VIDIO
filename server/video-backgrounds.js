@@ -6,6 +6,7 @@ import { pipeline } from "node:stream/promises";
 import dns from "node:dns";
 import { GridFSBucket, MongoClient } from "mongodb";
 import { requireAdmin } from "./admin-access.js";
+import { isCloudinaryConfigured, uploadCloudinaryBackground, fetchCloudinaryBackground } from "./cloudinary-background.js";
 
 export const MAX_BACKGROUND_BYTES = 32 * 1024 * 1024;
 const DATABASE = process.env.MONGODB_DB_NAME || "wedding_video_maker";
@@ -44,11 +45,22 @@ async function videoBucket() {
   return new GridFSBucket(client.db(DATABASE), { bucketName: "invitation_video_backgrounds" });
 }
 
+async function assetMetadata() {
+  await videoBucket();
+  const client = await connectionPromise;
+  return client.db(DATABASE).collection("invitation_video_asset_metadata");
+}
+
 async function findAsset(id) {
   if (!UUID.test(id)) return null;
+  const normalized = id.toLowerCase();
+  const metadata = await assetMetadata();
+  const cloudFile = await metadata.findOne({ id: normalized, provider: "cloudinary" });
+  if (cloudFile) return { provider: "cloudinary", file: cloudFile };
+  // Preserve every video uploaded before Cloudinary was introduced.
   const bucket = await videoBucket();
-  const results = await bucket.find({ filename: id.toLowerCase() }).limit(1).toArray();
-  return results.length ? { bucket, file: results[0] } : null;
+  const results = await bucket.find({ filename: normalized }).limit(1).toArray();
+  return results.length ? { provider: "gridfs", bucket, file: results[0] } : null;
 }
 
 export async function backgroundExists(id) {
@@ -58,6 +70,16 @@ export async function backgroundExists(id) {
 export async function loadBackgroundBytes(id) {
   const record = await findAsset(id);
   if (!record) return null;
+  if (record.provider === "cloudinary") {
+    const upstream = await fetchCloudinaryBackground(id);
+    if (upstream.status !== 200) throw new Error("Could not download the Cloudinary background.");
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    if (buffer.length < 1024 || buffer.length > MAX_BACKGROUND_BYTES ||
+        buffer.toString("ascii", 4, 8) !== "ftyp") {
+      throw new Error("The Cloudinary MP4 is incomplete or invalid.");
+    }
+    return buffer;
+  }
   if (record.file.length < 1 || record.file.length > MAX_BACKGROUND_BYTES) {
     throw new Error("Background asset exceeds the supported size.");
   }
@@ -110,6 +132,16 @@ export function backgroundResponseHeaders(total, range) {
 export function videoBackgroundRouter() {
   const router = express.Router();
 
+  // Safe status only: never return cloud name, key or API secret to the browser.
+  router.get("/video-backgrounds/status", (_req, res) => {
+    res.set("Cache-Control", "no-store").json({
+      provider: isCloudinaryConfigured() ? "cloudinary" : "mongodb",
+      cloudinaryConfigured: isCloudinaryConfigured(),
+      mongodbConfigured: Boolean(process.env.MONGODB_URI?.trim()),
+      maxUploadMb: 32
+    });
+  });
+
   // Admin-only upload; a public asset can subsequently be played via an opaque UUID.
   router.post("/admin/video-backgrounds", requireAdmin,
     express.raw({ type: "video/mp4", limit: "33mb" }), async (req, res) => {
@@ -125,8 +157,25 @@ export function videoBackgroundRouter() {
       }
       try {
         const bucket = await videoBucket();
-        // Reuse identical footage: repeated admin attempts should not fill GridFS.
+        // Reuse identical footage: repeated admin attempts should not fill storage.
         const sha256 = createHash("sha256").update(data).digest("hex");
+        if (isCloudinaryConfigured()) {
+          const metadata = await assetMetadata();
+          const previous = await metadata.findOne({ provider: "cloudinary", sha256 });
+          if (previous) {
+            res.set("Cache-Control", "no-store");
+            return res.status(200).json({
+              id: previous.id, bytes: data.length, reused: true, provider: "cloudinary"
+            });
+          }
+          const id = randomUUID();
+          await uploadCloudinaryBackground(data, id);
+          await metadata.insertOne({
+            id, provider: "cloudinary", sha256, length: data.length, createdAt: new Date()
+          });
+          res.set("Cache-Control", "no-store");
+          return res.status(201).json({ id, bytes: data.length, provider: "cloudinary" });
+        }
         const previous = await bucket.find({ "metadata.sha256": sha256 }).limit(1).toArray();
         if (previous.length) {
           res.set("Cache-Control", "no-store");
@@ -138,10 +187,10 @@ export function videoBackgroundRouter() {
         });
         await pipeline(Readable.from([data]), upload);
         res.set("Cache-Control", "no-store");
-        return res.status(201).json({ id, bytes: data.length });
+        return res.status(201).json({ id, bytes: data.length, provider: "mongodb" });
       } catch (error) {
         console.error("Background upload failed:", error);
-        return res.status(503).json({ error: "Background storage unavailable. Check MongoDB configuration." });
+        return res.status(503).json({ error: "Video storage unavailable. Verify MongoDB and Cloudinary server configuration." });
       }
     });
 
@@ -153,6 +202,44 @@ export function videoBackgroundRouter() {
     try {
       const record = await findAsset(id);
       if (!record) return res.status(404).end();
+      if (record.provider === "cloudinary") {
+        const rangeHeader = req.get("Range");
+        const upstream = await fetchCloudinaryBackground(id, rangeHeader);
+        if (upstream.status === 416) {
+          const contentRange = upstream.headers.get("content-range");
+          if (contentRange) res.set("Content-Range", contentRange);
+          return res.status(416).end();
+        }
+        const headers = {
+          "Content-Type": "video/mp4",
+          "Access-Control-Allow-Origin": "*",
+          "Cross-Origin-Resource-Policy": "cross-origin",
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "public, max-age=86400",
+          "X-Content-Type-Options": "nosniff"
+        };
+        if (rangeHeader && upstream.status === 200) {
+          // Some CDN configurations ignore Range; still satisfy the browser's seek.
+          const buffer = Buffer.from(await upstream.arrayBuffer());
+          if (buffer.length < 1 || buffer.length > MAX_BACKGROUND_BYTES) {
+            throw new Error("Cloudinary returned an invalid background size.");
+          }
+          const range = backgroundByteRange(buffer.length, rangeHeader);
+          if (!range) return res.status(416)
+            .set("Content-Range", "bytes */" + buffer.length).end();
+          return res.status(206)
+            .set(backgroundResponseHeaders(buffer.length, range))
+            .end(buffer.subarray(range.start, range.end + 1));
+        }
+        for (const header of ["content-length", "content-range"]) {
+          const value = upstream.headers.get(header);
+          if (value) headers[header] = value;
+        }
+        res.status(upstream.status).set(headers);
+        if (!upstream.body) return res.end();
+        await pipeline(Readable.fromWeb(upstream.body), res);
+        return;
+      }
       const total = record.file.length;
       const range = backgroundByteRange(total, req.get("Range"));
       if (!range) {
