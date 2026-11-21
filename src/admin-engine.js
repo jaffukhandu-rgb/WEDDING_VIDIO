@@ -165,7 +165,49 @@ function tagsWithClass(html,tagName,className){
   });
 }
 
+// One-pass compatibility diagnostics. Reject templates that cannot render safely
+// instead of reporting a CONFIG error now and an external-library error later.
+export function diagnoseTemplate(html){
+  if(typeof html!=='string'||!html.trim())return ['Paste a complete HTML invitation first.'];
+  const issues=[];
+  if(new TextEncoder().encode(html).length>1024*1024)issues.push('HTML is over 1 MB; reduce the template source size.');
+  if(!/<!doctype\s+html/i.test(html)||!/<main\b/i.test(html)){
+    issues.push('Supply one complete HTML document with <!DOCTYPE html> and a <main> element.');
+  }
+  const configBlocks=[...html.matchAll(CONFIG_MARKER)];
+  if(configBlocks.length!==1){
+    issues.push(/\bconst\s+CFG\s*=/.test(html)
+      ? 'Rename the CFG contract to exactly one const CONFIG = { ... } block and use partner1, partner2, date (YYYY-MM-DD), time, venue, address and message instead of groom/bride/place.'
+      : 'Add exactly one literal const CONFIG = { ... } block with editable customer fields.');
+  }
+  if(/<script\b[^>]*\bsrc\s*=/i.test(html)){
+    issues.push('External <script src="..."> libraries are blocked in both preview and MP4 export. Use self-contained inline JavaScript.');
+  }
+  if(/\bgsap\s*\./i.test(html)){
+    issues.push('GSAP calls (timeline/ticker/tweens) require a library that cannot load here. Generate native CSS/Web Animations instead; simply renaming CFG will not fix playback.');
+  }
+  const scenes=tagsWithClass(html,'section','scene');
+  if(scenes.length){
+    const indexes=scenes.map(m=>Number(m[0].match(/--i\s*:\s*(\d+)/)?.[1]));
+    if(indexes.some((index,position)=>index!==position)){
+      issues.push('Number scene sections consecutively using --i:0, --i:1, --i:2, and so on.');
+    }
+  }else{
+    const stage=tagsWithClass(html,'main','stage').length>0||tagsWithClass(html,'div','stage').length>0;
+    const book=tagsWithClass(html,'div','book').length>0;
+    const pages=tagsWithClass(html,'div','pg').length;
+    if(!stage||!book||pages<2||pages>12){
+      issues.push('Use a supported layout: numbered <section class="scene" style="--i:0"> elements, or a .stage with a .book containing 2–12 .pg pages.');
+    }
+  }
+  return issues;
+}
+
 export function analyzeTemplate(html){
+  const compatibilityIssues=diagnoseTemplate(html);
+  if(compatibilityIssues.length){
+    throw new Error('Template compatibility issues ('+compatibilityIssues.length+'):\n• '+compatibilityIssues.join('\n• '));
+  }
   if(typeof html!=='string'||!html.trim())throw new Error('Upload a nonempty HTML file.');
   if(new TextEncoder().encode(html).length>1024*1024)throw new Error('HTML exceeds 1 MB.');
   if(!/<!doctype\s+html/i.test(html)||!/<main\b/i.test(html))throw new Error('Expected a complete HTML invitation document.');
