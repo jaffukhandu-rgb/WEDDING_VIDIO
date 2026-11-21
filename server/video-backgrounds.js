@@ -1,6 +1,6 @@
 // Isolated MP4 background storage. Does not modify existing HTML templates.
 import express from "express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { GridFSBucket, MongoClient } from "mongodb";
@@ -109,9 +109,16 @@ export function videoBackgroundRouter() {
       }
       try {
         const bucket = await videoBucket();
+        // Reuse identical footage: repeated admin attempts should not fill GridFS.
+        const sha256 = createHash("sha256").update(data).digest("hex");
+        const previous = await bucket.find({ "metadata.sha256": sha256 }).limit(1).toArray();
+        if (previous.length) {
+          res.set("Cache-Control", "no-store");
+          return res.status(200).json({ id: previous[0].filename, bytes: data.length, reused: true });
+        }
         const id = randomUUID();
         const upload = bucket.openUploadStream(id, {
-          metadata: { type: "video/mp4", uploadedAt: new Date() }
+          metadata: { type: "video/mp4", sha256, uploadedAt: new Date() }
         });
         await pipeline(Readable.from([data]), upload);
         res.set("Cache-Control", "no-store");
