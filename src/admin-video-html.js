@@ -306,6 +306,8 @@ function initVideoHtmlTab() {
       status.textContent = "Paste a complete Video + HTML document with a valid video-background reference from this renderer, or upload an MP4 first.";
       return;
     }
+    assetLink.href = background.url;
+    assetLink.hidden = false;
     codeInput.value = videoHtmlCode.value;
     codeInput.dispatchEvent(new Event("input", { bubbles: true }));
     analyzeButton.click();
@@ -314,6 +316,8 @@ function initVideoHtmlTab() {
 
   analyzeVideoButton.addEventListener("click", analyzeVideoHtml);
   videoHtmlCode.addEventListener("input", () => {
+    visualReport.hidden = true;
+    assetLink.hidden = true;
     // Invalidate prepared previews when the Video + HTML source is edited.
     codeInput.value = videoHtmlCode.value;
     codeInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -330,6 +334,13 @@ function initVideoHtmlTab() {
     observer.observe(originalStatus, { childList: true, characterData: true,
       subtree: true, attributes: true, attributeFilter: ["class"] });
   }
+
+  fileInput.addEventListener("change", () => {
+    visualReport.hidden = true;
+    if (fileInput.files?.length && videoHtmlCode.value.trim()) {
+      status.textContent = "New MP4 selected. The existing HTML still references the previous video until you upload and regenerate it.";
+    }
+  });
 
   createButton.addEventListener("click", async () => {
     const file = fileInput.files?.[0];
@@ -355,12 +366,16 @@ function initVideoHtmlTab() {
       await inspectVideo(file);
       status.textContent = "Automatically analyzing the video frames…";
       visualReport.hidden = true;
+      uploadLoader.hidden = false;
+      uploadProgress.value = 0;
+      uploadLabel.textContent = "Analyzing video frames: 0%";
       // Analyze BEFORE upload so a failure cannot create another stored MP4.
       const visualAnalysis = await analyzeVideoVisual(file, percent => {
         status.textContent = "Analyzing video frames and readable area: " + percent + "%";
+        uploadProgress.value = percent;
+        uploadLabel.textContent = "Analyzing video frames: " + percent + "%";
       });
       status.textContent = "Video analyzed. Uploading the background securely…";
-      uploadLoader.hidden = false;
       uploadProgress.value = 0;
       uploadLabel.textContent = "Uploading MP4: 0% transferred";
       const result = await uploadWithProgress(file, key, (percent, transferred) => {
