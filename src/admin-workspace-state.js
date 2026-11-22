@@ -1,5 +1,6 @@
 import { getDraft, saveDraft } from "./admin-draft-store.js";
 import { buildVideoInvitationSource } from "./admin-video-html.js";
+import { analyzeVideoVisual } from "./video-visual-analyzer.js";
 import { findVideoBackground } from "./video-html-contract.js";
 
 // Isolated workspace handoff. Existing analysis, preview and export controllers
@@ -82,13 +83,26 @@ if (draftId) {
 
 const videoId = params.get("video");
 if (UUID.test(videoId || "")) {
-  const source = buildVideoInvitationSource({
-    id: videoId,
-    url: API_ROOT + "/api/video-backgrounds/" + videoId,
-    title: titleInput.value || "Video Invitation"
-  });
-  loadSource(source, "video");
-  showMessage("Saved video selected. No re-upload needed. Review and customize its HTML.");
+  void (async () => {
+    const url = API_ROOT + "/api/video-backgrounds/" + videoId;
+    showMessage("Analyzing the previously uploaded video. No re-upload needed…");
+    try {
+      const visualAnalysis = await analyzeVideoVisual(url, percent => {
+        showMessage("Analyzing saved video for readable invitation placement: " + percent + "%");
+      });
+      const source = buildVideoInvitationSource({
+        id: videoId, url, title: titleInput.value || "Video Invitation", visualAnalysis
+      });
+      loadSource(source, "video");
+      showMessage("Saved video analyzed. Text starts at " + visualAnalysis.revealAt.toFixed(1) +
+        "s; confidence " + visualAnalysis.confidence + ". " +
+        (visualAnalysis.warnings.join(" ") || "Review the full invitation before publishing."));
+    } catch (error) {
+      showMessage("Automatic analysis of the saved video failed: " +
+        (error instanceof Error ? error.message : "Video frames unavailable.") +
+        " No source code was replaced. Check that the renderer is running and the stored video plays.");
+    }
+  })();
 }
 
 const editId = params.get("edit");
