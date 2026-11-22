@@ -77,6 +77,10 @@ export async function publishTemplate(template) {
   const coll = await collection();
   const now = new Date();
   const selector = { category: template.category, sourceHash: template.sourceHash };
+  const existing = await coll.findOne(selector, { projection: { status: 1 } });
+  if (existing?.status === "deleting") {
+    throw new Error("This identical template is currently being deleted. Finish the deletion first.");
+  }
   await coll.updateOne(selector, {
     $set: { ...template, status: "published", publishedAt: now },
     $setOnInsert: { createdAt: now }
@@ -147,13 +151,13 @@ export async function finishAdminTemplateDeletion(id) {
 
 // Include older published HTML that predates the videoBackgroundId metadata.
 export async function countVideoTemplateReferences(videoId, excludedTemplateId = null) {
-  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(videoId)) return 0;
+  if (typeof videoId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(videoId)) return 0;
   const coll = await collection();
   const conditions = {
     status: { $in: ["published", "deleting"] },
     $or: [
       { videoBackgroundId: videoId },
-      { html: { $regex: 'data-wedding-background=["\\x27]' + videoId + '["\\x27]', $options: "i" } }
+      { html: { $regex: 'data-wedding-background\\s*=\\s*["\\x27]' + videoId + '["\\x27]', $options: "i" } }
     ]
   };
   const excluded = templateId(excludedTemplateId);
