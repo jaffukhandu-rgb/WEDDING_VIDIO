@@ -67,3 +67,19 @@ test("Smart layout is generated only for analyzed video, leaving old default unc
   assert.ok(script);
   assert.doesNotThrow(() => new Function(script));
 });
+
+test("Animated text window reduces confidence and warns about moving text region", () => {
+  const frames = makeFrames(25);
+  for (const frame of frames) {
+    if (frame.time >= 26) frame.luma.fill(Math.round(frame.time * 2) % 2 ? .48 : .20);
+  }
+  const plan = deriveVisualPlan(frames, 30);
+  assert.equal(plan.confidence, "low");
+  assert.ok(plan.warnings.some(warning => warning.includes("text region changes")));
+});
+
+test("Malformed decoded frames fail safely instead of generating a layout", () => {
+  const frames = makeFrames(25);
+  frames[4].luma = new Float32Array(5);
+  assert.throws(() => deriveVisualPlan(frames, 30), /Invalid video image data/);
+});
