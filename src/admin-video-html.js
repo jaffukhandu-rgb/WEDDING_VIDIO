@@ -87,7 +87,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
         "%;height:" + percent(rect.height, 23, 67) +
         "%;min-height:0;background:none;border:0;border-radius:0;padding:1.8cqw 1.3cqw;" +
         "color:" + textInk + ";text-shadow:0 2px 6px " + shadow +
-        ";animation:reveal-invitation 30s linear both}",
+        ";animation:none;transition:none}",
       ".copy-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;" +
         "gap:.8cqw;max-width:100%;width:100%;transform-origin:center center;flex-shrink:0}",
       ".copy .names{color:inherit;font-size:8.5cqw;font-weight:650;line-height:1.08;text-wrap:balance}",
@@ -135,13 +135,29 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       "    inner.style.transform = 'none';",
       "    const h = Math.max(1, inner.scrollHeight);",
       "    const w = Math.max(1, inner.scrollWidth);",
-      "    const factor = Math.min(1, Math.max(.55, (root.clientHeight - 8) / h), Math.max(.55, (root.clientWidth - 8) / w));",
+      "    const required = Math.min(1, (root.clientHeight - 8) / h, (root.clientWidth - 8) / w);",
+      "    const factor = Math.max(.55, required);",
       "    inner.style.transform = 'scale(' + factor.toFixed(3) + ')';",
       "    root.dataset.textFit = factor.toFixed(2);",
+      "    root.dataset.textFitRequired = required.toFixed(2);",
       "  };",
       "  fit();",
       "  window.addEventListener('resize', fit);",
-      "  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);"
+      "  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);",
+      "  // Follow the MP4 playhead through playback, looping and renderer seeks.",
+      "  const backgroundVideo = document.querySelector('video[data-wedding-background]');",
+      "  const revealAt = " + Number(visualAnalysis.revealAt).toFixed(2) + ";",
+      "  const updateReveal = () => {",
+      "    if (!backgroundVideo) return;",
+      "    const progress = Math.min(1, Math.max(0, (backgroundVideo.currentTime - revealAt) / .84));",
+      "    root.style.opacity = String(progress);",
+      "  };",
+      "  if (backgroundVideo) {",
+      "    for (const eventName of ['timeupdate','seeked','loadedmetadata','playing','ended']) {",
+      "      backgroundVideo.addEventListener(eventName, updateReveal);",
+      "    }",
+      "    updateReveal();",
+      "  }"
     ] : []),
     "})();"
   ].join("\n");
@@ -299,7 +315,12 @@ function initVideoHtmlTab() {
   }
   void checkStorage();
 
+  let pendingVideoReplacement = false;
   function analyzeVideoHtml() {
+    if (pendingVideoReplacement) {
+      status.textContent = "A different MP4 is selected. Upload and generate new HTML before analyzing or exporting it.";
+      return;
+    }
     const html = videoHtmlCode.value.trim();
     const background = findVideoBackground(html);
     if (!background || background.origin !== new URL(API_ROOT).origin) {
@@ -337,8 +358,11 @@ function initVideoHtmlTab() {
 
   fileInput.addEventListener("change", () => {
     visualReport.hidden = true;
-    if (fileInput.files?.length && videoHtmlCode.value.trim()) {
-      status.textContent = "New MP4 selected. The existing HTML still references the previous video until you upload and regenerate it.";
+    pendingVideoReplacement = Boolean(fileInput.files?.length && videoHtmlCode.value.trim());
+    if (pendingVideoReplacement) {
+      // Preserve the source, but invalidate its prepared preview and MP4 export.
+      codeInput.dispatchEvent(new Event("input", { bubbles: true }));
+      status.textContent = "New MP4 selected. Upload and regenerate before previewing or exporting; previous HTML is preserved.";
     }
   });
 
@@ -409,6 +433,7 @@ function initVideoHtmlTab() {
         : "Uploaded to MongoDB GridFS. The video is accessible through the website renderer URL below.";
       // Reuse the existing analyzer and editor, but keep the HTML visible here.
       videoHtmlCode.value = source;
+      pendingVideoReplacement = false;
       analyzeVideoHtml();
       visualReport.hidden = false;
       visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
