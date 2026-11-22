@@ -460,6 +460,7 @@ editor.addEventListener('submit',async event=>{
 delivery=createAdminDelivery({
   getState:()=>({
     source,html:prepared,dirty:validationDirty,
+    editTemplateId:document.documentElement.dataset.editTemplateId||null,
     manualReviewed:validationManual.checked,
     runtimePassed:Boolean(lastAnalysis && runtimeValidation &&
       validateRuntimeReport(runtimeValidation,lastAnalysis.sceneCount).status==='pass')
