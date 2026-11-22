@@ -85,7 +85,7 @@ async function loadTemplates() {
             );
             if (!response.ok) throw new Error(await readError(response));
             const data = await response.json();
-            if (!/<head\\b/i.test(data.template.html)) {
+            if (!/<head\b/i.test(data.template.html)) {
               throw new Error("This template needs an HTML <head> for the sandbox media policy. Open Edit to correct it.");
             }
             previewHeading.textContent = template.title || "Template preview";
