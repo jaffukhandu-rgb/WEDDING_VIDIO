@@ -200,6 +200,8 @@ export function videoBackgroundRouter() {
       const metadata = await assetMetadata();
       let recovered = 0;
       for (const file of files) {
+        const previous = await metadata.findOne({ id: file.id, provider: "cloudinary" });
+        if (previous?.status === "deleting") continue;
         const result = await metadata.updateOne(
           { id: file.id, provider: "cloudinary" },
           { $set: { status: "ready", length: file.bytes },
@@ -257,7 +259,8 @@ export function videoBackgroundRouter() {
         const sha256 = createHash("sha256").update(data).digest("hex");
         if (isCloudinaryConfigured()) {
           const metadata = await assetMetadata();
-          const previous = await metadata.findOne({ provider: "cloudinary", sha256 });
+          const previous = await metadata.findOne({ provider: "cloudinary", sha256,
+            status: { $nin: ["uploading", "deleting"] } });
           if (previous) {
             res.set("Cache-Control", "no-store");
             return res.status(200).json({
@@ -317,6 +320,9 @@ export function videoBackgroundRouter() {
       const record = await findAsset(id);
       if (!record) return res.status(404).end();
       if (record.provider === "cloudinary") {
+        if (record.file.status === "deleting" || record.file.status === "uploading") {
+          return res.status(404).end();
+        }
         const rangeHeader = req.get("Range");
         const upstream = await fetchCloudinaryBackground(id, rangeHeader);
         if (upstream.status === 416) {
