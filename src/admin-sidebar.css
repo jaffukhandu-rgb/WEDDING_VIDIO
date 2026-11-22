@@ -70,3 +70,12 @@ body.admin-layout > main { grid-column: 2; min-width: 0; width: 100%; max-width:
 @media(prefers-reduced-motion:reduce) {
   .admin-page button[aria-busy="true"]::after { animation: none; }
 }
+
+.admin-preview-dialog { background: #101a2b; border: 1px solid #52607b; border-radius: 15px;
+  color: #e8eaf1; width: min(550px, calc(100vw - 24px)); max-height: calc(100dvh - 28px);
+  padding: 17px; overflow-y: auto; }
+.admin-preview-dialog::backdrop { background: rgba(2,7,17,.82); }
+.admin-preview-header { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.admin-preview-header h2 { margin: 0; }
+.admin-preview-dialog iframe { display: block; margin: 14px auto; width: min(100%, 315px);
+  aspect-ratio: 9/16; height: auto; border: 1px solid #45536c; border-radius: 10px; background: #080d18; }
