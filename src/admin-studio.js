@@ -266,6 +266,22 @@ function renderDetectedFields(analysis){
   const photoSection=renderPhotoFields(analysis);
   if(photoSection)fields.append(photoSection);
 }
+// Generated Video + HTML designs contain mirrored top-level and first-event details.
+// Keep only those known duplicate controls in sync; leave custom templates untouched.
+fields.addEventListener('input',event=>{
+  if(!source.includes('data-video-auto-layout="v1"')||lastAnalysis?.config.events?.length!==1)return;
+  const target=event.target;
+  const key=target.dataset?.eventKey||target.name;
+  if(!['date','time','venue'].includes(key))return;
+  if(target.dataset?.eventKey&&target.dataset.eventIndex!=='0')return;
+  const other=target.dataset?.eventKey
+    ? editor.elements.namedItem(key)
+    : fields.querySelector('[data-event-index="0"][data-event-key="'+key+'"]');
+  if(other&&other!==target){
+    other.value=target.value;
+    if(other.dataset?.eventKey)other.dispatchEvent(new Event('input'));
+  }
+});
 function clearMusic(){
   musicPlayer.pause();
   musicPlayer.removeAttribute('src');musicPlayer.load();musicPlayer.classList.add('hide');
@@ -287,7 +303,10 @@ musicUpload.addEventListener('change',()=>{
   removeMusic.classList.remove('hide');
   musicStatus.textContent=file.name+' · preview soundtrack selected (not included in HTML download).';
 });
-removeMusic.addEventListener('click',clearMusic);
+removeMusic.addEventListener('click',()=>{
+  clearMusic();
+  if(prepared)invalidatePreviewValidation();
+});
 function readImageData(file){
   if(!IMAGE_TYPES.has(file.type)||file.size===0||file.size>IMAGE_MAX_BYTES){
     throw new Error('Images must be JPEG, PNG or WebP and at most 3 MB.');
@@ -430,6 +449,7 @@ resetSample.addEventListener('click',()=>{
     thumb?.removeAttribute('src');thumb?.classList.add('hide');
   }
   clearMusic();
+  if(prepared)invalidatePreviewValidation();
   setStatus('Sample values reset. Customers will enter their own details.','good');
 });
 editor.addEventListener('submit',async event=>{
