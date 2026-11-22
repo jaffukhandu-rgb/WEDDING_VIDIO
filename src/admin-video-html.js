@@ -155,7 +155,7 @@ async function inspectVideo(file) {
 
 // fetch() does not expose browser upload percentages; XHR gives real byte
 // progress. 100% here means transfer complete, not Cloudinary persistence.
-function uploadWithProgress(file, key, onProgress) {
+export function uploadWithProgress(file, key, onProgress) {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open("POST", API_ROOT + "/api/admin/video-backgrounds", true);
