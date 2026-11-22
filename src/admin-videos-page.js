@@ -49,7 +49,7 @@ async function loadVideos() {
       text.textContent = [
         Number.isFinite(item.bytes) ? (item.bytes / 1048576).toFixed(1) + " MB" : "Unknown size",
         (!date || Number.isNaN(date.getTime())) ? "Unknown date" : date.toLocaleString(),
-        item.status === "ready" ? "Available" : "Recovery needed"
+        item.status === "ready" ? "Available" : item.status === "deleting" ? "Deletion incomplete — retry" : "Recovery needed"
       ].join(" · ");
       const actions = document.createElement("div");
       actions.className = "admin-item-actions";
@@ -63,7 +63,7 @@ async function loadVideos() {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "danger";
-      remove.textContent = "Delete";
+      remove.textContent = item.status === "deleting" ? "Retry Deletion" : "Delete";
       remove.addEventListener("click", async () => {
         const answer = window.prompt(
           "Permanently delete this MP4 and its MongoDB asset record? Published templates are protected; browser-local drafts cannot be checked. Type DELETE to confirm."
