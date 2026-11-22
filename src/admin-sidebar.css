@@ -1,6 +1,6 @@
 /* Admin workspace navigation — isolated from customer pages. */
 :root { --admin-sidebar-width: 230px; }
-body.admin-layout { display: grid; grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr); align-items: start; min-height: 100dvh; }
+body.admin-layout { margin: 0; background: #080f1e; color: #e8eaf1; display: grid; grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr); align-items: start; min-height: 100dvh; }
 .admin-sidebar { grid-column: 1; position: sticky; top: 0; height: 100dvh; background: #0a1323; border-right: 1px solid #344157; padding: 24px 14px; display: flex; flex-direction: column; gap: 22px; z-index: 35; overflow-y: auto; }
 .admin-sidebar-brand { color: #f2e9d7; font-weight: 760; font-size: 1.12rem; letter-spacing: -.02em; padding: 7px 11px 12px; }
 .admin-sidebar-brand small { display: block; margin-top: 5px; color: #aab8ce; font-weight: 450; font-size: .74rem; letter-spacing: .05em; text-transform: uppercase; }
