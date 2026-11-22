@@ -57,3 +57,16 @@ body.admin-layout > main { grid-column: 2; min-width: 0; width: 100%; max-width:
   .admin-panel { padding: 15px; }
   .admin-page .form-line label,.admin-page .form-line input { width: 100%; }
 }
+
+/* Loading markers for API operations; no decorative infinite animation at rest. */
+.admin-page button[aria-busy="true"] { position: relative; padding-right: 36px; }
+.admin-page button[aria-busy="true"]::after {
+  content: ""; position: absolute; right: 12px; top: calc(50% - 7px);
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: admin-spinner .75s linear infinite;
+}
+@keyframes admin-spinner { to { transform: rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) {
+  .admin-page button[aria-busy="true"]::after { animation: none; }
+}
