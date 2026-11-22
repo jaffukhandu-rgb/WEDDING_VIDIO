@@ -45,10 +45,10 @@ async function loadVideos() {
       const title = document.createElement("h3");
       title.textContent = item.provider === "cloudinary" ? "Cloudinary video" : "MongoDB video";
       const text = document.createElement("p");
-      const date = new Date(item.uploadedAt);
+      const date = item.uploadedAt ? new Date(item.uploadedAt) : null;
       text.textContent = [
         Number.isFinite(item.bytes) ? (item.bytes / 1048576).toFixed(1) + " MB" : "Unknown size",
-        Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleString(),
+        (!date || Number.isNaN(date.getTime())) ? "Unknown date" : date.toLocaleString(),
         item.status === "ready" ? "Available" : "Recovery needed"
       ].join(" · ");
       const actions = document.createElement("div");
