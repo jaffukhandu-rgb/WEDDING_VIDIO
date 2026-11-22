@@ -222,7 +222,7 @@ export function createAdminDelivery({ getState }) {
   publishButton.addEventListener("click", () => {
     updateButtons();
     if (publishButton.disabled) return;
-    category.value = "";
+    category.value = document.documentElement.dataset.editTemplateCategory || "";
     dialog.showModal();
     category.focus();
   });
@@ -232,7 +232,7 @@ export function createAdminDelivery({ getState }) {
     event.preventDefault();
     updateButtons();
     if (publishing || publishButton.disabled || !category.value) return;
-    const { source } = getState();
+    const { source, editTemplateId } = getState();
     if (!source) return;
     if (!keyValue()) {
       publishStatus.textContent = "Enter the Admin access key before publishing.";
@@ -244,8 +244,11 @@ export function createAdminDelivery({ getState }) {
     publishStatus.textContent = "Saving reviewed template to MongoDB…";
     updateButtons();
     try {
-      const response = await fetch(API_ROOT + "/api/admin/templates", {
-        method: "POST",
+      const endpoint = editTemplateId
+        ? API_ROOT + "/api/admin/templates/" + encodeURIComponent(editTemplateId)
+        : API_ROOT + "/api/admin/templates";
+      const response = await fetch(endpoint, {
+        method: editTemplateId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", "X-Admin-Key": keyValue() },
         body: JSON.stringify({
           html: source,
@@ -256,8 +259,9 @@ export function createAdminDelivery({ getState }) {
       if (!response.ok) throw new Error(await readApiError(response, "Could not publish the template."));
       const json = await response.json();
       dialog.close();
-      publishStatus.textContent = "Published in " + json.template.category +
-        " (template ID: " + json.template.id + "). Customers can now find it in this category.";
+      publishStatus.textContent = (editTemplateId ? "Updated existing template in " : "Published in ") +
+        json.template.category + " (template ID: " + json.template.id + "). " +
+        (editTemplateId ? "The template ID was preserved." : "Customers can now find it in this category.");
     } catch (error) {
       publishStatus.textContent = error instanceof Error ? error.message : "MongoDB publishing failed.";
     } finally {
