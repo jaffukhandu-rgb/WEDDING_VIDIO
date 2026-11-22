@@ -254,6 +254,7 @@ function initVideoHtmlTab() {
   const uploadLabel = document.querySelector("#video-html-upload-label");
   const status = document.querySelector("#video-html-status");
   const storageStatus = document.querySelector("#video-html-storage-status");
+  const visualReport = document.querySelector("#video-html-visual-report");
   const assetLink = document.querySelector("#video-html-asset-link");
   const videoHtmlCode = document.querySelector("#video-html-code");
   const analyzeVideoButton = document.querySelector("#video-html-analyze");
@@ -261,7 +262,7 @@ function initVideoHtmlTab() {
   const codeInput = document.querySelector("#code-input");
   const analyzeButton = document.querySelector("#analyze-code");
   if (![codeTab, videoTab, codePanel, videoPanel, fileInput,
-    titleInput, createButton, uploadLoader, uploadProgress, uploadLabel, status, storageStatus, assetLink, videoHtmlCode,
+    titleInput, createButton, uploadLoader, uploadProgress, uploadLabel, status, storageStatus, visualReport, assetLink, videoHtmlCode,
     analyzeVideoButton, keyInput, codeInput, analyzeButton].every(Boolean)) return;
 
   function selectTab(mode) {
@@ -352,7 +353,13 @@ function initVideoHtmlTab() {
     status.textContent = "Checking the video format and duration…";
     try {
       await inspectVideo(file);
-      status.textContent = "Uploading the background securely…";
+      status.textContent = "Automatically analyzing the video frames…";
+      visualReport.hidden = true;
+      // Analyze BEFORE upload so a failure cannot create another stored MP4.
+      const visualAnalysis = await analyzeVideoVisual(file, percent => {
+        status.textContent = "Analyzing video frames and readable area: " + percent + "%";
+      });
+      status.textContent = "Video analyzed. Uploading the background securely…";
       uploadLoader.hidden = false;
       uploadProgress.value = 0;
       uploadLabel.textContent = "Uploading MP4: 0% transferred";
@@ -373,7 +380,8 @@ function initVideoHtmlTab() {
       const source = buildVideoInvitationSource({
         id: result.id,
         url,
-        title: titleInput.value.trim() || "Video Wedding Invitation"
+        title: titleInput.value.trim() || "Video Wedding Invitation",
+        visualAnalysis
       });
       if (new TextEncoder().encode(source).length > 1024 * 1024) {
         throw new Error("Generated HTML unexpectedly exceeds the 1 MB source limit.");
@@ -387,7 +395,13 @@ function initVideoHtmlTab() {
       // Reuse the existing analyzer and editor, but keep the HTML visible here.
       videoHtmlCode.value = source;
       analyzeVideoHtml();
-      status.textContent = "Video + HTML code generated below. Edit the code or sample fields, then preview, validate and export MP4. Original video stays separate from HTML.";
+      visualReport.hidden = false;
+      visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
+        " confidence. Text starts at " + visualAnalysis.revealAt.toFixed(1) +
+        "s. Video reference: " + result.id + ". " +
+        (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
+          "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");
+      status.textContent = "Video + HTML generated from the analyzed MP4. Edit customer details and preview before export.";
       // Stay on Video + HTML; existing editable fields appear below this panel.
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to create video template.";
