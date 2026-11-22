@@ -15,8 +15,9 @@ function difference(first, second) {
   for (let i = 0; i < first.length; i += 3) total += Math.abs(first[i] - second[i]);
   return total / Math.ceil(first.length / 3);
 }
-function findArea(frame) {
-  const { luma } = frame;
+function findArea(frames) {
+  // Choose an area that stays quiet while the invitation text is visible.
+  // Single-frame inspection can select a region that becomes busy moments later.
   let best = null;
   for (const top of [.28, .32, .36, .40, .44]) {
     for (const left of [.16, .19, .22]) {
@@ -24,21 +25,39 @@ function findArea(frame) {
         const width = .84 - left;
         const x0 = Math.round(left * W), x1 = Math.round((left + width) * W);
         const y0 = Math.round(top * H), y1 = Math.round((top + height) * H);
-        let sum = 0, square = 0, edge = 0, n = 0;
-        for (let y = y0 + 1; y < y1 - 1; y += 2) {
-          for (let x = x0 + 1; x < x1 - 1; x += 2) {
-            const i = y * W + x, v = luma[i];
-            sum += v; square += v * v; n++;
-            edge += Math.abs(v - luma[i - 1]) + Math.abs(v - luma[i + W]);
+        let mean = 0, spread = 0, texture = 0, motion = 0;
+        let minBrightness = 1, maxBrightness = 0;
+        for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
+          const luma = frames[frameIndex].luma;
+          const previous = frameIndex ? frames[frameIndex - 1].luma : null;
+          let sum = 0, square = 0, edge = 0, change = 0, n = 0;
+          for (let y = y0 + 1; y < y1 - 1; y += 2) {
+            for (let x = x0 + 1; x < x1 - 1; x += 2) {
+              const i = y * W + x, v = luma[i];
+              sum += v; square += v * v; n++;
+              edge += Math.abs(v - luma[i - 1]) + Math.abs(v - luma[i + W]);
+              if (previous) change += Math.abs(v - previous[i]);
+            }
           }
+          if (!n) continue;
+          const frameAverage = sum / n;
+          mean += frameAverage;
+          spread += Math.sqrt(Math.max(0, square / n - frameAverage * frameAverage));
+          texture += edge / (2 * n);
+          if (previous) motion += change / n;
+          minBrightness = Math.min(minBrightness, frameAverage);
+          maxBrightness = Math.max(maxBrightness, frameAverage);
         }
-        if (!n) continue;
-        const average = sum / n, variance = Math.sqrt(Math.max(0, square / n - average * average));
-        const texture = edge / (2 * n);
-        const score = texture + .14 * variance +
+        const average = mean / frames.length;
+        const variance = spread / frames.length;
+        texture /= frames.length;
+        motion /= Math.max(1, frames.length - 1);
+        const brightnessDrift = maxBrightness - minBrightness;
+        const score = texture + .14 * variance + .30 * motion + .10 * brightnessDrift +
           .13 * Math.abs(top + height / 2 - .51) + (height < .40 ? .008 : 0);
         if (!best || score < best.score) {
-          best = { left, top, width, height, average, variance, texture, score };
+          best = { left, top, width, height, average, variance, texture,
+            motion, brightnessDrift, score };
         }
       }
     }
@@ -49,7 +68,9 @@ export function deriveVisualPlan(frames, duration = 30) {
   if (!Array.isArray(frames) || frames.length < 6) throw Error("Insufficient decoded video frames.");
   const ordered = [...frames].sort((a,b) => a.time - b.time);
   const last = ordered[ordered.length - 1];
-  if (!last?.luma || last.luma.length !== W * H) throw Error("Invalid video image data.");
+  if (!last?.luma || ordered.some(frame => frame?.luma?.length !== W * H)) {
+    throw Error("Invalid video image data.");
+  }
   const changes = ordered.slice(1).map((frame,i) => ({
     start: ordered[i].time, end: frame.time,
     motion: difference(ordered[i].luma, frame.luma)
@@ -61,11 +82,16 @@ export function deriveVisualPlan(frames, duration = 30) {
     stationaryFrom = item.start;
   }
   const stable = duration - stationaryFrom >= 2.5;
-  const area = findArea(last);
+  const revealAt = Math.round((stable ? clamp(stationaryFrom + .8, duration - 7, duration - 2.5) : duration - 4.5) * 10) / 10;
+  const visibleFrames = ordered.filter(frame => frame.time >= revealAt);
+  const area = findArea(visibleFrames.length >= 2 ? visibleFrames : ordered.slice(-6));
   const warnings = [];
   if (!stable) warnings.push("No clear stationary ending detected; visually verify the text timing.");
   if (area.texture > .065 || area.variance > .21) {
     warnings.push("The proposed text region appears visually busy; verify readability.");
+  }
+  if (area.motion > .025 || area.brightnessDrift > .20) {
+    warnings.push("The proposed text region changes while text is visible; review placement and contrast.");
   }
   if (stable && duration - (stationaryFrom + .8) < 3.5) {
     warnings.push("The stationary ending leaves less than 3.5 seconds to read; review pacing.");
@@ -73,14 +99,15 @@ export function deriveVisualPlan(frames, duration = 30) {
   const dark = area.average > .48;
   return {
     version: 1, duration,
-    revealAt: Math.round((stable ? clamp(stationaryFrom + .8, duration - 7, duration - 2.5) : duration - 4.5) * 10) / 10,
+    revealAt,
     textArea: {
       left: Math.round(area.left * 100), top: Math.round(area.top * 100),
       width: Math.round(area.width * 100), height: Math.round(area.height * 100)
     },
     ink: dark ? "#24160e" : "#fff1d2",
     shadow: dark ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)",
-    confidence: stable && area.texture < .065 && area.variance < .21 ? "medium" : "low",
+    confidence: stable && area.texture < .065 && area.variance < .21 &&
+      area.motion < .025 && area.brightnessDrift < .20 ? "medium" : "low",
     candidateCuts: changes.filter(x => x.motion > .105).map(x => Number(x.end.toFixed(1))),
     warnings
   };
