@@ -1,5 +1,6 @@
 import { MongoClient, ObjectId } from "mongodb";
 import dns from "node:dns";
+import { findVideoBackground } from "../src/video-html-contract.js";
 
 const DATABASE = process.env.MONGODB_DB_NAME || "wedding_video_maker";
 let clientPromise;
@@ -82,4 +83,80 @@ export async function publishTemplate(template) {
   }, { upsert: true });
   const result = await coll.findOne(selector);
   return serializeListItem(result);
+}
+
+
+function templateId(id) {
+  if (typeof id !== "string" || !/^[a-f0-9]{24}$/i.test(id)) return null;
+  return new ObjectId(id);
+}
+
+// Admin-only metadata. Never send the full HTML in list responses.
+export async function listAdminTemplates() {
+  const coll = await collection();
+  const docs = await coll.find({ status: { $in: ["published", "deleting"] } })
+    .project({ title: 1, category: 1, html: 1, status: 1, publishedAt: 1,
+      sceneCount: 1, photoCount: 1, videoBackgroundId: 1 })
+    .sort({ publishedAt: -1 }).limit(250).toArray();
+  return docs.map(doc => {
+    const videoId = doc.videoBackgroundId || findVideoBackground(doc.html)?.id || null;
+    return {
+      id: doc._id.toString(), title: doc.title, category: doc.category,
+      status: doc.status, kind: videoId ? "video" : "html",
+      videoBackgroundId: videoId, publishedAt: doc.publishedAt?.toISOString() || null,
+      sceneCount: doc.sceneCount, photoCount: doc.photoCount
+    };
+  });
+}
+
+export async function getAdminTemplate(id) {
+  const _id = templateId(id);
+  if (!_id) return null;
+  const coll = await collection();
+  return coll.findOne({ _id, status: { $in: ["published", "deleting"] } });
+}
+
+export async function updateAdminTemplate(id, fields) {
+  const _id = templateId(id);
+  if (!_id) return null;
+  const coll = await collection();
+  const result = await coll.updateOne({ _id, status: "published" }, { $set: fields });
+  if (!result.matchedCount) return null;
+  return getAdminTemplate(id);
+}
+
+export async function markAdminTemplateDeleting(id) {
+  const _id = templateId(id);
+  if (!_id) return null;
+  const coll = await collection();
+  const current = await coll.findOne({ _id, status: { $in: ["published", "deleting"] } });
+  if (!current) return null;
+  await coll.updateOne({ _id, status: "published" }, {
+    $set: { status: "deleting", deletionStartedAt: new Date() }
+  });
+  return { ...current, status: "deleting" };
+}
+
+export async function finishAdminTemplateDeletion(id) {
+  const _id = templateId(id);
+  if (!_id) return false;
+  const coll = await collection();
+  const result = await coll.deleteOne({ _id, status: "deleting" });
+  return result.deletedCount === 1;
+}
+
+// Include older published HTML that predates the videoBackgroundId metadata.
+export async function countVideoTemplateReferences(videoId, excludedTemplateId = null) {
+  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(videoId)) return 0;
+  const coll = await collection();
+  const conditions = {
+    status: { $in: ["published", "deleting"] },
+    $or: [
+      { videoBackgroundId: videoId },
+      { html: { $regex: 'data-wedding-background=["\\x27]' + videoId + '["\\x27]', $options: "i" } }
+    ]
+  };
+  const excluded = templateId(excludedTemplateId);
+  if (excluded) conditions._id = { $ne: excluded };
+  return coll.countDocuments(conditions);
 }
