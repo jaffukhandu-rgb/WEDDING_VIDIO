@@ -23,6 +23,7 @@ const previewController=createPreviewController({
   }
 });
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
+let sourceRevision=0;
 
 let staticValidation=[],runtimeValidation=null,previewValidationError='',validationDirty=false;
 let delivery=null;
@@ -360,14 +361,18 @@ function resetPrepared(){
 }
 async function analyzeSource(text){
   if(analysisRunning)return;
+  const revision=sourceRevision;
   analysisRunning=true;analyzeButton.disabled=true;fileInput.disabled=true;
   resetPrepared();
   try{
     showProgress(0,'Starting analysis');await nextPaint();
+    if(revision!==sourceRevision)return;
     if(!text.trim())throw new Error('Paste your HTML invitation code first.');
     showProgress(20,'Reading source');await nextPaint();
+    if(revision!==sourceRevision)return;
     const analysis=analyzeTemplate(text);
     showProgress(55,'Validating scenes and fields');await nextPaint();
+    if(revision!==sourceRevision)return;
     source=text;lastAnalysis=analysis;report.replaceChildren();
     const heading=document.createElement('p');
     heading.className='analysis-stats';
@@ -391,6 +396,7 @@ async function analyzeSource(text){
       const note=document.createElement('p');note.className='good';note.textContent='Font audit: embedded fonts detected.';report.append(note);
     }
     showProgress(80,'Building sample preview form');await nextPaint();
+    if(revision!==sourceRevision)return;
     renderDetectedFields(analysis);
     editor.classList.remove('hide');
     staticValidation=validateTemplateSource(text,analysis);
@@ -398,6 +404,7 @@ async function analyzeSource(text){
     showProgress(100,'Analysis complete');
     setStatus('Analysis complete. Customer fields detected. Sample values are for preview only.','good');
   }catch(error){
+    if(revision!==sourceRevision)return;
     showProgress(0,'Analysis failed — review the error below');
     setStatus(error instanceof Error?error.message:'Unable to analyze template.','error');
   }finally{
@@ -425,6 +432,7 @@ fileInput.addEventListener('change',async()=>{
   }
 });
 codeInput.addEventListener('input',()=>{
+  sourceRevision++;
   if(source||prepared){
     resetPrepared();progress.classList.add('hide');
     setStatus('Code changed. Click Analyze Code again.');
