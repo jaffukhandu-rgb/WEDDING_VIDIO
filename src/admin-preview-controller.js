@@ -193,6 +193,12 @@ const BRIDGE = String.raw`
         monogram:monogramExpected==null?null
           : {expected:monogramExpected,actual:monogramActual},
         errors:runtimeErrors.slice(),
+        smartTextFit:(() => {
+          const root=document.querySelector('[data-video-auto-layout="v1"]');
+          if (!root) return null;
+          const fit=Number(root.dataset.textFit);
+          return Number.isFinite(fit) ? fit : null;
+        })(),
         brokenImages:[...document.images].filter(img=>!img.complete||(img.currentSrc&&img.naturalWidth===0)).length,
         overflowingText:[...document.querySelectorAll('h1,h2,h3,p,[data-bind]')].filter(node=>{
           const rect=node.getBoundingClientRect();
