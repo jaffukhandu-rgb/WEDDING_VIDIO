@@ -4,7 +4,9 @@ import {
   cloudinaryPublicId,
   cloudinaryUploadSignature,
   cloudinaryDeliveryUrl,
-  isCloudinaryConfigured
+  isCloudinaryConfigured,
+  listCloudinaryBackgrounds,
+  destroyCloudinaryBackground
 } from "../server/cloudinary-background.js";
 
 const id = "12345678-1234-4234-9234-123456789abc";
@@ -41,6 +43,69 @@ test("Cloudinary credentials stay server-side and delivery URLs contain no secre
     process.env.CLOUDINARY_API_SECRET = "";
     assert.equal(isCloudinaryConfigured(), false);
   } finally {
+    keys.forEach((key, index) => {
+      if (originals[index] === undefined) delete process.env[key];
+      else process.env[key] = originals[index];
+    });
+  }
+});
+
+
+test("Cloudinary inventory recovery only returns our own UUID-named MP4 backgrounds", async () => {
+  const keys = ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
+  const originals = keys.map(key => process.env[key]);
+  const fetchBefore = globalThis.fetch;
+  try {
+    process.env.CLOUDINARY_CLOUD_NAME = "test_cloud";
+    process.env.CLOUDINARY_API_KEY = "test-key";
+    process.env.CLOUDINARY_API_SECRET = "test-secret";
+    globalThis.fetch = async (url, options) => {
+      assert.ok(String(url).includes("/resources/video/upload?"));
+      assert.ok(options.headers.Authorization.startsWith("Basic "));
+      return {
+        ok: true,
+        json: async () => ({
+          resources: [
+            { public_id: "wedding_backgrounds/" + id, format: "mp4",
+              bytes: 1200000, created_at: "2026-11-22T10:00:00Z" },
+            { public_id: "other/" + id, format: "mp4", bytes: 1000 },
+            { public_id: "wedding_backgrounds/not-a-uuid", format: "mp4", bytes: 1000 },
+            { public_id: "wedding_backgrounds/12345678-1234-4234-9234-123456789abd", format: "jpg", bytes: 1000 }
+          ]
+        })
+      };
+    };
+    const found = await listCloudinaryBackgrounds();
+    assert.equal(found.length, 1);
+    assert.equal(found[0].id, id);
+  } finally {
+    globalThis.fetch = fetchBefore;
+    keys.forEach((key, index) => {
+      if (originals[index] === undefined) delete process.env[key];
+      else process.env[key] = originals[index];
+    });
+  }
+});
+
+test("Cloudinary video deletion is signed and requires provider acknowledgement", async () => {
+  const keys = ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
+  const originals = keys.map(key => process.env[key]);
+  const fetchBefore = globalThis.fetch;
+  try {
+    process.env.CLOUDINARY_CLOUD_NAME = "test_cloud";
+    process.env.CLOUDINARY_API_KEY = "test-key";
+    process.env.CLOUDINARY_API_SECRET = "test-secret";
+    globalThis.fetch = async (url, options) => {
+      assert.ok(String(url).endsWith("/video/destroy"));
+      assert.equal(options.method, "POST");
+      assert.equal(options.body.get("public_id"), "wedding_backgrounds/" + id);
+      assert.equal(options.body.get("invalidate"), "true");
+      assert.ok(options.body.get("signature"));
+      return { ok: true, json: async () => ({ result: "ok" }) };
+    };
+    assert.equal(await destroyCloudinaryBackground(id), "ok");
+  } finally {
+    globalThis.fetch = fetchBefore;
     keys.forEach((key, index) => {
       if (originals[index] === undefined) delete process.env[key];
       else process.env[key] = originals[index];
