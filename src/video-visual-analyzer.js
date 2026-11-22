@@ -67,10 +67,13 @@ export function deriveVisualPlan(frames, duration = 30) {
   if (area.texture > .065 || area.variance > .21) {
     warnings.push("The proposed text region appears visually busy; verify readability.");
   }
+  if (stable && duration - (stationaryFrom + .8) < 3.5) {
+    warnings.push("The stationary ending leaves less than 3.5 seconds to read; review pacing.");
+  }
   const dark = area.average > .48;
   return {
     version: 1, duration,
-    revealAt: Math.round((stable ? clamp(stationaryFrom + .1, duration - 7, duration - 2.5) : duration - 4.5) * 10) / 10,
+    revealAt: Math.round((stable ? clamp(stationaryFrom + .8, duration - 7, duration - 2.5) : duration - 4.5) * 10) / 10,
     textArea: {
       left: Math.round(area.left * 100), top: Math.round(area.top * 100),
       width: Math.round(area.width * 100), height: Math.round(area.height * 100)
