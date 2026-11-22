@@ -18,6 +18,7 @@ async function readError(response) {
 async function loadVideos() {
   if (!key.value.trim()) { status.textContent = "Enter your admin key first."; key.focus(); return; }
   load.disabled = true;
+  load.setAttribute("aria-busy", "true");
   status.className = "status";
   status.textContent = "Loading saved video assets…";
   list.replaceChildren();
@@ -69,6 +70,7 @@ async function loadVideos() {
         );
         if (answer !== "DELETE") return;
         remove.disabled = true;
+        remove.setAttribute("aria-busy", "true");
         status.className = "status";
         status.textContent = "Checking template dependencies and deleting video…";
         try {
@@ -77,10 +79,12 @@ async function loadVideos() {
           });
           if (!response.ok) throw new Error(await readError(response));
           await loadVideos();
+          status.className = "status success";
+          status.textContent = "Video deleted from storage and its MongoDB record removed.";
         } catch (error) {
           status.className = "status error";
           status.textContent = error instanceof Error ? error.message : "Video deletion failed.";
-        } finally { remove.disabled = false; }
+        } finally { remove.disabled = false; remove.removeAttribute("aria-busy"); }
       });
       actions.append(remove);
       card.append(preview, title, text, actions);
@@ -91,12 +95,14 @@ async function loadVideos() {
     status.textContent = error instanceof Error ? error.message : "Video inventory unavailable.";
   } finally {
     load.disabled = false;
+    load.removeAttribute("aria-busy");
   }
 }
 
 reconcile.addEventListener("click", async () => {
   if (!key.value.trim()) { status.textContent = "Enter your admin key first."; key.focus(); return; }
   reconcile.disabled = true;
+  reconcile.setAttribute("aria-busy", "true");
   status.className = "status";
   status.textContent = "Checking Cloudinary for missing MongoDB records…";
   try {
@@ -112,7 +118,7 @@ reconcile.addEventListener("click", async () => {
   } catch (error) {
     status.className = "status error";
     status.textContent = error instanceof Error ? error.message : "Cloudinary recovery failed.";
-  } finally { reconcile.disabled = false; }
+  } finally { reconcile.disabled = false; reconcile.removeAttribute("aria-busy"); }
 });
 load.addEventListener("click", () => { void loadVideos(); });
 key.addEventListener("keydown", event => {
