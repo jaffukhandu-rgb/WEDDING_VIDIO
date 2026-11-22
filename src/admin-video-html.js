@@ -358,6 +358,7 @@ function initVideoHtmlTab() {
 
   fileInput.addEventListener("change", () => {
     visualReport.hidden = true;
+    assetLink.hidden = true;
     pendingVideoReplacement = Boolean(fileInput.files?.length && videoHtmlCode.value.trim());
     if (pendingVideoReplacement) {
       // Preserve the source, but invalidate its prepared preview and MP4 export.
