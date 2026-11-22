@@ -29,6 +29,7 @@ async function loadTemplates() {
     return;
   }
   loadButton.disabled = true;
+  loadButton.setAttribute("aria-busy", "true");
   status.className = "status";
   status.textContent = "Loading saved templates…";
   list.replaceChildren();
@@ -77,6 +78,7 @@ async function loadTemplates() {
         );
         if (confirmation !== "DELETE") return;
         remove.disabled = true;
+        remove.setAttribute("aria-busy", "true");
         status.className = "status";
         status.textContent = "Deleting template and checking whether its background is shared…";
         try {
@@ -85,18 +87,20 @@ async function loadTemplates() {
           });
           if (!response.ok) throw new Error(await readError(response));
           const result = await response.json();
-          status.className = "status success";
-          status.textContent = result.sharedReferences
+          const notice = result.sharedReferences
             ? "Template deleted. Shared video retained because other templates still use it."
             : result.videoRemoved
               ? "Template and its unshared video deleted from MongoDB and video storage."
               : "Template deleted successfully.";
           await loadTemplates();
+          status.className = "status success";
+          status.textContent = notice;
         } catch (error) {
           status.className = "status error";
           status.textContent = error instanceof Error ? error.message : "Deletion failed.";
         } finally {
           remove.disabled = false;
+          remove.removeAttribute("aria-busy");
         }
       });
       actions.append(remove);
@@ -108,6 +112,7 @@ async function loadTemplates() {
     status.textContent = error instanceof Error ? error.message : "Could not load templates.";
   } finally {
     loadButton.disabled = false;
+    loadButton.removeAttribute("aria-busy");
   }
 }
 loadButton.addEventListener("click", () => { void loadTemplates(); });
