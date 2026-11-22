@@ -153,6 +153,44 @@ async function inspectVideo(file) {
   }
 }
 
+// fetch() does not expose browser upload percentages; XHR gives real byte
+// progress. 100% here means transfer complete, not Cloudinary persistence.
+function uploadWithProgress(file, key, onProgress) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", API_ROOT + "/api/admin/video-backgrounds", true);
+    request.setRequestHeader("Content-Type", "video/mp4");
+    request.setRequestHeader("X-Admin-Key", key);
+    request.timeout = 180000;
+    request.upload.onprogress = event => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(Math.min(100, Math.floor(100 * event.loaded / event.total)), false);
+      } else {
+        onProgress(null, false);
+      }
+    };
+    request.upload.onload = () => onProgress(100, true);
+    request.onerror = () => reject(new Error("Video upload connection failed."));
+    request.ontimeout = () => reject(new Error("Upload timed out. Check the video library before retrying."));
+    request.onabort = () => reject(new Error("Video upload was cancelled."));
+    request.onload = () => {
+      let data = {};
+      try { data = JSON.parse(request.responseText || "{}"); } catch { /* Show safe fallback. */ }
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(typeof data.error === "string"
+          ? data.error : "Video upload failed (HTTP " + request.status + ")."));
+        return;
+      }
+      if (!data.id) {
+        reject(new Error("The server did not return a valid saved video reference."));
+        return;
+      }
+      resolve(data);
+    };
+    request.send(file);
+  });
+}
+
 function initVideoHtmlTab() {
   const codeTab = document.querySelector("#via-code-tab");
   const videoTab = document.querySelector("#via-video-tab");
@@ -161,6 +199,9 @@ function initVideoHtmlTab() {
   const fileInput = document.querySelector("#video-html-file");
   const titleInput = document.querySelector("#video-html-title");
   const createButton = document.querySelector("#video-html-create");
+  const uploadLoader = document.querySelector("#video-html-upload-loader");
+  const uploadProgress = document.querySelector("#video-html-upload-progress");
+  const uploadLabel = document.querySelector("#video-html-upload-label");
   const status = document.querySelector("#video-html-status");
   const storageStatus = document.querySelector("#video-html-storage-status");
   const assetLink = document.querySelector("#video-html-asset-link");
@@ -170,7 +211,7 @@ function initVideoHtmlTab() {
   const codeInput = document.querySelector("#code-input");
   const analyzeButton = document.querySelector("#analyze-code");
   if (![codeTab, videoTab, codePanel, videoPanel, fileInput,
-    titleInput, createButton, status, storageStatus, assetLink, videoHtmlCode,
+    titleInput, createButton, uploadLoader, uploadProgress, uploadLabel, status, storageStatus, assetLink, videoHtmlCode,
     analyzeVideoButton, keyInput, codeInput, analyzeButton].every(Boolean)) return;
 
   function selectTab(mode) {
@@ -262,20 +303,22 @@ function initVideoHtmlTab() {
     try {
       await inspectVideo(file);
       status.textContent = "Uploading the background securely…";
-      const response = await fetch(API_ROOT + "/api/admin/video-backgrounds", {
-        method: "POST",
-        headers: { "Content-Type": "video/mp4", "X-Admin-Key": key },
-        body: file
+      uploadLoader.hidden = false;
+      uploadProgress.value = 0;
+      uploadLabel.textContent = "Uploading MP4: 0% transferred";
+      const result = await uploadWithProgress(file, key, (percent, transferred) => {
+        if (percent !== null) {
+          uploadProgress.value = percent;
+        } else {
+          uploadProgress.removeAttribute("value");
+        }
+        uploadLabel.textContent = transferred
+          ? "100% transferred — storing in Cloudinary / MongoDB…"
+          : percent === null ? "Uploading MP4…"
+          : "Uploading MP4: " + percent + "% transferred";
       });
-      if (!response.ok) {
-        let message = "Background upload failed.";
-        try {
-          const json = await response.json();
-          if (typeof json.error === "string") message = json.error;
-        } catch { /* Keep the actionable fallback. */ }
-        throw new Error(message);
-      }
-      const result = await response.json();
+      uploadProgress.value = 100;
+      uploadLabel.textContent = "Upload saved successfully.";
       const url = API_ROOT + "/api/video-backgrounds/" + result.id;
       const source = buildVideoInvitationSource({
         id: result.id,
@@ -299,6 +342,7 @@ function initVideoHtmlTab() {
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to create video template.";
     } finally {
+      uploadLoader.hidden = true;
       createButton.disabled = false;
       fileInput.disabled = false;
     }
