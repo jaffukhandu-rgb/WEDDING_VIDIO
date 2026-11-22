@@ -119,6 +119,14 @@ export function validateRuntimeReport(runtime, expectedScenes) {
         ', but the edited names require '+runtime.monogram.expected+'. Correct the binding before export.'
     };
   }
+  if (Number.isFinite(runtime.smartTextFit) && runtime.smartTextFit < 0.78) {
+    return {
+      id: 'runtime', status: 'warning', title: 'Automatic text layout check',
+      detail: 'Customer details needed excessive shrinking (' +
+        Math.round(runtime.smartTextFit * 100) +
+        '%). Shorten optional copy or choose a wider clear area before export.'
+    };
+  }
   if (runtime.brokenImages > 0 || runtime.overflowingText > 0) {
     return {
       id: 'runtime', status: 'warning', title: 'Browser preview smoke test',
