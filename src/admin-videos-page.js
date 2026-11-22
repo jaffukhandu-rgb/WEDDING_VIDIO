@@ -66,7 +66,7 @@ async function loadVideos() {
       remove.textContent = "Delete";
       remove.addEventListener("click", async () => {
         const answer = window.prompt(
-          "Permanently delete this MP4 and its MongoDB asset record? Videos used by saved templates are protected. Type DELETE to confirm."
+          "Permanently delete this MP4 and its MongoDB asset record? Published templates are protected; browser-local drafts cannot be checked. Type DELETE to confirm."
         );
         if (answer !== "DELETE") return;
         remove.disabled = true;
