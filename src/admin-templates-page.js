@@ -112,7 +112,7 @@ async function loadTemplates() {
       remove.textContent = template.status === "deleting" ? "Retry Deletion" : "Delete";
       remove.addEventListener("click", async () => {
         const confirmation = window.prompt(
-          'Delete "' + template.title + '" from MongoDB, and remove its background video from Cloudinary/GridFS if no other template uses it? Type DELETE to confirm.'
+          'Delete "' + template.title + '" from MongoDB, and remove its background video from Cloudinary/GridFS if no other saved template uses it? Browser-local drafts may still refer to this video. Type DELETE to confirm.'
         );
         if (confirmation !== "DELETE") return;
         remove.disabled = true;
