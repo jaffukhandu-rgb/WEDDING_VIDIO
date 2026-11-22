@@ -166,17 +166,12 @@ function initVideoHtmlTab() {
   const assetLink = document.querySelector("#video-html-asset-link");
   const videoHtmlCode = document.querySelector("#video-html-code");
   const analyzeVideoButton = document.querySelector("#video-html-analyze");
-  const libraryButton = document.querySelector("#video-library-refresh");
-  const libraryStatus = document.querySelector("#video-library-status");
-  const libraryList = document.querySelector("#video-library-list");
-  const navVideos = document.querySelector("#nav-saved-videos");
   const keyInput = document.querySelector("#admin-api-key");
   const codeInput = document.querySelector("#code-input");
   const analyzeButton = document.querySelector("#analyze-code");
   if (![codeTab, videoTab, codePanel, videoPanel, fileInput,
     titleInput, createButton, status, storageStatus, assetLink, videoHtmlCode,
-    analyzeVideoButton, libraryButton, libraryStatus, libraryList, navVideos,
-    keyInput, codeInput, analyzeButton].every(Boolean)) return;
+    analyzeVideoButton, keyInput, codeInput, analyzeButton].every(Boolean)) return;
 
   function selectTab(mode) {
     const isVideo = mode === "video";
@@ -191,79 +186,6 @@ function initVideoHtmlTab() {
   }
   codeTab.addEventListener("click", () => selectTab("code"));
   videoTab.addEventListener("click", () => selectTab("video"));
-
-  // Reuse the same source generator as uploads. Never duplicate the video file.
-  function useSavedVideo(id) {
-    if (!UUID.test(id)) return;
-    if ((videoHtmlCode.value.trim() || codeInput.value.trim()) &&
-        !window.confirm("Replace the current invitation code with HTML for this saved video?")) return;
-    const url = API_ROOT + "/api/video-backgrounds/" + id;
-    videoHtmlCode.value = buildVideoInvitationSource({
-      id, url, title: titleInput.value.trim() || "Video Wedding Invitation"
-    });
-    assetLink.href = url;
-    assetLink.hidden = false;
-    selectTab("video");
-    analyzeVideoHtml();
-    status.textContent = "Saved video selected. No re-upload needed. Review the invitation below.";
-    videoHtmlCode.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
-  async function loadSavedVideos() {
-    const key = keyInput.value.trim();
-    if (!key) {
-      libraryStatus.textContent = "Enter the Admin access key in section 5, then select Load saved videos.";
-      keyInput.focus();
-      return;
-    }
-    libraryButton.disabled = true;
-    libraryStatus.textContent = "Loading previously uploaded videos…";
-    libraryList.replaceChildren();
-    try {
-      const response = await fetch(API_ROOT + "/api/admin/video-backgrounds", {
-        headers: { "X-Admin-Key": key }, cache: "no-store"
-      });
-      if (!response.ok) {
-        const details = await response.json().catch(() => ({}));
-        throw new Error(details.error || "Unable to load saved videos (HTTP " + response.status + ").");
-      }
-      const data = await response.json();
-      const videos = Array.isArray(data.videos) ? data.videos : [];
-      libraryStatus.textContent = videos.length
-        ? videos.length + " saved video(s) found. Select one to generate its HTML."
-        : "No recorded videos found. If a video exists in Cloudinary but is missing here, its MongoDB metadata may need recovery.";
-      for (const item of videos) {
-        if (!UUID.test(item.id)) continue;
-        const card = document.createElement("article");
-        card.className = "video-library-card";
-        const preview = document.createElement("video");
-        preview.src = API_ROOT + "/api/video-backgrounds/" + item.id;
-        preview.controls = true;
-        preview.muted = true;
-        preview.playsInline = true;
-        preview.preload = "none";
-        preview.setAttribute("aria-label", "Saved video preview");
-        const info = document.createElement("p");
-        const date = item.uploadedAt ? new Date(item.uploadedAt) : null;
-        const dateLabel = date && !Number.isNaN(date.getTime())
-          ? date.toLocaleString() : "Unknown date";
-        const size = Number.isFinite(item.bytes) ? (item.bytes / 1048576).toFixed(1) + " MB" : "Size unavailable";
-        info.textContent = [item.provider === "cloudinary" ? "Cloudinary" : "MongoDB", size, dateLabel].join(" · ");
-        const use = document.createElement("button");
-        use.type = "button";
-        use.textContent = "Use This Video";
-        use.addEventListener("click", () => useSavedVideo(item.id));
-        card.append(preview, info, use);
-        libraryList.append(card);
-      }
-    } catch (error) {
-      libraryStatus.textContent = error instanceof Error ? error.message : "Unable to load saved videos.";
-    } finally {
-      libraryButton.disabled = false;
-    }
-  }
-  libraryButton.addEventListener("click", loadSavedVideos);
-  navVideos.addEventListener("click", () => selectTab("video"));
 
   async function checkStorage() {
     try {
@@ -373,7 +295,6 @@ function initVideoHtmlTab() {
       videoHtmlCode.value = source;
       analyzeVideoHtml();
       status.textContent = "Video + HTML code generated below. Edit the code or sample fields, then preview, validate and export MP4. Original video stays separate from HTML.";
-      void loadSavedVideos();
       // Stay on Video + HTML; existing editable fields appear below this panel.
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to create video template.";
