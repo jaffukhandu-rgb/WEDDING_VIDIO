@@ -1,4 +1,5 @@
 import { findVideoBackground } from "./video-html-contract.js";
+import { analyzeVideoVisual } from "./video-visual-analyzer.js";
 
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
 // stays the source of truth for editable customer fields and export/publishing.
@@ -29,7 +30,7 @@ function escapeHtml(value) {
   })[char]);
 }
 
-export function buildVideoInvitationSource({ id, url, title }) {
+export function buildVideoInvitationSource({ id, url, title, visualAnalysis = null }) {
   if (!UUID.test(id)) throw new Error("Invalid uploaded background reference.");
   const parsed = new URL(url);
   if (!["https:", "http:"].includes(parsed.protocol) ||
@@ -47,7 +48,7 @@ export function buildVideoInvitationSource({ id, url, title }) {
     .join(",\n");
   const sample = "{\n" + fieldLines.join("\n") +
     "\n  events: [{\n" + eventLines + "\n  }]\n}";
-  const styles = [
+  let styles = [
     "*{box-sizing:border-box}",
     "html,body{height:100%;width:100%;margin:0;overflow:hidden;background:#100b09}",
     "body{display:grid;place-items:center}",
@@ -65,6 +66,40 @@ export function buildVideoInvitationSource({ id, url, title }) {
     "[hidden]{display:none!important}",
     "@keyframes reveal-invitation{0%,68%{opacity:0}77%,100%{opacity:1}}"
   ].join("\n");
+  // Only newly generated invitations receive smart styles. Pasted custom HTML
+  // and older published templates remain exactly as authored.
+  const isSmart = visualAnalysis?.version === 1 &&
+    visualAnalysis.textArea && Number.isFinite(visualAnalysis.revealAt);
+  if (isSmart) {
+    const rect = visualAnalysis.textArea;
+    const percent = (value, low, high) =>
+      Math.max(low, Math.min(high, Number(value) || low));
+    const start = percent(visualAnalysis.revealAt / 30 * 100, 50, 92);
+    const end = Math.min(99, start + 2.8);
+    const textInk = ["#24160e", "#fff1d2"].includes(visualAnalysis.ink)
+      ? visualAnalysis.ink : "#fff1d2";
+    const shadow = ["rgba(255,245,224,.4)", "rgba(12,6,2,.7)"].includes(visualAnalysis.shadow)
+      ? visualAnalysis.shadow : "rgba(12,6,2,.7)";
+    styles += "\n" + [
+      ".copy{left:" + percent(rect.left, 8, 55) +
+        "%;top:" + percent(rect.top, 12, 69) +
+        "%;width:" + percent(rect.width, 35, 85) +
+        "%;height:" + percent(rect.height, 23, 67) +
+        "%;min-height:0;background:none;border:0;border-radius:0;padding:1.8cqw 1.3cqw;" +
+        "color:" + textInk + ";text-shadow:0 2px 6px " + shadow +
+        ";animation:reveal-invitation 30s linear both}",
+      ".copy-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;" +
+        "gap:.8cqw;max-width:100%;width:100%;transform-origin:center center;flex-shrink:0}",
+      ".copy .names{color:inherit;font-size:8.5cqw;font-weight:650;line-height:1.08;text-wrap:balance}",
+      ".copy .ceremony{color:inherit;font-size:3.35cqw;letter-spacing:.09em}",
+      ".copy .message{font-size:3.2cqw;line-height:1.23;max-width:100%;text-wrap:balance}",
+      ".copy .date-time{color:inherit;font-size:3.9cqw;line-height:1.2}",
+      ".copy .venue{font-size:4.5cqw;line-height:1.19}",
+      ".copy .address,.copy .blessing{font-size:3.05cqw;line-height:1.23}",
+      "@keyframes reveal-invitation{0%," + start.toFixed(2) +
+        "%{opacity:0}" + end.toFixed(2) + "%,100%{opacity:1}}"
+    ].join("\n");
+  }
   const script = [
     "const CONFIG = " + sample + ";",
     "(() => {",
@@ -93,6 +128,21 @@ export function buildVideoInvitationSource({ id, url, title }) {
     "  set('.venue', CONFIG.venue || event.venue);",
     "  set('.address', CONFIG.address);",
     "  set('.blessing', CONFIG.blessing);",
+    ...(isSmart ? [
+      "  // Fit every editable field without covering the ornate border.",
+      "  const inner = root.querySelector('.copy-inner');",
+      "  const fit = () => {",
+      "    inner.style.transform = 'none';",
+      "    const h = Math.max(1, inner.scrollHeight);",
+      "    const w = Math.max(1, inner.scrollWidth);",
+      "    const factor = Math.min(1, Math.max(.55, (root.clientHeight - 8) / h), Math.max(.55, (root.clientWidth - 8) / w));",
+      "    inner.style.transform = 'scale(' + factor.toFixed(3) + ')';",
+      "    root.dataset.textFit = factor.toFixed(2);",
+      "  };",
+      "  fit();",
+      "  window.addEventListener('resize', fit);",
+      "  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);"
+    ] : []),
     "})();"
   ].join("\n");
   return [
@@ -106,10 +156,10 @@ export function buildVideoInvitationSource({ id, url, title }) {
     '<video data-wedding-background="' + id + '" src="' + escapeHtml(parsed.href) + '"',
     '  autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>',
     '</section><section class="scene" style="--i:1" aria-label="Personalized invitation">',
-    '<article class="copy">',
+    isSmart ? '<article class="copy" data-video-auto-layout="v1"><div class="copy-inner">' : '<article class="copy">',
     '<p class="ceremony"></p><p class="message"></p><h1 class="names"></h1>',
     '<p class="date-time"></p><p class="venue"></p><p class="address"></p><p class="blessing"></p>',
-    '</article></section></main>',
+    isSmart ? '</div></article></section></main>' : '</article></section></main>',
     "<script>" + script + "</script></body></html>"
   ].join("\n").replace(
     'aria-hidden="true"></video>',
