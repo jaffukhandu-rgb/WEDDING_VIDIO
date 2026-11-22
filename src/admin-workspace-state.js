@@ -1,5 +1,6 @@
 import { getDraft, saveDraft } from "./admin-draft-store.js";
 import { buildVideoInvitationSource } from "./admin-video-html.js";
+import { findVideoBackground } from "./video-html-contract.js";
 
 // Isolated workspace handoff. Existing analysis, preview and export controllers
 // remain the only owners of template preparation.
@@ -30,6 +31,16 @@ function loadSource(source, kind) {
   if (!source || !source.trim()) throw new Error("Empty invitation source.");
   if (codeInput.value.trim() && !window.confirm("Replace the current invitation code in this workspace?")) return;
   if (kind === "video") {
+    const background = findVideoBackground(source);
+    if (background && background.origin !== new URL(API_ROOT).origin) {
+      // Old published templates may refer to a different configured renderer
+      // origin. Keep the original source unchanged and allow code-mode analysis.
+      codeTab.click();
+      codeInput.value = source;
+      analyzeCode.click();
+      showMessage("Original video host differs from the current renderer. Source loaded unchanged in Via Code; check preview before updating.");
+      return;
+    }
     videoTab.click();
     videoCode.value = source;
     // Existing Video + HTML analyzer enforces the trusted media URL contract.
