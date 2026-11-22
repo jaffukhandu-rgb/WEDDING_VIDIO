@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Saved Templates · Invitation Studio</title><link rel="stylesheet" href="/src/admin-sidebar.css"></head><body class="admin-layout"><aside class="admin-sidebar" aria-label="Admin workspace">
+  <div class="admin-sidebar-brand">Invitation Studio<small>Admin workspace</small></div>
+  <nav aria-label="Admin pages">
+    <a href="/admin.html">Workspace</a>
+    <a href="/admin-templates.html?kind=video">Video Templates</a>
+    <a href="/admin-templates.html?kind=html">HTML Templates</a>
+    <a href="/admin-videos.html">Uploaded Videos</a>
+    <a href="/admin-drafts.html">Drafts</a>
+  </nav>
+  <div class="admin-sidebar-bottom">Admin operations require your access key. Keep it private.</div>
+</aside><main class="admin-page"><header class="admin-page-head"><div><h1 id="library-heading">Saved Templates</h1><p id="library-description">View and manage published invitation templates.</p></div></header><section class="admin-panel"><h2>Admin access</h2><div class="form-line"><label>Admin access key<input id="library-key" type="password" autocomplete="off" placeholder="Enter your server ADMIN_API_KEY"></label><button id="library-load" class="primary" type="button">Load templates</button></div><p class="muted">Your key is used only for this request and is never saved in the browser.</p><p id="library-status" class="status" role="status" aria-live="polite">Enter your admin key to load saved templates.</p></section><section class="admin-panel"><h2 id="library-title">Published templates</h2><div id="library-list" class="admin-card-grid"></div></section></main><script type="module" src="/src/admin-sidebar.js"></script><script type="module" src="/src/admin-templates-page.js"></script></body></html>
