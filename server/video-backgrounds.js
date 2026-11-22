@@ -170,7 +170,7 @@ export function videoBackgroundRouter() {
     try {
       const metadata = await assetMetadata();
       const [cloud, bucket] = await Promise.all([
-        metadata.find({ provider: "cloudinary", status: { $ne: "deleting" } })
+        metadata.find({ provider: "cloudinary" })
           .sort({ createdAt: -1 }).limit(150).toArray(),
         videoBucket()
       ]);
