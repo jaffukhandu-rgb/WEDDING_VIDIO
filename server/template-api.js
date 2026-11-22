@@ -3,13 +3,19 @@ import express from "express";
 import { analyzeTemplate } from "../src/admin-engine.js";
 import { validateTemplateSource } from "../src/admin-template-validator.js";
 import { findVideoBackground, isVideoBackgroundMarkerPresent } from "../src/video-html-contract.js";
-import { backgroundExists } from "./video-backgrounds.js";
+import { backgroundExists, deleteVideoBackgroundAsset } from "./video-backgrounds.js";
 import { requireAdmin } from "./admin-access.js";
 import {
   isDatabaseConfigured,
   listPublishedTemplates,
   getPublishedTemplate,
-  publishTemplate
+  publishTemplate,
+  listAdminTemplates,
+  getAdminTemplate,
+  updateAdminTemplate,
+  markAdminTemplateDeleting,
+  finishAdminTemplateDeletion,
+  countVideoTemplateReferences
 } from "./template-store.js";
 
 export const CATEGORIES = Object.freeze([
@@ -68,6 +74,119 @@ export function templateRouter() {
     }
   });
 
+  // All admin template operations require the existing strong server key.
+  router.get("/admin/templates", requireAdmin, async (_req, res) => {
+    try {
+      const templates = await listAdminTemplates();
+      return res.set("Cache-Control", "no-store").json({ templates });
+    } catch (error) {
+      return publicError(res, error);
+    }
+  });
+
+  router.get("/admin/templates/:id", requireAdmin, async (req, res) => {
+    try {
+      const template = await getAdminTemplate(req.params.id);
+      if (!template) return res.status(404).json({ error: "Template not found." });
+      return res.set("Cache-Control", "no-store").json({
+        template: {
+          id: template._id.toString(), title: template.title,
+          category: template.category, status: template.status,
+          html: template.html
+        }
+      });
+    } catch (error) {
+      return publicError(res, error);
+    }
+  });
+
+  // Editing preserves the MongoDB template ID. It cannot bypass the existing
+  // review/export step because the admin delivery controller still gates PUT.
+  router.put("/admin/templates/:id", requireAdmin, async (req, res) => {
+    const { html, category, visualReviewConfirmed } = req.body || {};
+    if (!ALLOWED_CATEGORY.has(category) || visualReviewConfirmed !== true) {
+      return res.status(400).json({ error: "Select a category and confirm your visual review." });
+    }
+    if (typeof html !== "string" || Buffer.byteLength(html, "utf8") > MAX_SOURCE_BYTES) {
+      return res.status(413).json({ error: "HTML must be 1 MB or smaller." });
+    }
+    let analysis;
+    try { analysis = analyzeTemplate(html); }
+    catch (error) {
+      return res.status(400).json({
+        error: "Template analysis failed: " + String(error.message || error).slice(0, 200)
+      });
+    }
+    const background = findVideoBackground(html);
+    if (isVideoBackgroundMarkerPresent(html) && !background) {
+      return res.status(400).json({ error: "Invalid video-background reference." });
+    }
+    try {
+      const current = await getAdminTemplate(req.params.id);
+      if (!current || current.status !== "published") {
+        return res.status(404).json({ error: "Published template not found or is being deleted." });
+      }
+      if (background && !await backgroundExists(background.id)) {
+        return res.status(400).json({ error: "The selected video background was not found." });
+      }
+      const checks = validateTemplateSource(html, analysis);
+      if (checks.some(check => check.status === "fail")) {
+        return res.status(400).json({ error: "Template failed source validation." });
+      }
+      const updated = await updateAdminTemplate(req.params.id, {
+        category, html, title: analysis.name.trim().slice(0, 120) || "Wedding invitation",
+        sourceHash: createHash("sha256").update(html, "utf8").digest("hex"),
+        fields: analysis.fields, config: analysis.config, photoSlots: analysis.photoSlots,
+        sceneCount: analysis.sceneCount, eventCount: analysis.config.events?.length || 0,
+        photoCount: analysis.photoSlots.length,
+        videoBackgroundId: background?.id || null,
+        updatedAt: new Date()
+      });
+      if (!updated) return res.status(404).json({ error: "Template was not found." });
+      return res.set("Cache-Control", "no-store").json({
+        template: {
+          id: updated._id.toString(), category: updated.category,
+          title: updated.title
+        }
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        return res.status(409).json({ error: "An identical template already exists in that category." });
+      }
+      return publicError(res, error);
+    }
+  });
+
+  // Irreversible cascade is staged: hide the invitation first, then remove an
+  // unshared video, then remove the MongoDB template. Failed partial operations
+  // remain 'deleting' for a safe admin retry.
+  router.delete("/admin/templates/:id", requireAdmin, async (req, res) => {
+    try {
+      const template = await markAdminTemplateDeleting(req.params.id);
+      if (!template) return res.status(404).json({ error: "Template not found." });
+      const videoId = template.videoBackgroundId || findVideoBackground(template.html)?.id;
+      let removedVideo = false, sharedReferences = 0;
+      if (videoId) {
+        sharedReferences = await countVideoTemplateReferences(videoId, req.params.id);
+        if (sharedReferences === 0) {
+          const result = await deleteVideoBackgroundAsset(videoId);
+          removedVideo = Boolean(result.deleted);
+        }
+      }
+      if (!await finishAdminTemplateDeletion(req.params.id)) {
+        return res.status(503).json({ error: "Template deletion incomplete. Retry to finish." });
+      }
+      return res.set("Cache-Control", "no-store").json({
+        deleted: true, videoRemoved: removedVideo, sharedReferences
+      });
+    } catch (error) {
+      console.error("Template cascade deletion failed:", error);
+      return res.status(503).json({
+        error: "Deletion incomplete. This template is hidden from customers and can be retried from Saved Templates."
+      });
+    }
+  });
+
   router.post("/admin/templates", requireAdmin, async (req, res) => {
     if (!isDatabaseConfigured()) {
       return res.status(503).json({ error: "Set MONGODB_URI on the server before publishing." });
@@ -118,6 +237,7 @@ export function templateRouter() {
         sceneCount: analysis.sceneCount,
         eventCount: analysis.config.events?.length || 0,
         photoCount: analysis.photoSlots.length,
+        videoBackgroundId: findVideoBackground(html)?.id || null,
         contractVersion: 1
       });
       res.set("Cache-Control", "no-store");
