@@ -142,6 +142,34 @@ export function videoBackgroundRouter() {
     });
   });
 
+  // Read-only admin library; includes unpublished uploads from both providers.
+  router.get("/admin/video-backgrounds", requireAdmin, async (_req, res) => {
+    try {
+      const metadata = await assetMetadata();
+      const [cloud, bucket] = await Promise.all([
+        metadata.find({ provider: "cloudinary" })
+          .sort({ createdAt: -1 }).limit(100).toArray(),
+        videoBucket()
+      ]);
+      const gridfs = await bucket.find({})
+        .sort({ uploadDate: -1 }).limit(100).toArray();
+      const videos = [
+        ...cloud.filter(item => UUID.test(item.id || "")).map(item => ({
+          id: item.id, provider: "cloudinary", bytes: item.length,
+          uploadedAt: item.createdAt
+        })),
+        ...gridfs.filter(item => UUID.test(item.filename || "")).map(item => ({
+          id: item.filename, provider: "mongodb", bytes: item.length,
+          uploadedAt: item.uploadDate
+        }))
+      ].sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).slice(0, 100);
+      return res.set("Cache-Control", "no-store").json({ videos });
+    } catch (error) {
+      console.error("Admin video listing failed:", error);
+      return res.status(503).json({ error: "Unable to load saved videos. Check MongoDB connection." });
+    }
+  });
+
   // Admin-only upload; a public asset can subsequently be played via an opaque UUID.
   router.post("/admin/video-backgrounds", requireAdmin,
     express.raw({ type: "video/mp4", limit: "33mb" }), async (req, res) => {
