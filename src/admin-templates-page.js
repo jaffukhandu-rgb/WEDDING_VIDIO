@@ -57,8 +57,8 @@ async function loadTemplates() {
       card.className = "admin-item";
       const title = document.createElement("h3");
       title.textContent = template.title || "Untitled template";
-      const published = new Date(template.publishedAt);
-      const dateLabel = Number.isNaN(published.getTime()) ? "Unknown date" : published.toLocaleDateString();
+      const published = template.publishedAt ? new Date(template.publishedAt) : null;
+      const dateLabel = (!published || Number.isNaN(published.getTime())) ? "Unknown date" : published.toLocaleDateString();
       const meta = document.createElement("p");
       meta.textContent = [
         template.category || "Uncategorized",
