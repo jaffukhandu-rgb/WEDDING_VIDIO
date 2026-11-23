@@ -1,3 +1,5 @@
+import { isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
+
 // Visual heuristics only: decoded pixels cannot semantically identify a plaque.
 const W = 96, H = 170;
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -154,10 +156,12 @@ export async function analyzeVideoVisual(source, onProgress = () => {}) {
       video.onerror = () => finish(Error("Browser cannot decode this video."));
       video.src = url; video.load();
     });
-    const duration = Math.min(30, video.duration);
-    if (!Number.isFinite(duration) || Math.abs(video.duration - 30) > .5 ||
-        Math.abs(video.videoWidth / video.videoHeight - 9 / 16) > .03) {
-      throw Error("Expected a 30-second portrait 9:16 MP4.");
+    const duration = video.duration;
+    if (!isSupportedVideoDuration(duration)) {
+      throw Error("Background MP4 must be " + MIN_VIDEO_SECONDS + "–" + MAX_VIDEO_SECONDS + " seconds long.");
+    }
+    if (Math.abs(video.videoWidth / video.videoHeight - 9 / 16) > .03) {
+      throw Error("Expected a portrait 9:16 MP4.");
     }
     const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
