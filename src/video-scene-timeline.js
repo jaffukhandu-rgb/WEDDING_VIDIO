@@ -78,15 +78,16 @@ export function sceneSampleTimes(duration, revealAt, candidateCuts = []) {
     throw new Error("Invalid video timeline samples.");
   }
   const first = .2, last = duration - .2;
-  const overview = Array.from({ length: 12 }, (_, i) =>
-    first + (last - first) * i / 11);
+  const overviewCount = duration <= 12 ? 8 : duration <= 45 ? 10 : 12;
+  const overview = Array.from({ length: overviewCount }, (_, i) =>
+    first + (last - first) * i / (overviewCount - 1));
   const cuts = Array.isArray(candidateCuts) ? candidateCuts.filter(x =>
     within(x, Math.max(0, duration - 12), duration - .5)) : [];
   const cut = cuts.length ? cuts[cuts.length - 1] : revealAt;
-  const focus = [
-    cut - .45, cut - .1, cut + .2,
-    revealAt - 1.2, revealAt - .25, revealAt + .5
-  ];
+  const focus = duration <= 12
+    ? [cut - .35, revealAt - .2, revealAt + .35]
+    : [cut - .45, cut - .1, cut + .2,
+      revealAt - 1.2, revealAt - .25, revealAt + .5];
   const times = new Set([...overview, ...focus].map(time =>
     round(Math.min(last, Math.max(first, time)))));
   return [...times].sort((a, b) => a - b).slice(0, 18);
