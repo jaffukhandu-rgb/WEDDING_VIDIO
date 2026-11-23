@@ -186,6 +186,7 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       ? options.ai.apiRoot.slice(0, -1) : options.ai.apiRoot;
     const endpoint = root + "/api/admin/video-analysis";
     const headers = { "X-Admin-Key": options.ai.adminKey };
+    let aiFailure = "request failed";
     try {
       const capabilityController = new AbortController();
       const capabilityTimeout = setTimeout(() => capabilityController.abort(), 5000);
@@ -202,8 +203,17 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       const sampleContext = sampleCanvas.getContext("2d");
       if (!sampleContext) return localPlan;
       const images = [];
-      for (let i = 0; i < 9; i++) {
-        const time = Number((.25 + (duration - .5) * i / 8).toFixed(2));
+      // Retain scene overview frames, but inspect the likely final transition
+      // more closely instead of spreading all images ~4 seconds apart.
+      const times = [
+        .25, duration * .25, duration * .5, duration * .65,
+        localPlan.revealAt - 4, localPlan.revealAt - 2,
+        localPlan.revealAt - 1, localPlan.revealAt + .35,
+        localPlan.revealAt + 1.25, duration - .25
+      ].map(time => Number(Math.max(.15, Math.min(duration - .15, time)).toFixed(2)))
+        .sort((a, b) => a - b)
+        .filter((time, index, values) => index === 0 || time > values[index - 1]);
+      for (const time of times) {
         await seek(video, time);
         sampleContext.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
         const jpeg = sampleCanvas.toDataURL("image/jpeg", .57).split(",")[1];
@@ -221,7 +231,24 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
           signal: controller.signal
         });
       } finally { clearTimeout(timeout); }
-      if (!response.ok) throw Error("AI video plan unavailable.");
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({}));
+        const reasons = {
+          invalid_key: "invalid API key",
+          permission_denied: "API permission denied",
+          model_unavailable: "selected model unavailable",
+          quota_exceeded: "API quota exceeded",
+          invalid_request: "Gemini rejected the request",
+          provider_unavailable: "Gemini service unavailable",
+          timeout: "Gemini request timed out",
+          empty_response: "Gemini produced no plan",
+          invalid_json: "Gemini returned invalid JSON",
+          invalid_layout: "Gemini returned an invalid layout",
+          request_failed: "request failed"
+        };
+        aiFailure = reasons[failure?.reason] || "request failed";
+        throw Error("AI video plan unavailable.");
+      }
       const plan = (await response.json()).plan;
       // Reject malformed responses even if the server was compromised.
       const area = plan?.textArea;
@@ -244,7 +271,8 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       ] };
     } catch {
       return { ...localPlan, warnings: [
-        ...localPlan.warnings, "Gemini unavailable; used reliable local video analysis."
+        ...localPlan.warnings,
+        "Gemini unavailable (" + aiFailure + "); used reliable local video analysis."
       ] };
     }
   } finally {
