@@ -149,6 +149,9 @@ export async function requestGeminiPlan(sample, apiKey, fetcher = fetch) {
 
 export function geminiVideoAnalysisRouter() {
   const router = express.Router();
+  router.get("/admin/video-analysis", requireAdmin, (_req, res) => {
+    res.set("Cache-Control", "no-store").json({ enabled: Boolean(process.env.GEMINI_API_KEY?.trim()) });
+  });
   router.post("/admin/video-analysis", requireAdmin, async (req, res) => {
     res.set("Cache-Control", "no-store");
     const apiKey = process.env.GEMINI_API_KEY?.trim();
