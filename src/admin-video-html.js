@@ -1,5 +1,6 @@
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
+import { validateSceneTimeline } from "./video-scene-timeline.js";
 
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
 // stays the source of truth for editable customer fields and export/publishing.
@@ -70,6 +71,16 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
   // and older published templates remain exactly as authored.
   const isSmart = visualAnalysis?.version === 1 &&
     visualAnalysis.textArea && Number.isFinite(visualAnalysis.revealAt);
+  let timelinePanels = null;
+  if (isSmart && Array.isArray(visualAnalysis?.panels) &&
+      visualAnalysis.panels.length >= 2) {
+    try {
+      timelinePanels = validateSceneTimeline(
+        visualAnalysis, visualAnalysis.duration
+      ).panels;
+    } catch { /* Invalid AI plan keeps the original single-panel invitation. */ }
+  }
+  const isTimeline = Boolean(timelinePanels?.length);
   if (isSmart) {
     const rect = visualAnalysis.textArea;
     const percent = (value, low, high) =>
@@ -102,6 +113,106 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
         "%{opacity:0}" + end.toFixed(2) + "%,100%{opacity:1}}"
     ].join("\n");
   }
+  if (isTimeline) {
+    // The existing smart overlay retains its position/style; only the content
+    // changes across validated playhead windows. No new scene or CSS redesign.
+    styles += "\n" + [
+      ".copy .events-list{width:100%;display:flex;flex-direction:column;gap:1.4cqw}",
+      ".copy .event-page{display:flex;flex-direction:column;gap:1.1cqw}",
+      ".copy .event-item{display:flex;flex-direction:column;align-items:center;gap:.5cqw}",
+      ".copy .event-title{font-weight:700;font-size:4cqw}",
+      ".copy .event-info{font-size:3.1cqw;line-height:1.24;overflow-wrap:anywhere}"
+    ].join("\n");
+  }
+  const timelineScript = isTimeline ? [
+    "  const panelTimeline = " + JSON.stringify(timelinePanels) + ";",
+    "  const backgroundVideo = document.querySelector('video[data-wedding-background]');",
+    "  const selectors = ['.ceremony','.message','.names','.date-time','.venue','.address','.blessing'];",
+    "  const groups = {",
+    "    intro: ['.ceremony','.message','.names'],",
+    "    details: ['.names','.date-time','.venue','.address','.blessing'],",
+    "    events: ['.ceremony']",
+    "  };",
+    "  const eventHost = root.querySelector('.events-list');",
+    "  const eventPages = [];",
+    "  const allEvents = Array.isArray(CONFIG.events) ? CONFIG.events.filter(Boolean) : [];",
+    "  for (let i = 0; i < allEvents.length; i += 2) {",
+    "    const page = document.createElement('div');",
+    "    page.className = 'event-page';",
+    "    for (const item of allEvents.slice(i, i + 2)) {",
+    "      const entry = document.createElement('div'); entry.className = 'event-item';",
+    "      const name = document.createElement('div'); name.className = 'event-title';",
+    "      name.textContent = String(item.name || 'Wedding Event'); entry.appendChild(name);",
+    "      const info = document.createElement('div'); info.className = 'event-info';",
+    "      info.textContent = [item.date, item.time, item.venue, item.note]",
+    "        .filter(Boolean).map(String).join(' · '); entry.appendChild(info);",
+    "      page.appendChild(entry);",
+    "    }",
+    "    eventHost.appendChild(page); eventPages.push(page);",
+    "  }",
+    "  const hasEventSlot = panelTimeline.some(panel => panel.kind === 'events');",
+    "  let activePanel = -1, activePage = -1;",
+    "  const showPanel = (panel, pageIndex) => {",
+    "    const kind = panel.kind === 'details' && !hasEventSlot && pageIndex > 0",
+    "      ? 'events' : panel.kind;",
+    "    const allowed = groups[kind] || [];",
+    "    for (const selector of selectors) {",
+    "      const node = root.querySelector(selector);",
+    "      node.hidden = !allowed.includes(selector) || !node.textContent.trim();",
+    "    }",
+    "    const eventsVisible = kind === 'events' && eventPages.length > 0;",
+    "    eventHost.hidden = !eventsVisible;",
+    "    eventPages.forEach((page, i) => {",
+    "      page.hidden = !eventsVisible || i !== (panel.kind === 'details' ? pageIndex - 1 : pageIndex);",
+    "    });",
+    "    root.style.left = panel.textArea.left + '%';",
+    "    root.style.top = panel.textArea.top + '%';",
+    "    root.style.width = panel.textArea.width + '%';",
+    "    root.style.height = panel.textArea.height + '%';",
+    "    fit();",
+    "  };",
+    "  const updateReveal = () => {",
+    "    if (!backgroundVideo) return;",
+    "    const t = backgroundVideo.currentTime;",
+    "    const idx = panelTimeline.findIndex(panel => t >= panel.start && t < panel.end);",
+    "    if (idx < 0) { root.style.opacity = '0'; return; }",
+    "    const panel = panelTimeline[idx];",
+    "    const pages = panel.kind === 'events' ? Math.max(1, eventPages.length)",
+    "      : panel.kind === 'details' && !hasEventSlot && eventPages.length > 1",
+    "        ? 1 + eventPages.length : 1;",
+    "    const pageIndex = Math.min(pages - 1, Math.floor((t - panel.start) /",
+    "      (panel.end - panel.start) * pages));",
+    "    if (idx !== activePanel || pageIndex !== activePage) {",
+    "      showPanel(panel, pageIndex); activePanel = idx; activePage = pageIndex;",
+    "    }",
+    "    root.dataset.timelineReadability =",
+    "      (panel.end - panel.start) / pages >= 2.5 ? 'ok' : 'short';",
+    "    const enter = Math.min(1, Math.max(0, (t - panel.start) / .35));",
+    "    const exit = Math.min(1, Math.max(0, (panel.end - t) / .35));",
+    "    root.style.opacity = String(Math.min(enter, exit));",
+    "  };",
+    "  if (backgroundVideo) {",
+    "    for (const eventName of ['timeupdate','seeked','loadedmetadata','playing','ended']) {",
+    "      backgroundVideo.addEventListener(eventName, updateReveal);",
+    "    }",
+    "    updateReveal();",
+    "  }"
+  ] : [
+    "  // Follow the MP4 playhead through playback, looping and renderer seeks.",
+    "  const backgroundVideo = document.querySelector('video[data-wedding-background]');",
+    "  const revealAt = " + Number(visualAnalysis?.revealAt || 0).toFixed(2) + ";",
+    "  const updateReveal = () => {",
+    "    if (!backgroundVideo) return;",
+    "    const progress = Math.min(1, Math.max(0, (backgroundVideo.currentTime - revealAt) / .84));",
+    "    root.style.opacity = String(progress);",
+    "  };",
+    "  if (backgroundVideo) {",
+    "    for (const eventName of ['timeupdate','seeked','loadedmetadata','playing','ended']) {",
+    "      backgroundVideo.addEventListener(eventName, updateReveal);",
+    "    }",
+    "    updateReveal();",
+    "  }"
+  ];
   const script = [
     "const CONFIG = " + sample + ";",
     "(() => {",
@@ -146,20 +257,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       "  fit();",
       "  window.addEventListener('resize', fit);",
       "  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);",
-      "  // Follow the MP4 playhead through playback, looping and renderer seeks.",
-      "  const backgroundVideo = document.querySelector('video[data-wedding-background]');",
-      "  const revealAt = " + Number(visualAnalysis.revealAt).toFixed(2) + ";",
-      "  const updateReveal = () => {",
-      "    if (!backgroundVideo) return;",
-      "    const progress = Math.min(1, Math.max(0, (backgroundVideo.currentTime - revealAt) / .84));",
-      "    root.style.opacity = String(progress);",
-      "  };",
-      "  if (backgroundVideo) {",
-      "    for (const eventName of ['timeupdate','seeked','loadedmetadata','playing','ended']) {",
-      "      backgroundVideo.addEventListener(eventName, updateReveal);",
-      "    }",
-      "    updateReveal();",
-      "  }"
+      ...timelineScript
     ] : []),
     "})();"
   ].join("\n");
@@ -177,7 +275,9 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     isSmart ? '<article class="copy" data-video-auto-layout="v1"><div class="copy-inner">' : '<article class="copy">',
     '<p class="ceremony"></p><p class="message"></p><h1 class="names"></h1>',
     '<p class="date-time"></p><p class="venue"></p><p class="address"></p><p class="blessing"></p>',
-    isSmart ? '</div></article></section></main>' : '</article></section></main>',
+    isSmart ? (isTimeline
+      ? '<div class="events-list" hidden></div></div></article></section></main>'
+      : '</div></article></section></main>') : '</article></section></main>',
     "<script>" + script + "</script></body></html>"
   ].join("\n").replace(
     'aria-hidden="true"></video>',
