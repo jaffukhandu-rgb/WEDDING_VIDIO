@@ -152,6 +152,65 @@ export function backgroundResponseHeaders(total, range) {
   };
 }
 
+// Stream Cloudinary directly without a Node Readable wrapper. Browsers often
+// cancel range requests during video seeks; a late upstream timeout must not
+// become an unhandled 'error' event that terminates the renderer process.
+export async function streamCloudinaryBody(body, res) {
+  if (res.destroyed) {
+    await body.cancel().catch(() => {});
+    return;
+  }
+  const reader = body.getReader();
+  let disconnected = false;
+  let cancellation;
+  const cancel = () => {
+    if (!cancellation) cancellation = reader.cancel().catch(() => {});
+  };
+  const onClose = () => {
+    if (!res.writableFinished) {
+      disconnected = true;
+      cancel();
+    }
+  };
+  const onError = () => {
+    disconnected = true;
+    cancel();
+  };
+  res.on("close", onClose);
+  res.on("error", onError);
+  try {
+    while (!disconnected && !res.destroyed) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (disconnected || res.destroyed) break;
+      if (!res.write(value)) {
+        // Wait for backpressure or disconnection; do not leave dangling
+        // promises/listeners when the browser abandons a range request.
+        await new Promise(resolve => {
+          const ready = () => {
+            res.off("drain", ready);
+            res.off("close", ready);
+            res.off("error", ready);
+            resolve();
+          };
+          res.once("drain", ready);
+          res.once("close", ready);
+          res.once("error", ready);
+        });
+      }
+    }
+    if (!disconnected && !res.destroyed) res.end();
+  } catch (error) {
+    if (!disconnected && !res.destroyed) throw error;
+  } finally {
+    if (disconnected || !res.writableFinished) cancel();
+    if (cancellation) await cancellation;
+    reader.releaseLock();
+    res.off("close", onClose);
+    res.off("error", onError);
+  }
+}
+
 export function videoBackgroundRouter() {
   const router = express.Router();
 
@@ -357,7 +416,7 @@ export function videoBackgroundRouter() {
         }
         res.status(upstream.status).set(headers);
         if (!upstream.body) return res.end();
-        await pipeline(Readable.fromWeb(upstream.body), res);
+        await streamCloudinaryBody(upstream.body, res);
         return;
       }
       const total = record.file.length;
@@ -380,7 +439,10 @@ export function videoBackgroundRouter() {
       stream.pipe(res);
     } catch (error) {
       console.error("Background retrieval failed:", error);
-      if (!res.headersSent) res.status(503).end();
+      if (!res.destroyed) {
+        if (!res.headersSent) res.status(503).end();
+        else res.destroy();
+      }
     }
   });
 
