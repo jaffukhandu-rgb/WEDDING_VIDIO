@@ -160,7 +160,8 @@ export async function requestGeminiPlan(sample, apiKey, fetcher = fetch) {
       }
     );
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => null);
+      let errorBody = null;
+      try { errorBody = await response.json(); } catch { /* Some upstream failures have no JSON body. */ }
       const providerError = errorBody?.error;
       const details = Array.isArray(providerError?.details) ? providerError.details : [];
       const detailReason = details.map(item => item?.reason).find(item =>
