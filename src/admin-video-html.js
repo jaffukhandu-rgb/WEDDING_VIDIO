@@ -1,4 +1,4 @@
-import { findVideoBackground } from "./video-html-contract.js";
+import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
 
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
@@ -74,7 +74,9 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     const rect = visualAnalysis.textArea;
     const percent = (value, low, high) =>
       Math.max(low, Math.min(high, Number(value) || low));
-    const start = percent(visualAnalysis.revealAt / 30 * 100, 50, 92);
+    const timelineSeconds = isSupportedVideoDuration(visualAnalysis.duration)
+      ? visualAnalysis.duration : 30;
+    const start = percent(visualAnalysis.revealAt / timelineSeconds * 100, 50, 92);
     const end = Math.min(99, start + 2.8);
     const textInk = ["#24160e", "#fff1d2"].includes(visualAnalysis.ink)
       ? visualAnalysis.ink : "#fff1d2";
@@ -205,8 +207,8 @@ async function inspectVideo(file) {
       video.src = objectUrl;
       video.load();
     });
-    if (!Number.isFinite(video.duration) || Math.abs(video.duration - 30) > 0.5) {
-      throw new Error("Background video must be 30 seconds long (±0.5 seconds).");
+    if (!isSupportedVideoDuration(video.duration)) {
+      throw new Error("Background MP4 must be " + MIN_VIDEO_SECONDS + "–" + MAX_VIDEO_SECONDS + " seconds long.");
     }
     const ratio = video.videoWidth / video.videoHeight;
     if (!Number.isFinite(ratio) || Math.abs(ratio - 9 / 16) > 0.03) {
@@ -370,7 +372,7 @@ function initVideoHtmlTab() {
   createButton.addEventListener("click", async () => {
     const file = fileInput.files?.[0];
     if (!file) {
-      status.textContent = "Select a 30-second MP4 background first.";
+      status.textContent = "Select a portrait MP4 background first.";
       fileInput.focus();
       return;
     }
@@ -438,7 +440,8 @@ function initVideoHtmlTab() {
       analyzeVideoHtml();
       visualReport.hidden = false;
       visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
-        " confidence. Text starts at " + visualAnalysis.revealAt.toFixed(1) +
+        " confidence. Video duration: " + visualAnalysis.duration.toFixed(1) +
+        "s. Text starts at " + visualAnalysis.revealAt.toFixed(1) +
         "s. Video reference: " + result.id + ". " +
         (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
           "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");
