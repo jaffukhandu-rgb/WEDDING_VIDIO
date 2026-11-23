@@ -12,6 +12,7 @@ import { findVideoBackground, isVideoBackgroundMarkerPresent, isSupportedVideoDu
   videoFrameCount, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "../src/video-html-contract.js";
 import { videoBackgroundRouter, loadBackgroundBytes, backgroundByteRange, backgroundResponseHeaders } from "./video-backgrounds.js";
 import { isDatabaseConfigured } from "./template-store.js";
+import { geminiVideoAnalysisRouter } from "./gemini-video-analysis.js";
 
 const app = express();
 const HOST = process.env.RENDER_HOST || "127.0.0.1";
@@ -65,7 +66,8 @@ app.use((req, res, next) => {
 // Reject unauthorized large render/publish uploads before JSON body parsing.
 app.use((req, res, next) => {
   if (req.method === "POST" &&
-      (req.path === "/api/render" || req.path === "/api/admin/templates")) {
+      (req.path === "/api/render" || req.path === "/api/admin/templates" ||
+        req.path === "/api/admin/video-analysis")) {
     return requireAdmin(req, res, next);
   }
   next();
@@ -73,6 +75,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "40mb", strict: true }));
 app.use("/api", templateRouter());
 app.use("/api", videoBackgroundRouter());
+app.use("/api", geminiVideoAnalysisRouter());
 
 // Only the authenticated admin with the matching render job ID can check progress.
 app.get("/api/render/progress/:id", requireAdmin, (req, res) => {

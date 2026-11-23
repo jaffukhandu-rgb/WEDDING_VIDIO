@@ -134,7 +134,7 @@ function seek(video, time) {
     } catch(error) { finish(error); }
   });
 }
-export async function analyzeVideoVisual(source, onProgress = () => {}) {
+export async function analyzeVideoVisual(source, onProgress = () => {}, options = {}) {
   const local = source instanceof Blob;
   if (!local && typeof source !== "string") throw TypeError("Video URL or file required.");
   const url = local ? URL.createObjectURL(source) : source;
@@ -179,7 +179,74 @@ export async function analyzeVideoVisual(source, onProgress = () => {}) {
       frames.push({ time: times[i], luma: lumaFromRgba(image.data) });
       onProgress(Math.round((i + 1) / times.length * 100));
     }
-    return deriveVisualPlan(frames, duration);
+    const localPlan = deriveVisualPlan(frames, duration);
+    // Video frame analysis always remains usable without an AI key.
+    if (!options.ai?.adminKey || !options.ai?.apiRoot) return localPlan;
+    const root = options.ai.apiRoot.endsWith("/")
+      ? options.ai.apiRoot.slice(0, -1) : options.ai.apiRoot;
+    const endpoint = root + "/api/admin/video-analysis";
+    const headers = { "X-Admin-Key": options.ai.adminKey };
+    try {
+      const capabilityController = new AbortController();
+      const capabilityTimeout = setTimeout(() => capabilityController.abort(), 5000);
+      let status;
+      try {
+        status = await fetch(endpoint, {
+          headers, cache: "no-store", signal: capabilityController.signal
+        });
+      } finally { clearTimeout(capabilityTimeout); }
+      if (!status.ok || !(await status.json()).enabled) return localPlan;
+      const sampleCanvas = document.createElement("canvas");
+      sampleCanvas.width = 256;
+      sampleCanvas.height = 455;
+      const sampleContext = sampleCanvas.getContext("2d");
+      if (!sampleContext) return localPlan;
+      const images = [];
+      for (let i = 0; i < 9; i++) {
+        const time = Number((.25 + (duration - .5) * i / 8).toFixed(2));
+        await seek(video, time);
+        sampleContext.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
+        const jpeg = sampleCanvas.toDataURL("image/jpeg", .57).split(",")[1];
+        if (!jpeg || jpeg.length > 180000) throw Error("Frame sample too large.");
+        images.push({ time, jpeg });
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 32000);
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ duration, frames: images }),
+          signal: controller.signal
+        });
+      } finally { clearTimeout(timeout); }
+      if (!response.ok) throw Error("AI video plan unavailable.");
+      const plan = (await response.json()).plan;
+      // Reject malformed responses even if the server was compromised.
+      const area = plan?.textArea;
+      if (plan?.version !== 1 || plan.duration !== duration ||
+          !Number.isFinite(plan.revealAt) || plan.revealAt < Math.max(0, duration - 20) ||
+          plan.revealAt > duration - 1.5 || !area ||
+          ![area.left, area.top, area.width, area.height].every(Number.isFinite) ||
+          area.left < 8 || area.left > 55 || area.top < 12 || area.top > 69 ||
+          area.width < 35 || area.width > 85 || area.height < 23 || area.height > 67 ||
+          area.left + area.width > 96 || area.top + area.height > 94 ||
+          !["#24160e", "#fff1d2"].includes(plan.ink) ||
+          !["medium", "low"].includes(plan.confidence) ||
+          !Array.isArray(plan.warnings) || plan.warnings.length > 3 ||
+          plan.warnings.some(w => typeof w !== "string" || w.length > 130)) {
+        throw Error("Invalid AI video plan.");
+      }
+      return { ...localPlan, ...plan, warnings: [
+        ...localPlan.warnings, ...plan.warnings,
+        "Gemini-assisted layout: review the full video before publishing."
+      ] };
+    } catch {
+      return { ...localPlan, warnings: [
+        ...localPlan.warnings, "Gemini unavailable; used reliable local video analysis."
+      ] };
+    }
   } finally {
     video.pause(); video.removeAttribute("src"); video.load();
     if (local) URL.revokeObjectURL(url);
