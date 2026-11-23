@@ -5,6 +5,30 @@ import { isSupportedVideoDuration } from "../src/video-html-contract.js";
 // Gemini never supplies HTML or JavaScript. Only a validated, bounded plan
 // can modify the existing generated invitation's text placement and timing.
 const MODEL = "gemini-2.5-flash";
+
+// Expose only fixed diagnostic codes. Never return provider error bodies,
+// request frames, or API credentials to the browser or server logs.
+const FAILURE_REASONS = new Set([
+  "invalid_key", "permission_denied", "model_unavailable",
+  "quota_exceeded", "invalid_request", "provider_unavailable",
+  "timeout", "empty_response", "invalid_json", "invalid_layout",
+  "request_failed"
+]);
+export function classifyGeminiFailure(httpStatus, providerStatus, detailReason) {
+  if (detailReason === "API_KEY_INVALID") return "invalid_key";
+  if (httpStatus === 401 || httpStatus === 403 ||
+      providerStatus === "PERMISSION_DENIED") return "permission_denied";
+  if (httpStatus === 404 || providerStatus === "NOT_FOUND") return "model_unavailable";
+  if (httpStatus === 429 || providerStatus === "RESOURCE_EXHAUSTED") return "quota_exceeded";
+  if (httpStatus === 400 || providerStatus === "INVALID_ARGUMENT") return "invalid_request";
+  if (httpStatus >= 500) return "provider_unavailable";
+  return "request_failed";
+}
+function geminiError(message, reason) {
+  const error = new Error(message);
+  error.reason = reason;
+  return error;
+}
 const MAX_FRAMES = 10;
 const MAX_FRAME_BASE64 = 180_000;
 const MAX_BODY_CHARS = 1_600_000;
@@ -128,20 +152,39 @@ export async function requestGeminiPlan(sample, apiKey, fetcher = fetch) {
             responseMimeType: "application/json",
             responseSchema: SCHEMA,
             temperature: 0.1,
-            maxOutputTokens: 750
+            thinkingConfig: { thinkingBudget: 0 },
+            maxOutputTokens: 1600
           }
         }),
         signal: controller.signal
       }
     );
-    if (!response.ok) throw new Error("Gemini analysis is unavailable.");
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      const providerError = errorBody?.error;
+      const details = Array.isArray(providerError?.details) ? providerError.details : [];
+      const detailReason = details.map(item => item?.reason).find(item =>
+        typeof item === "string");
+      throw geminiError("Gemini analysis is unavailable.",
+        classifyGeminiFailure(response.status, providerError?.status, detailReason));
+    }
     const payload = await response.json();
     const text = payload?.candidates?.[0]?.content?.parts?.find(part =>
       typeof part.text === "string")?.text;
     if (typeof text !== "string" || text.length > 10000) {
-      throw new Error("Gemini did not return a JSON plan.");
+      throw geminiError("Gemini did not return a JSON plan.", "empty_response");
     }
-    return validateGeminiPlan(JSON.parse(text), sample.duration);
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw geminiError("Gemini returned invalid JSON.", "invalid_json");
+    }
+    try {
+      return validateGeminiPlan(parsed, sample.duration);
+    } catch {
+      throw geminiError("Gemini returned an invalid layout.", "invalid_layout");
+    }
   } finally {
     clearTimeout(timeout);
   }
@@ -168,8 +211,13 @@ export function geminiVideoAnalysisRouter() {
       const plan = await requestGeminiPlan(sample, apiKey);
       return res.json({ plan });
     } catch (error) {
-      console.warn("Gemini video plan unavailable:", error instanceof Error ? error.name : "Unknown");
-      return res.status(502).json({ error: "Gemini analysis failed. Use local video analysis." });
+      const reason = error?.name === "AbortError" ? "timeout" :
+        FAILURE_REASONS.has(error?.reason) ? error.reason : "request_failed";
+      console.warn("Gemini video plan unavailable:", reason);
+      return res.status(502).json({
+        error: "Gemini analysis failed. Local video analysis remains available.",
+        reason
+      });
     } finally {
       activeRequest = false;
     }
