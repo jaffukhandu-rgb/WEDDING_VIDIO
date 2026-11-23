@@ -56,7 +56,7 @@ export function validateSceneTimeline(value, duration) {
   let previousEnd = -1;
   const panels = value.panels.map((panel, index) => {
     if (!isObject(panel) || panel.kind !== PANEL_KINDS[index] ||
-        !within(panel.start, Math.max(0, duration - 25), duration) ||
+        !within(panel.start, Math.max(0, duration - 20), duration) ||
         !within(panel.end, 0, duration) ||
         panel.end - panel.start < 2.5 ||
         panel.end > duration - .1 ||
