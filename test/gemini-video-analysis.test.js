@@ -69,7 +69,7 @@ test("Sends timestamped images to Gemini with server-only key", async () => {
   assert.equal(payload.generationConfig.thinkingConfig.thinkingLevel, "low");
   assert.equal("thinkingBudget" in payload.generationConfig.thinkingConfig, false);
   assert.equal("temperature" in payload.generationConfig, false);
-  assert.equal(payload.generationConfig.maxOutputTokens, 1600);
+  assert.equal(payload.generationConfig.maxOutputTokens, 2600);
   assert.match(request.url, /models\/gemini-3\.5-flash:generateContent$/);
   assert.ok(request.url.startsWith("https://generativelanguage.googleapis.com/"));
 });
