@@ -101,7 +101,7 @@ test("Video playhead displays intro, details and five editable events without sk
     }));
   // The existing customer editor intentionally requires a fixed event count.
   // Admins can define more event slots in CONFIG before creating the template.
-  const populated = raw.replace(/events: \\[\\{[\\s\\S]*?\\}\\]/,
+  const populated = raw.replace(/events: \[\{[\s\S]*?\}\]/,
     "events: [" + editedEvents.map(event =>
       "{" + Object.entries(event).map(([key, value]) =>
         key + ": " + JSON.stringify(value)).join(", ") + "}"
