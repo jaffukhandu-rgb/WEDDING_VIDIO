@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { once } from "node:events";
 import { requireAdmin, isAdminConfigured } from "./admin-access.js";
 import { templateRouter } from "./template-api.js";
-import { findVideoBackground, isVideoBackgroundMarkerPresent } from "../src/video-html-contract.js";
+import { findVideoBackground, isVideoBackgroundMarkerPresent, isSupportedVideoDuration,
+  videoFrameCount, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "../src/video-html-contract.js";
 import { videoBackgroundRouter, loadBackgroundBytes, backgroundByteRange, backgroundResponseHeaders } from "./video-backgrounds.js";
 import { isDatabaseConfigured } from "./template-store.js";
 
@@ -56,6 +57,7 @@ app.use((req, res, next) => {
     if (!publicBackground) res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key, X-Render-Job, Range");
+    if (!publicBackground) res.setHeader("Access-Control-Expose-Headers", "X-Render-Duration");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -78,12 +80,12 @@ app.get("/api/render/progress/:id", requireAdmin, (req, res) => {
   if (!rendering || !activeRenderProgress || activeRenderProgress.id !== req.params.id) {
     return res.status(404).json({ error: "Render progress is unavailable." });
   }
-  const { frame, phase, framesStartedAt } = activeRenderProgress;
+  const { frame, phase, framesStartedAt, totalFrames } = activeRenderProgress;
   const elapsed = framesStartedAt ? (Date.now() - framesStartedAt) / 1000 : 0;
   const remainingSeconds = phase === "rendering" && frame >= 10
-    ? Math.ceil((elapsed / frame) * (TOTAL_FRAMES - frame))
+    ? Math.ceil((elapsed / frame) * (totalFrames - frame))
     : null;
-  return res.json({ frame, totalFrames: TOTAL_FRAMES, phase, remainingSeconds });
+  return res.json({ frame, totalFrames, phase, remainingSeconds });
 });
 
 app.get("/api/health", (_req, res) => {
@@ -132,6 +134,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     id: typeof requestedJobId === "string" && /^[a-f0-9-]{36}$/i.test(requestedJobId)
       ? requestedJobId : null,
     frame: 0,
+    totalFrames: TOTAL_FRAMES,
     phase: "preparing",
     framesStartedAt: null,
   };
@@ -139,6 +142,8 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   let workDir;
   let ffmpeg;
   let renderTimeout;
+  let renderDuration = DURATION_SECONDS;
+  let totalFrames = TOTAL_FRAMES;
 
   try {
     // A single in-memory MP4 is intercepted locally. No renderer network access is enabled.
@@ -158,10 +163,11 @@ app.post("/api/render", requireAdmin, async (req, res) => {
       await writeFile(audioPath, audioBuffer);
     }
     browser = await chromium.launch({ headless: true });
-    renderTimeout = setTimeout(() => {
+    const stopLongRender = () => {
       if (browser) browser.close().catch(() => {});
       if (ffmpeg) ffmpeg.kill("SIGKILL");
-    }, 10 * 60 * 1000);
+    };
+    renderTimeout = setTimeout(stopLongRender, 10 * 60 * 1000);
     const page = await browser.newPage({
       viewport: { width: 540, height: 960 },
       deviceScaleFactor: 1,
@@ -202,7 +208,26 @@ app.post("/api/render", requireAdmin, async (req, res) => {
         return Boolean(video && video.readyState >= 2 && video.videoWidth > 0 &&
           Number.isFinite(video.duration) && video.duration > 0);
       }, null, { timeout: 20000 });
-      await page.evaluate(() => document.querySelector("video[data-wedding-background]").pause());
+      const sourceDuration = await page.evaluate(() => {
+        const video = document.querySelector("video[data-wedding-background]");
+        video.pause();
+        return video.duration;
+      });
+      if (!isSupportedVideoDuration(sourceDuration)) {
+        throw new Error("Video + HTML background must be " + MIN_VIDEO_SECONDS +
+          "–" + MAX_VIDEO_SECONDS + " seconds long.");
+      }
+      totalFrames = videoFrameCount(sourceDuration, FPS);
+      renderDuration = totalFrames / FPS;
+      activeRenderProgress.totalFrames = totalFrames;
+      if (renderDuration > DURATION_SECONDS) {
+        clearTimeout(renderTimeout);
+        // Longer footage needs more rendering time; retain the original
+        // 10-minute timeout for ordinary 30-second Via Code templates.
+        const maxRenderMs = Math.min(20 * 60 * 1000,
+          10 * 60 * 1000 + (renderDuration - DURATION_SECONDS) * 10000);
+        renderTimeout = setTimeout(stopLongRender, maxRenderMs);
+      }
     }
     // Advance slightly beyond document initialization, then pause virtual JS time.
     // Using the browser's own Date avoids trying to rewind the installed clock.
@@ -218,14 +243,14 @@ app.post("/api/render", requireAdmin, async (req, res) => {
       ffmpegArgs.push(
         "-map", "0:v:0", "-map", "1:a:0",
         "-c:a", "aac", "-b:a", "160k",
-        "-af", `afade=t=out:st=${Math.max(0, DURATION_SECONDS - 3)}:d=3`,
+        "-af", `afade=t=out:st=${Math.max(0, renderDuration - 3)}:d=3`,
       );
     } else {
       ffmpegArgs.push("-an");
     }
     ffmpegArgs.push(
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-      "-pix_fmt", "yuv420p", "-r", String(FPS), "-t", String(DURATION_SECONDS),
+      "-pix_fmt", "yuv420p", "-r", String(FPS), "-t", String(renderDuration),
       "-movflags", "+faststart", outputPath,
     );
     ffmpeg = spawn(ffmpegPath, ffmpegArgs, { stdio: ["pipe", "ignore", "pipe"] });
@@ -237,7 +262,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     activeRenderProgress.phase = "rendering";
     activeRenderProgress.framesStartedAt = Date.now();
     let previousVirtualMs = 0;
-    for (let frame = 0; frame < DURATION_SECONDS * FPS; frame += 1) {
+    for (let frame = 0; frame < totalFrames; frame += 1) {
       const virtualMs = Math.round((frame * 1000) / FPS);
       const step = virtualMs - previousVirtualMs;
       if (step > 0) await page.clock.runFor(step);
@@ -287,6 +312,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     activeRenderProgress.phase = "delivering";
     res.set({
       "Content-Type": "video/mp4",
+      "X-Render-Duration": String(renderDuration),
       "Content-Disposition": 'inline; filename="wedding-invitation.mp4"',
       "Cache-Control": "no-store",
     });
