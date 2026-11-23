@@ -289,7 +289,7 @@ main{max-width:1240px;padding:24px 22px 56px}
 </aside><main><section id="admin-edit-notice" class="panel" hidden aria-live="polite"><p id="admin-edit-message"></p><div class="actions"><input id="admin-edit-key" type="password" autocomplete="off" placeholder="Admin key to load template" hidden><button id="admin-load-edit" type="button" hidden>Load template</button></div></section><header class="top"><div><h1>Invitation Preparation Studio</h1><p>Analyze code, edit sample details and inspect the animated result.</p></div><span class="pill">Development prototype · Not authenticated</span></header><nav class="tabs" aria-label="Upload type"><button id="via-code-tab" type="button" class="active" aria-current="page" aria-pressed="true" aria-controls="code-panel">Via Code</button><button id="via-video-tab" type="button" aria-pressed="false" aria-controls="video-html-panel">Video + HTML</button></nav><div class="actions" style="margin:0 0 14px"><button type="button" id="admin-save-draft">Save Local Draft</button><span class="muted" style="align-self:center">Drafts stay in this browser until published.</span></div><section class="panel" id="code-panel"><h2>1. Paste invitation code</h2><p class="muted">Paste a complete, self-contained HTML document with CSS and JavaScript. Supported formats: a literal CONFIG block with numbered scenes or an animated book layout (maximum 1 MB).</p><label for="code-input">HTML / CSS / JavaScript code</label><textarea id="code-input" rows="14" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste your complete HTML invitation code here..." style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;resize:vertical;min-height:230px"></textarea><div class="actions"><button id="analyze-code" class="active" type="button">Analyze Code</button><button id="clear-code" type="button">Clear Code</button></div><details style="margin-top:18px"><summary style="cursor:pointer">Or upload an HTML file</summary><div style="margin-top:12px"><label for="source">Choose HTML file</label><input id="source" type="file" accept=".html,.htm,text/html"></div></details><div id="analysis-progress" class="hide" role="progressbar" aria-label="Code analysis progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div><p class="progress-label" id="progress-label">0% · Waiting</p></div><p id="status" role="status" aria-live="polite">Paste code and click Analyze Code.</p></section>
 <section class="panel" id="video-html-panel" hidden aria-labelledby="video-html-heading">
   <h2 id="video-html-heading">1. Create a Video + HTML invitation</h2>
-  <p class="muted">Upload a clean 30-second portrait MP4 without fixed customer details or watermarks. Its realistic footage stays in secure server storage; this studio creates lightweight HTML with editable text on top. No customer photos required.</p>
+  <p class="muted">Upload a clean 5–120-second portrait MP4 without fixed customer details or watermarks. Its realistic footage stays in secure server storage; this studio creates lightweight HTML with editable text on top. No customer photos required.</p>
   <div class="video-html-fields">
     <div class="field"><label for="video-html-file">Background MP4 · H.264 recommended · 9:16 · maximum 32 MB</label><input id="video-html-file" type="file" accept=".mp4,video/mp4"></div>
     <div class="field"><label for="video-html-title">Invitation template name</label><input id="video-html-title" type="text" maxlength="120" value="Royal Wedding Film Invitation"></div>
@@ -302,7 +302,7 @@ main{max-width:1240px;padding:24px 22px 56px}
   </details>
   <div class="actions"><button id="video-html-create" class="active" type="button">Upload video and generate HTML</button></div>
   <div id="video-html-upload-loader" hidden role="status" aria-live="polite" style="margin-top:12px"><label for="video-html-upload-progress">MP4 upload progress</label><progress id="video-html-upload-progress" value="0" max="100" style="display:block;width:100%;height:12px;accent-color:#d7b77d"></progress><p id="video-html-upload-label" class="muted">Preparing upload…</p></div>
-  <p id="video-html-status" role="status" aria-live="polite">Choose a finished 30-second MP4, or paste an existing Video + HTML template below.</p>
+  <p id="video-html-status" role="status" aria-live="polite">Choose a finished portrait MP4, or paste an existing Video + HTML template below.</p>
   <p id="video-html-visual-report" class="muted" role="status" aria-live="polite" hidden></p>
   <p><a id="video-html-asset-link" href="#" target="_blank" rel="noopener noreferrer" hidden style="color:#e7c789">Open uploaded background video</a></p>
   <div class="video-html-editor">
@@ -334,12 +334,12 @@ main{max-width:1240px;padding:24px 22px 56px}
   <p id="validation-review-note" class="muted">Manual visual review is pending. Nothing is published or saved by these checks.</p>
 </section><section class="panel" id="export-panel" aria-labelledby="export-heading">
   <h2 id="export-heading">5. Export MP4</h2>
-  <p class="muted">Render the prepared invitation into a 30-second video (540 × 960 at 30 FPS). Export uses the protected local rendering service and selected music.</p>
+  <p class="muted">Render at 540 × 960 and 30 FPS. Video + HTML exports match the MP4 duration; Via Code templates remain 30 seconds. Export uses the protected local rendering service and selected music.</p>
   <div class="secure-key-field"><label for="admin-api-key">Admin access key <small>(required for exporting and publishing)</small></label>
     <input id="admin-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Enter server ADMIN_API_KEY">
     <p class="muted">This key is held only in this browser tab's memory and is not saved to local storage.</p>
   </div>
-  <div class="actions"><button id="export-mp4" type="button" disabled class="active">Generate 30-second MP4</button></div>
+  <div class="actions"><button id="export-mp4" type="button" disabled class="active">Generate MP4</button></div>
   <div id="render-loader" class="render-loader hide" aria-label="Video export in progress">
     <div class="render-loader-head">
       <div><span class="render-loader-kicker">MP4 EXPORT</span><strong class="render-loader-title">YOUR STORY <em>IN MOTION</em></strong></div>

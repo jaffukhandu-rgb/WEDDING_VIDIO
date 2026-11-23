@@ -83,3 +83,16 @@ test("Malformed decoded frames fail safely instead of generating a layout", () =
   frames[4].luma = new Float32Array(5);
   assert.throws(() => deriveVisualPlan(frames, 30), /Invalid video image data/);
 });
+
+test("Visual plan preserves a 38.8-second MP4 duration and late reveal", () => {
+  const frames = [];
+  for (let i = 0; i < 24; i++) {
+    const t = 26.8 + i * .5;
+    const luma = new Float32Array(W * H);
+    luma.fill(t < 33 ? .18 + (i % 2) * .10 : .18);
+    frames.push({ time: t, luma });
+  }
+  const plan = deriveVisualPlan(frames, 38.8);
+  assert.equal(plan.duration, 38.8);
+  assert.ok(plan.revealAt >= 33 && plan.revealAt < 38.8);
+});

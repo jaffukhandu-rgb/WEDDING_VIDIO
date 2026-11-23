@@ -83,3 +83,17 @@ test("Automatic text overflow blocks preview validation", () => {
     started: true, errors: [], smartTextFit: .55, smartTextFitRequired: .40 };
   assert.equal(validateRuntimeReport(runtime, 2).status, "fail");
 });
+
+test("Video + HTML timeline does not impose the legacy 30-second schedule", async () => {
+  const { buildVideoInvitationSource } = await import("../src/admin-video-html.js");
+  const id = "12345678-1234-4234-9234-123456789abc";
+  const url = "http://127.0.0.1:4174/api/video-backgrounds/" + id;
+  const html = buildVideoInvitationSource({ id, url, title: "Longer video",
+    visualAnalysis: { version: 1, duration: 38.8, revealAt: 34,
+      textArea: { left: 16, top: 28, width: 68, height: 46 },
+      ink: "#fff1d2", shadow: "rgba(12,6,2,.7)" } });
+  const analysis = analyzeTemplate(html);
+  const check = validateTemplateSource(html, analysis).find(item => item.id === "timeline");
+  assert.equal(check.status, "pending");
+  assert.match(check.detail, /uploaded MP4 duration/);
+});

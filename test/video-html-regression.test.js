@@ -96,3 +96,26 @@ test("Smart invitation follows MP4 time rather than a separate looping CSS clock
   assert.doesNotThrow(() => new Function(smart.slice(scriptStart, scriptEnd)));
   assert.equal(findVideoBackground(smart)?.id, id);
 });
+
+test("Video + HTML accepts bounded durations and computes exact 30fps frame counts", async () => {
+  const { isSupportedVideoDuration, videoFrameCount } = await import("../src/video-html-contract.js");
+  assert.equal(videoFrameCount(30), 900);
+  assert.equal(videoFrameCount(38.8), 1164);
+  assert.equal(videoFrameCount(120), 3600);
+  assert.equal(isSupportedVideoDuration(5), true);
+  assert.equal(isSupportedVideoDuration(4.99), false);
+  assert.equal(isSupportedVideoDuration(120.01), false);
+  assert.equal(isSupportedVideoDuration(Infinity), false);
+  assert.throws(() => videoFrameCount(121), /Unsupported video duration/);
+});
+
+test("Generated Video + HTML uses source duration for smart reveal timeline", () => {
+  const smart = buildVideoInvitationSource({ id, url, title: "Variable Wedding",
+    visualAnalysis: { version: 1, duration: 38.8, revealAt: 34,
+      textArea: { left: 16, top: 28, width: 68, height: 46 },
+      ink: "#fff1d2", shadow: "rgba(12,6,2,.7)" } });
+  assert.ok(smart.includes("const revealAt = 34.00"));
+  assert.ok(smart.includes("animation:none;transition:none"));
+  assert.ok(smart.includes("data-wedding-background"));
+  assert.equal(findVideoBackground(smart)?.id, id);
+});
