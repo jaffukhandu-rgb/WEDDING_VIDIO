@@ -401,7 +401,7 @@ function initVideoHtmlTab() {
         status.textContent = "Analyzing video frames and readable area: " + percent + "%";
         uploadProgress.value = percent;
         uploadLabel.textContent = "Analyzing video frames: " + percent + "%";
-      });
+      }, { ai: { adminKey: key, apiRoot: API_ROOT } });
       status.textContent = "Video analyzed. Uploading the background securely…";
       uploadProgress.value = 0;
       uploadLabel.textContent = "Uploading MP4: 0% transferred";
