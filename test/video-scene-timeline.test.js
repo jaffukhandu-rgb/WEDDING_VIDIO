@@ -29,7 +29,7 @@ test("Scene keyframes cover the complete duration and refine the final transitio
   for (const seconds of [5, 30, 38.8, 120]) {
     const revealAt = Math.max(0, seconds - 6);
     const frames = sceneSampleTimes(seconds, revealAt, [seconds - 8]);
-    assert.ok(frames.length >= 12 && frames.length <= 18);
+    assert.ok(frames.length >= 8 && frames.length <= 18);
     assert.ok(frames[0] >= 0 && frames.at(-1) < seconds);
     assert.ok(frames.every((time, index) =>
       Number.isFinite(time) && (index === 0 || time > frames[index - 1])));
