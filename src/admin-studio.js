@@ -1,4 +1,5 @@
 import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
+import {findVideoBackground} from './video-html-contract.js';
 import {createPreviewController} from './admin-preview-controller.js';
 import {validateTemplateSource,validateRuntimeReport} from './admin-template-validator.js';
 import {createAdminDelivery} from './admin-delivery.js';
@@ -46,7 +47,7 @@ function renderValidation(){
       : validateRuntimeReport(runtimeValidation,lastAnalysis.sceneCount);
   const manualCheck={
     id:'visual',status:validationManual.checked?'pass':'pending',
-    title:'Full 30-second visual review',
+    title:findVideoBackground(source)?'Full background-video visual review':'Full 30-second visual review',
     detail:validationManual.checked
       ? 'Admin confirmed visual review in this browser session only.'
       : 'Watch all scenes and verify images, dates, text fit, timing, and music manually.'
