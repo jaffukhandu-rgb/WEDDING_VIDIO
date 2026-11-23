@@ -1,3 +1,5 @@
+import { findVideoBackground } from "./video-html-contract.js";
+
 // Admin delivery: MP4 generation and publication. No key or customer media is persisted.
 const API_ROOT = (import.meta.env.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
@@ -30,7 +32,7 @@ async function readApiError(response, fallback) {
   }
 }
 
-async function verifyMp4Metadata(video, url) {
+async function verifyMp4Metadata(video, url, expectedDuration) {
   await new Promise((resolve, reject) => {
     let timer;
     function cleanup() {
@@ -46,9 +48,11 @@ async function verifyMp4Metadata(video, url) {
     video.src = url;
     video.load();
   });
-  if (!Number.isFinite(video.duration) || Math.abs(video.duration - 30) > 1 ||
+  if (!Number.isFinite(video.duration) || !Number.isFinite(expectedDuration) ||
+      Math.abs(video.duration - expectedDuration) > 1 ||
       video.videoWidth !== 540 || video.videoHeight !== 960) {
-    throw new Error("MP4 dimensions or duration are incorrect. Expected 540×960 and 30 seconds.");
+    throw new Error("MP4 dimensions or duration are incorrect. Expected 540×960 and " +
+      expectedDuration.toFixed(2) + " seconds.");
   }
 }
 
@@ -141,7 +145,7 @@ export function createAdminDelivery({ getState }) {
     rendering = true;
     loader.classList.remove("hide");
     showRenderProgress(0, "Preparing video renderer…");
-    exportStatus.textContent = "Rendering 900 frames at 540 × 960. Keep this tab open.";
+    exportStatus.textContent = "Rendering at 540 × 960. Duration follows the source video. Keep this tab open.";
     updateButtons();
     let progressTimer;
     try {
@@ -173,6 +177,16 @@ export function createAdminDelivery({ getState }) {
         body: JSON.stringify({ html: state.html, ...audio })
       });
       if (!response.ok) throw new Error(await readApiError(response, "MP4 rendering failed."));
+      const reportedDuration = response.headers.get("X-Render-Duration");
+      // Old code-only renderers produced 30s clips; uploaded video templates
+      // must use the new duration-aware renderer, not silently truncate.
+      if (reportedDuration === null && findVideoBackground(state.html)) {
+        throw new Error("Renderer is outdated: video duration metadata is missing. Update the renderer before exporting.");
+      }
+      const expectedDuration = reportedDuration === null ? 30 : Number(reportedDuration);
+      if (!Number.isFinite(expectedDuration) || expectedDuration <= 0) {
+        throw new Error("Renderer returned an invalid video duration.");
+      }
       const blob = await response.blob();
       showRenderProgress(99, "Validating the finished MP4…");
       if (!blob.type.includes("video/mp4") || blob.size < 16) {
@@ -186,7 +200,7 @@ export function createAdminDelivery({ getState }) {
       }
       const candidateUrl = URL.createObjectURL(blob);
       try {
-        await verifyMp4Metadata(exportVideo, candidateUrl);
+        await verifyMp4Metadata(exportVideo, candidateUrl, expectedDuration);
       } catch (metadataError) {
         URL.revokeObjectURL(candidateUrl);
         exportVideo.removeAttribute("src");
