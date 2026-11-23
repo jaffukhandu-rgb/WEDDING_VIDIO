@@ -272,7 +272,10 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     '<video data-wedding-background="' + id + '" src="' + escapeHtml(parsed.href) + '"',
     '  autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>',
     '</section><section class="scene" style="--i:1" aria-label="Personalized invitation">',
-    isSmart ? '<article class="copy" data-video-auto-layout="v1"><div class="copy-inner">' : '<article class="copy">',
+    isSmart ? (isTimeline
+      ? '<article class="copy" data-video-auto-layout="v1" data-scene-timeline="v2"><div class="copy-inner">'
+      : '<article class="copy" data-video-auto-layout="v1"><div class="copy-inner">')
+      : '<article class="copy">',
     '<p class="ceremony"></p><p class="message"></p><h1 class="names"></h1>',
     '<p class="date-time"></p><p class="venue"></p><p class="address"></p><p class="blessing"></p>',
     isSmart ? (isTimeline
@@ -542,7 +545,13 @@ function initVideoHtmlTab() {
       visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
         " confidence. Video duration: " + visualAnalysis.duration.toFixed(1) +
         "s. Text starts at " + visualAnalysis.revealAt.toFixed(1) +
-        "s. Video reference: " + result.id + ". " +
+        "s. " + (visualAnalysis.panels?.length >= 2
+          ? "AI timeline: " + visualAnalysis.scenes.length + " scenes, " +
+            visualAnalysis.panels.length + " timed panels. "
+          : visualAnalysis.scenes?.length
+            ? "AI detected " + visualAnalysis.scenes.length +
+              " scenes; single-panel timing used. " : "") +
+        "Video reference: " + result.id + ". " +
         (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
           "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");
       status.textContent = "Video + HTML generated from the analyzed MP4. Edit customer details and preview before export.";
