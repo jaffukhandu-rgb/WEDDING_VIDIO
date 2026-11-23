@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan, classifyGeminiFailure } from "../server/gemini-video-analysis.js";
+import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan, classifyGeminiFailure, resolveGeminiModel } from "../server/gemini-video-analysis.js";
 
 const duration = 34.37;
 const jpeg = "abcd".repeat(120);
@@ -66,8 +66,11 @@ test("Sends timestamped images to Gemini with server-only key", async () => {
   const payload = JSON.parse(request.options.body);
   assert.equal(payload.contents[0].parts.filter(part => part.inlineData).length, 9);
   assert.equal(JSON.stringify(payload).includes("SERVER_TEST_KEY"), false);
-  assert.equal(payload.generationConfig.thinkingConfig.thinkingBudget, 0);
+  assert.equal(payload.generationConfig.thinkingConfig.thinkingLevel, "low");
+  assert.equal("thinkingBudget" in payload.generationConfig.thinkingConfig, false);
+  assert.equal("temperature" in payload.generationConfig, false);
   assert.equal(payload.generationConfig.maxOutputTokens, 1600);
+  assert.match(request.url, /models\/gemini-3\.5-flash:generateContent$/);
   assert.ok(request.url.startsWith("https://generativelanguage.googleapis.com/"));
 });
 
@@ -117,4 +120,66 @@ test("Missing model response and invalid layout receive distinct errors", async 
       }) }] }
     }] })
   })), error => error.reason === "invalid_layout");
+});
+
+test("Defaults to Gemini 3.5 Flash and supports only server-approved models", () => {
+  assert.equal(resolveGeminiModel(""), "gemini-3.5-flash");
+  assert.equal(resolveGeminiModel("gemini-3.5-flash"), "gemini-3.5-flash");
+  assert.equal(resolveGeminiModel("gemini-3.5-flash-lite"), "gemini-3.5-flash-lite");
+  assert.throws(() => resolveGeminiModel("gemini-2.5-flash"), /Unsupported/);
+  assert.throws(() => resolveGeminiModel("../invalid-url"), /Unsupported/);
+});
+
+test("Missing 3.5 Flash retries once on 3.5 Flash-Lite with the same validated plan", async () => {
+  const urls = [];
+  const response = await requestGeminiPlan(sample, "SERVER_KEY", async (url, opts) => {
+    urls.push(url);
+    assert.equal(opts.headers["x-goog-api-key"], "SERVER_KEY");
+    if (url.includes("gemini-3.5-flash-lite")) {
+      return {
+        ok: true, json: async () => ({
+          candidates: [{ content: { parts: [
+            { text: "internal thought", thought: true },
+            { text: JSON.stringify(candidate) }
+          ] } }]
+        })
+      };
+    }
+    return { ok: false, status: 404,
+      json: async () => ({ error: { status: "NOT_FOUND" } }) };
+  }, "gemini-3.5-flash");
+  assert.equal(response.aiAssisted, true);
+  assert.equal(response.revealAt, candidate.revealAt);
+  assert.equal(urls.length, 2);
+  assert.match(urls[0], /gemini-3\.5-flash:generateContent$/);
+  assert.match(urls[1], /gemini-3\.5-flash-lite:generateContent$/);
+});
+
+test("Quota, invalid requests and authentication errors never trigger another model request", async () => {
+  for (const [status, providerStatus, reason] of [
+    [429, "RESOURCE_EXHAUSTED", "quota_exceeded"],
+    [403, "PERMISSION_DENIED", "permission_denied"],
+    [400, "INVALID_ARGUMENT", "invalid_request"]
+  ]) {
+    let callCount = 0;
+    await assert.rejects(requestGeminiPlan(sample, "key", async () => {
+      callCount++;
+      return { ok: false, status,
+        json: async () => ({ error: { status: providerStatus } }) };
+    }, "gemini-3.5-flash"), error => error.reason === reason);
+    assert.equal(callCount, 1);
+  }
+});
+
+test("Explicit Flash-Lite selection bypasses primary model", async () => {
+  const urls = [];
+  const result = await requestGeminiPlan(sample, "key", async url => {
+    urls.push(url);
+    return { ok: true, json: async () => ({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(candidate) }] } }]
+    }) };
+  }, "gemini-3.5-flash-lite");
+  assert.equal(result.aiAssisted, true);
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /gemini-3\.5-flash-lite:generateContent$/);
 });
