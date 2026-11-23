@@ -7,11 +7,12 @@ It does **not** allow Gemini to write or execute HTML/JavaScript.
 
 1. Create a Gemini Developer API key in Google AI Studio.
 2. Add `GEMINI_API_KEY=your-key` to the **renderer server environment only** (for example its local `.env` file). Do **not** add it to Vite variables or commit it.
-3. Keep the existing `ADMIN_API_KEY` configured. The new routes require the same admin authentication.
-4. Restart the existing renderer using the project's normal command.
-5. In Admin Studio, upload a portrait MP4 through **Video + HTML** or choose an existing uploaded video from the library. No new UI control is required.
+3. Optionally set `GEMINI_MODEL=gemini-3.5-flash` on the renderer. It defaults to this model, so no new setting is required for an existing key. Allowed values are `gemini-3.5-flash` and `gemini-3.5-flash-lite` only.
+4. Keep the existing `ADMIN_API_KEY` configured. The new routes require the same admin authentication.
+5. Restart the existing renderer using the project's normal command.
+6. In Admin Studio, upload a portrait MP4 through **Video + HTML** or choose an existing uploaded video from the library. No new UI control is required.
 
-When Gemini is configured, the browser samples nine small, timestamped JPEGs from the selected MP4 and sends those frames to the authenticated local renderer. The renderer sends the samples to Gemini 2.5 Flash, requests JSON fields for text reveal time, safe rectangle, text ink, confidence, and warnings, and validates the result before using it.
+When Gemini is configured, the browser samples up to ten small, timestamped JPEGs from the selected MP4 and sends those frames to the authenticated local renderer. The renderer uses **Gemini 3.5 Flash** by default and requests JSON fields for text reveal time, safe rectangle, text ink, confidence, and warnings. If Google reports that Gemini 3.5 Flash is unavailable (404), it retries **once** with Gemini 3.5 Flash-Lite. Other failures use the existing local analyzer without another paid API call.
 
 **Important:** This is *sampled-frame* visual understanding, not complete frame-by-frame video analysis. It improves semantic scene awareness but cannot guarantee exact transition timing, perfectly clear text regions, or complete event-card layouts. Existing generated invitation HTML stays compatible. Manually review video and text before publishing.
 
@@ -30,7 +31,7 @@ When Gemini is configured, the browser samples nine small, timestamped JPEGs fro
 - No AI-generated scripts, HTML, external URLs, dependencies, storage changes, or database migrations.
 - To test: `npm test`, `npm run build`, and a real MP4 upload → preview → final export with and without a Gemini key. Check the logs for errors, not the key.
 
-The engine uses a fixed model name `gemini-2.5-flash`; provider availability may change. If it becomes unavailable, the local analyzer continues to function.
+The backend model can be configured with `GEMINI_MODEL` and defaults to `gemini-3.5-flash`. `gemini-3.5-flash-lite` is the only supported alternative. The model fallback applies to unavailable-model errors, **not** invalid API keys, permission problems, exhausted quotas, malformed responses, or timeouts. Those continue through the existing local analyzer. A model advertised by Google does not guarantee successful inference for a particular key or quota.
 
 ## Diagnose a 502 from the browser
 
@@ -47,4 +48,4 @@ After attempting an upload, open Chrome DevTools → Network → Fetch/XHR, sele
 
 The Admin Studio's analysis report includes the same safe reason; **never share request headers, keys, or the full frame payload**. The original analyzer still creates a template on any Gemini failure.
 
-The request now disables extra Gemini 2.5 Flash thinking and reserves more output tokens for JSON; image sampling concentrates around the locally predicted final scene. Timing is still an estimate from sampled frames and should be visually reviewed, especially on transitions.
+The Gemini 3 request uses `thinkingLevel: low`, keeps the default temperature, and reserves 1600 output tokens for structured JSON; image sampling concentrates around the locally predicted final scene. Timing is still an estimate from sampled frames and should be visually reviewed, especially on transitions.
