@@ -1,3 +1,5 @@
+import { findVideoBackground } from "./video-html-contract.js";
+
 // Static validation is conservative: it never executes uploaded template code.
 // "pass" means only the named check passed, not that arbitrary HTML is safe.
 export function validateTemplateSource(html, analysis) {
@@ -35,12 +37,17 @@ export function validateTemplateSource(html, analysis) {
     : duration != null && step != null
       ? (analysis.sceneCount - 1) * step + duration
       : null;
-  add('timeline', total === 30 ? 'pass' : 'warning', '30-second scene schedule',
-    total == null
-      ? 'Scene durations could not be confirmed statically. Review all scenes in the preview.'
-      : total === 30
-        ? analysis.sceneCount + ' scenes span 30 seconds in the detected CSS schedule.'
-        : 'Detected scene schedule spans ' + total + ' seconds, not the expected 30. Review timing.');
+  if (findVideoBackground(html)) {
+    add('timeline', 'pending', 'Background-video duration',
+      'Video + HTML exports use the uploaded MP4 duration. Review the complete video before publishing.');
+  } else {
+    add('timeline', total === 30 ? 'pass' : 'warning', '30-second scene schedule',
+      total == null
+        ? 'Scene durations could not be confirmed statically. Review all scenes in the preview.'
+        : total === 30
+          ? analysis.sceneCount + ' scenes span 30 seconds in the detected CSS schedule.'
+          : 'Detected scene schedule spans ' + total + ' seconds, not the expected 30. Review timing.');
+  }
 
   const externalScript = /<script\b[^>]*\bsrc\s*=/i.test(html);
   const dynamicCode = /\b(?:eval\s*\(|new\s+Function\s*\(|import\s*\()/i.test(html);
@@ -82,7 +89,7 @@ export function validateTemplateSource(html, analysis) {
   return checks;
 }
 
-// Only a smoke check. Never treat it as a complete 30s visual inspection.
+// Only a smoke check. Never treat it as a complete-duration visual inspection.
 export function validateRuntimeReport(runtime, expectedScenes) {
   if (!runtime) return {
     id: 'runtime', status: 'pending', title: 'Browser preview smoke test',
