@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan } from "../server/gemini-video-analysis.js";
+import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan, classifyGeminiFailure } from "../server/gemini-video-analysis.js";
 
 const duration = 34.37;
 const jpeg = "abcd".repeat(120);
@@ -66,6 +66,8 @@ test("Sends timestamped images to Gemini with server-only key", async () => {
   const payload = JSON.parse(request.options.body);
   assert.equal(payload.contents[0].parts.filter(part => part.inlineData).length, 9);
   assert.equal(JSON.stringify(payload).includes("SERVER_TEST_KEY"), false);
+  assert.equal(payload.generationConfig.thinkingConfig.thinkingBudget, 0);
+  assert.equal(payload.generationConfig.maxOutputTokens, 1600);
   assert.ok(request.url.startsWith("https://generativelanguage.googleapis.com/"));
 });
 
@@ -76,5 +78,43 @@ test("Rejects HTTP errors and malformed model JSON", async () => {
     json: async () => ({
       candidates: [{ content: { parts: [{ text: "not json" }] } }]
     })
-  })), SyntaxError);
+  })), /invalid JSON/);
+});
+
+test("Reports safe, useful codes for Gemini permission, quota and model failures", async () => {
+  const cases = [
+    [400, "INVALID_ARGUMENT", "API_KEY_INVALID", "invalid_key"],
+    [403, "PERMISSION_DENIED", null, "permission_denied"],
+    [404, "NOT_FOUND", null, "model_unavailable"],
+    [429, "RESOURCE_EXHAUSTED", null, "quota_exceeded"],
+    [503, "UNAVAILABLE", null, "provider_unavailable"]
+  ];
+  for (const [status, providerStatus, detailReason, expected] of cases) {
+    assert.equal(classifyGeminiFailure(status, providerStatus, detailReason), expected);
+    await assert.rejects(
+      requestGeminiPlan(sample, "server-key", async () => ({
+        ok: false,
+        status,
+        json: async () => ({ error: {
+          status: providerStatus,
+          details: detailReason ? [{ reason: detailReason }] : []
+        } })
+      })),
+      error => error.reason === expected && !error.message.includes("server-key")
+    );
+  }
+});
+
+test("Missing model response and invalid layout receive distinct errors", async () => {
+  await assert.rejects(requestGeminiPlan(sample, "key", async () => ({
+    ok: true, json: async () => ({ candidates: [] })
+  })), error => error.reason === "empty_response");
+  await assert.rejects(requestGeminiPlan(sample, "key", async () => ({
+    ok: true,
+    json: async () => ({ candidates: [{
+      content: { parts: [{ text: JSON.stringify({
+        ...candidate, revealAt: 200
+      }) }] }
+    }] })
+  })), error => error.reason === "invalid_layout");
 });

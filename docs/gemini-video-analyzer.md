@@ -31,3 +31,20 @@ When Gemini is configured, the browser samples nine small, timestamped JPEGs fro
 - To test: `npm test`, `npm run build`, and a real MP4 upload → preview → final export with and without a Gemini key. Check the logs for errors, not the key.
 
 The engine uses a fixed model name `gemini-2.5-flash`; provider availability may change. If it becomes unavailable, the local analyzer continues to function.
+
+## Diagnose a 502 from the browser
+
+A successful `GET /api/admin/video-analysis` with `enabled:true` **only means the renderer can see a configured key**. It does not establish that Google accepted the key or can perform inference.
+
+After attempting an upload, open Chrome DevTools → Network → Fetch/XHR, select the failing `POST /api/admin/video-analysis`, then open **Response**. The backend now returns a safe `reason` code:
+
+- `invalid_key`, `permission_denied`: check API key permissions or project access with Google AI Studio.
+- `quota_exceeded`: inspect the key's free-tier/paid API quotas; consumer subscriptions are not API quota.
+- `model_unavailable`: selected Gemini model is not supported for this API key/project.
+- `invalid_request`: Google rejected the model request, parameters or image format.
+- `provider_unavailable`, `timeout`: upstream availability/network issue.
+- `empty_response`, `invalid_json`, `invalid_layout`: Gemini responded but did not return a valid layout plan.
+
+The Admin Studio's analysis report includes the same safe reason; **never share request headers, keys, or the full frame payload**. The original analyzer still creates a template on any Gemini failure.
+
+The request now disables extra Gemini 2.5 Flash thinking and reserves more output tokens for JSON; image sampling concentrates around the locally predicted final scene. Timing is still an estimate from sampled frames and should be visually reviewed, especially on transitions.
