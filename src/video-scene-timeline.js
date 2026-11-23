@@ -46,7 +46,8 @@ export function validateSceneTimeline(value, duration) {
 
   // Some footage has too little readable time for two distinct panels.
   // In that case, scene descriptions can still augment the original v1 plan.
-  if (value.panels === undefined || value.panels === null) {
+  if (value.panels === undefined || value.panels === null ||
+      (Array.isArray(value.panels) && value.panels.length === 0)) {
     return { scenes, panels: [] };
   }
   if (!Array.isArray(value.panels) || value.panels.length < 2 ||
