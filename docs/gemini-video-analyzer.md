@@ -12,9 +12,9 @@ It does **not** allow Gemini to write or execute HTML/JavaScript.
 5. Restart the existing renderer using the project's normal command.
 6. In Admin Studio, upload a portrait MP4 through **Video + HTML** or choose an existing uploaded video from the library. No new UI control is required.
 
-When Gemini is configured, the browser samples up to ten small, timestamped JPEGs from the selected MP4 and sends those frames to the authenticated local renderer. The renderer uses **Gemini 3.5 Flash** by default and requests JSON fields for text reveal time, safe rectangle, text ink, confidence, and warnings. If Google reports that Gemini 3.5 Flash is unavailable (404), it retries **once** with Gemini 3.5 Flash-Lite. Other failures use the existing local analyzer without another paid API call.
+When Gemini is configured, the browser samples 8–18 small, timestamped JPEGs (adapted to the video duration) from the selected MP4 and sends those frames to the authenticated local renderer. The renderer uses **Gemini 3.5 Flash** by default and requests a structured JSON scene plan with safe text areas, estimated timing, and (when possible) two or three readable invitation panels. If Google reports that Gemini 3.5 Flash is unavailable (404), it retries **once** with Gemini 3.5 Flash-Lite. Other failures use the existing local analyzer without another paid API call.
 
-**Important:** This is *sampled-frame* visual understanding, not complete frame-by-frame video analysis. It improves semantic scene awareness but cannot guarantee exact transition timing, perfectly clear text regions, or complete event-card layouts. Existing generated invitation HTML stays compatible. Manually review video and text before publishing.
+**Important:** This is *sampled-frame* visual understanding, not complete frame-by-frame video analysis. It cannot guarantee frame-exact transitions or a long readable programme on a short ending. If a validated multi-panel timeline is unavailable, the original single-overlay HTML is generated. The existing two-scene HTML structure, CONFIG, and previous templates remain compatible. Generated V2 timelines show names, details and optional event pages against the video playhead. For multiple events, the admin must first define the appropriate number of event entries in the template's CONFIG; the existing customer editor intentionally does not change event counts.
 
 ## Privacy, availability, and costs
 
@@ -26,8 +26,8 @@ When Gemini is configured, the browser samples up to ten small, timestamped JPEG
 ## Safety and checks
 
 - Server endpoints: authenticated `GET/POST /api/admin/video-analysis`.
-- Input: 5–10 chronological JPEG samples, each at most 180,000 base64 characters; bounded duration and total size.
-- Output: numeric, constrained layout and reveal time; enumerated text colors/confidence; limited warning text.
+- Input: 5–18 chronological JPEG samples, each at most 180,000 base64 characters; bounded duration and total size.
+- Output: numeric, constrained layout and reveal time; optional validated scene descriptors and ordered 2–3-panel timeline; enumerated text colors/confidence; limited warning text.
 - No AI-generated scripts, HTML, external URLs, dependencies, storage changes, or database migrations.
 - To test: `npm test`, `npm run build`, and a real MP4 upload → preview → final export with and without a Gemini key. Check the logs for errors, not the key.
 
@@ -48,4 +48,4 @@ After attempting an upload, open Chrome DevTools → Network → Fetch/XHR, sele
 
 The Admin Studio's analysis report includes the same safe reason; **never share request headers, keys, or the full frame payload**. The original analyzer still creates a template on any Gemini failure.
 
-The Gemini 3 request uses `thinkingLevel: low`, keeps the default temperature, and reserves 1600 output tokens for structured JSON; image sampling concentrates around the locally predicted final scene. Timing is still an estimate from sampled frames and should be visually reviewed, especially on transitions.
+The Gemini 3 request uses `thinkingLevel: low`, keeps the default temperature, and reserves 2600 output tokens for structured JSON; coarse keyframes cover the complete MP4, with extra samples around the locally predicted final scene. Timing is still an estimate from sampled frames and should be visually reviewed, especially on transitions.
