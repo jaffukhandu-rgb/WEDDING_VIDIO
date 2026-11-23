@@ -216,7 +216,7 @@ async function requestGeminiPlanForModel(sample, apiKey, fetcher, model) {
     parts.push({ inlineData: { mimeType: "image/jpeg", data: frame.jpeg } });
   }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), 35000);
   try {
     const response = await fetcher(
       "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
