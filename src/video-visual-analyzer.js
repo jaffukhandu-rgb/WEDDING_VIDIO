@@ -187,7 +187,14 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
     const endpoint = root + "/api/admin/video-analysis";
     const headers = { "X-Admin-Key": options.ai.adminKey };
     try {
-      const status = await fetch(endpoint, { headers, cache: "no-store" });
+      const capabilityController = new AbortController();
+      const capabilityTimeout = setTimeout(() => capabilityController.abort(), 5000);
+      let status;
+      try {
+        status = await fetch(endpoint, {
+          headers, cache: "no-store", signal: capabilityController.signal
+        });
+      } finally { clearTimeout(capabilityTimeout); }
       if (!status.ok || !(await status.json()).enabled) return localPlan;
       const sampleCanvas = document.createElement("canvas");
       sampleCanvas.width = 256;
