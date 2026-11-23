@@ -1,4 +1,5 @@
 import { isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
+import { sceneSampleTimes, validateSceneTimeline } from "./video-scene-timeline.js";
 
 // Visual heuristics only: decoded pixels cannot semantically identify a plaque.
 const W = 96, H = 170;
@@ -203,16 +204,9 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       const sampleContext = sampleCanvas.getContext("2d");
       if (!sampleContext) return localPlan;
       const images = [];
-      // Retain scene overview frames, but inspect the likely final transition
-      // more closely instead of spreading all images ~4 seconds apart.
-      const times = [
-        .25, duration * .25, duration * .5, duration * .65,
-        localPlan.revealAt - 4, localPlan.revealAt - 2,
-        localPlan.revealAt - 1, localPlan.revealAt + .35,
-        localPlan.revealAt + 1.25, duration - .25
-      ].map(time => Number(Math.max(.15, Math.min(duration - .15, time)).toFixed(2)))
-        .sort((a, b) => a - b)
-        .filter((time, index, values) => index === 0 || time > values[index - 1]);
+      // Coarse overview spans the whole MP4; local cuts add keyframes
+      // near the final invitation surface without streaming full footage.
+      const times = sceneSampleTimes(duration, localPlan.revealAt, localPlan.candidateCuts);
       for (const time of times) {
         await seek(video, time);
         sampleContext.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
@@ -265,10 +259,17 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
           plan.warnings.some(w => typeof w !== "string" || w.length > 130)) {
         throw Error("Invalid AI video plan.");
       }
-      return { ...localPlan, ...plan, warnings: [
-        ...localPlan.warnings, ...plan.warnings,
-        "Gemini-assisted layout: review the full video before publishing."
-      ] };
+      // Shared strict scene/timeline validator is also used by the backend.
+      // Never let untrusted model-provided timing or selectors reach the HTML.
+      const timeline = (plan.scenes !== undefined || plan.panels !== undefined)
+        ? validateSceneTimeline(plan, duration) : null;
+      return { ...localPlan, ...plan,
+        ...(timeline ? { scenes: timeline.scenes, panels: timeline.panels } : {}),
+        warnings: [
+          ...localPlan.warnings, ...plan.warnings,
+          "Gemini-assisted layout: review the full video before publishing."
+        ]
+      };
     } catch {
       return { ...localPlan, warnings: [
         ...localPlan.warnings,
