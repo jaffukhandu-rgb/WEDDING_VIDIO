@@ -215,7 +215,7 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
         images.push({ time, jpeg });
       }
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 32000);
+      const timeout = setTimeout(() => controller.abort(), 42000);
       let response;
       try {
         response = await fetch(endpoint, {
