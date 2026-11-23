@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAdmin } from "./admin-access.js";
 import { isSupportedVideoDuration } from "../src/video-html-contract.js";
+import { validateSceneTimeline } from "../src/video-scene-timeline.js";
 
 // Gemini never supplies HTML or JavaScript. Only a validated, bounded plan
 // can modify the existing generated invitation's text placement and timing.
@@ -41,9 +42,9 @@ function geminiError(message, reason) {
   error.reason = reason;
   return error;
 }
-const MAX_FRAMES = 10;
+const MAX_FRAMES = 18;
 const MAX_FRAME_BASE64 = 180_000;
-const MAX_BODY_CHARS = 1_600_000;
+const MAX_BODY_CHARS = 3_000_000;
 let activeRequest = false;
 
 const isRecord = value => value !== null && typeof value === "object" &&
@@ -73,10 +74,16 @@ export function validateGeminiPlan(value, duration) {
       value.warnings.some(item => typeof item !== "string" || item.length > 130)) {
     throw new Error("Invalid Gemini layout warnings.");
   }
+  const timeline = (value.scenes !== undefined || value.panels !== undefined)
+    ? validateSceneTimeline(value, duration) : null;
+  if (timeline?.panels.length && Math.abs(value.revealAt - timeline.panels[0].start) > .75) {
+    throw new Error("AI text reveal does not match the first panel.");
+  }
   return {
     version: 1,
     duration,
-    revealAt: Math.round(value.revealAt * 100) / 100,
+    revealAt: timeline?.panels.length ? timeline.panels[0].start
+      : Math.round(value.revealAt * 100) / 100,
     textArea: {
       left: Math.round(area.left), top: Math.round(area.top),
       width: Math.round(area.width), height: Math.round(area.height)
@@ -86,7 +93,8 @@ export function validateGeminiPlan(value, duration) {
       ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)",
     confidence: value.confidence,
     warnings: value.warnings.map(item => item.trim()).filter(Boolean),
-    aiAssisted: true
+    aiAssisted: true,
+    ...(timeline ? { scenes: timeline.scenes, panels: timeline.panels } : {})
   };
 }
 
@@ -127,7 +135,38 @@ const SCHEMA = {
     },
     ink: { type: "string", enum: ["#24160e", "#fff1d2"] },
     confidence: { type: "string", enum: ["medium", "low"] },
-    warnings: { type: "array", items: { type: "string" } }
+    warnings: { type: "array", items: { type: "string" } },
+    scenes: {
+      type: "array", items: {
+        type: "object",
+        properties: {
+          start: { type: "number" }, end: { type: "number" },
+          kind: { type: "string", enum: [
+            "people", "invitation_surface", "decor", "transition", "other"
+          ] },
+          note: { type: "string" }
+        },
+        required: ["start", "end", "kind", "note"]
+      }
+    },
+    panels: {
+      type: "array", items: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["intro", "details", "events"] },
+          start: { type: "number" }, end: { type: "number" },
+          textArea: {
+            type: "object",
+            properties: {
+              left: { type: "number" }, top: { type: "number" },
+              width: { type: "number" }, height: { type: "number" }
+            },
+            required: ["left", "top", "width", "height"]
+          }
+        },
+        required: ["kind", "start", "end", "textArea"]
+      }
+    }
   },
   required: ["revealAt", "textArea", "ink", "confidence", "warnings"]
 };
@@ -150,17 +189,27 @@ export async function requestGeminiPlan(
 
 async function requestGeminiPlanForModel(sample, apiKey, fetcher, model) {
   const parts = [{
-    text: "You are planning ONE editable wedding invitation overlay for a portrait MP4. " +
-      "You receive chronologically sampled still frames, NOT the full video. " +
-      "Each image is preceded by its exact timestamp. Identify scene changes, people, " +
-      "decorative plaques/boards, and quiet legible regions. Start text only once a final " +
-      "appropriate surface is clearly visible and stable; keep text off faces and objects. " +
-      "Use a late reveal within the last 20 seconds, leaving at least 1.5 seconds to read. " +
-      "Return ONLY the JSON plan: revealAt in seconds, textArea in PERCENT of 9:16 video " +
-      "(left 8..55, top 12..69, width 35..85, height 23..67, fully within edges), " +
-      "ink (#24160e for bright or #fff1d2 for dark surfaces), confidence medium/low, " +
-      "and up to 3 brief warnings. Do not invent exact motion certainty between frames. " +
-      "Video length: " + sample.duration + " seconds."
+    text: "Analyze this portrait wedding-video timeline using timestamped JPEG frames. " +
+      "These are selected samples, not every frame; never claim frame-exact boundaries. " +
+      "Describe 1-8 consecutive scenes covering 0 to the full video duration using " +
+      "start/end seconds, kind (people, invitation_surface, decor, transition, other), " +
+      "and a short factual note. Distinguish people, camera motion, boards, floral " +
+      "decoration, smoke, and scene transitions based only on visible evidence. " +
+      "Find the earliest safely readable decorated invitation surface toward the end. " +
+      "Propose a brief JSON-only invitation plan with revealAt, textArea, ink, " +
+      "confidence and up to three warnings. Where at least 6 seconds of clear " +
+      "surface remain in the last 20 seconds, ALSO provide 2-3 non-overlapping " +
+      "panels, each at least 2.5 seconds and ending before the video ends: " +
+      "intro (names/message) then details (date/venue/address), optionally events " +
+      "(programme) if enough time remains. Each panel has kind, start, end, textArea. " +
+      "Set revealAt equal to the intro start. Panels must fit inside the safe " +
+      "visible surface and avoid people, smoke and ornate borders. If there is no " +
+      "safe multi-panel interval, omit panels entirely and keep a single overlay. " +
+      "All textArea values are PERCENT of frame (left 8..55, top 12..69, " +
+      "width 35..85, height 23..67, right <=96, bottom <=94). " +
+      "Use ink #24160e on light or #fff1d2 on dark regions, confidence medium/low. " +
+      "No generated HTML, no personal details. Last 20 seconds max for reveal. " +
+      "Video duration: " + sample.duration + " seconds."
   }];
   for (const frame of sample.frames) {
     parts.push({ text: "Video frame at " + frame.time.toFixed(2) + " seconds:" });
@@ -180,7 +229,7 @@ async function requestGeminiPlanForModel(sample, apiKey, fetcher, model) {
             responseMimeType: "application/json",
             responseSchema: SCHEMA,
             thinkingConfig: { thinkingLevel: "low" },
-            maxOutputTokens: 1600
+            maxOutputTokens: 2600
           }
         }),
         signal: controller.signal
