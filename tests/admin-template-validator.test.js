@@ -66,3 +66,20 @@ test("runtime smoke report distinguishes pending, pass, warning and failure", ()
   assert.equal(validateRuntimeReport({ ...healthy, sceneCount: 4 }, 5).status, "fail");
   assert.equal(validateRuntimeReport({ ...healthy, errors: ["Script error"] }, 5).status, "fail");
 });
+
+test("Video runtime smoke check requires playback and detects decoding errors", () => {
+  const healthy = { sceneCount: 2, stageWidth: 540, stageHeight: 960,
+    started: true, errors: [], brokenImages: 0, overflowingText: 0 };
+  assert.equal(validateRuntimeReport({ ...healthy,
+    videoBackground: { ready: false, advancing: false, error: null } }, 2).status, "warning");
+  assert.equal(validateRuntimeReport({ ...healthy,
+    videoBackground: { ready: true, advancing: true, error: "decode failed" } }, 2).status, "fail");
+  assert.equal(validateRuntimeReport({ ...healthy,
+    videoBackground: { ready: true, advancing: true, error: null } }, 2).status, "pass");
+});
+
+test("Automatic text overflow blocks preview validation", () => {
+  const runtime = { sceneCount: 2, stageWidth: 540, stageHeight: 960,
+    started: true, errors: [], smartTextFit: .55, smartTextFitRequired: .40 };
+  assert.equal(validateRuntimeReport(runtime, 2).status, "fail");
+});

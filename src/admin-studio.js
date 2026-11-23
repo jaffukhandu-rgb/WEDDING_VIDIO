@@ -23,6 +23,7 @@ const previewController=createPreviewController({
   }
 });
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
+let sourceRevision=0;
 
 let staticValidation=[],runtimeValidation=null,previewValidationError='',validationDirty=false;
 let delivery=null;
@@ -266,6 +267,22 @@ function renderDetectedFields(analysis){
   const photoSection=renderPhotoFields(analysis);
   if(photoSection)fields.append(photoSection);
 }
+// Generated Video + HTML designs contain mirrored top-level and first-event details.
+// Keep only those known duplicate controls in sync; leave custom templates untouched.
+fields.addEventListener('input',event=>{
+  if(!source.includes('data-video-auto-layout="v1"')||lastAnalysis?.config.events?.length!==1)return;
+  const target=event.target;
+  const key=target.dataset?.eventKey||target.name;
+  if(!['date','time','venue'].includes(key))return;
+  if(target.dataset?.eventKey&&target.dataset.eventIndex!=='0')return;
+  const other=target.dataset?.eventKey
+    ? editor.elements.namedItem(key)
+    : fields.querySelector('[data-event-index="0"][data-event-key="'+key+'"]');
+  if(other&&other!==target){
+    other.value=target.value;
+    if(other.dataset?.eventKey)other.dispatchEvent(new Event('input'));
+  }
+});
 function clearMusic(){
   musicPlayer.pause();
   musicPlayer.removeAttribute('src');musicPlayer.load();musicPlayer.classList.add('hide');
@@ -287,7 +304,10 @@ musicUpload.addEventListener('change',()=>{
   removeMusic.classList.remove('hide');
   musicStatus.textContent=file.name+' · preview soundtrack selected (not included in HTML download).';
 });
-removeMusic.addEventListener('click',clearMusic);
+removeMusic.addEventListener('click',()=>{
+  clearMusic();
+  if(prepared)invalidatePreviewValidation();
+});
 function readImageData(file){
   if(!IMAGE_TYPES.has(file.type)||file.size===0||file.size>IMAGE_MAX_BYTES){
     throw new Error('Images must be JPEG, PNG or WebP and at most 3 MB.');
@@ -341,14 +361,18 @@ function resetPrepared(){
 }
 async function analyzeSource(text){
   if(analysisRunning)return;
+  const revision=sourceRevision;
   analysisRunning=true;analyzeButton.disabled=true;fileInput.disabled=true;
   resetPrepared();
   try{
     showProgress(0,'Starting analysis');await nextPaint();
+    if(revision!==sourceRevision)return;
     if(!text.trim())throw new Error('Paste your HTML invitation code first.');
     showProgress(20,'Reading source');await nextPaint();
+    if(revision!==sourceRevision)return;
     const analysis=analyzeTemplate(text);
     showProgress(55,'Validating scenes and fields');await nextPaint();
+    if(revision!==sourceRevision)return;
     source=text;lastAnalysis=analysis;report.replaceChildren();
     const heading=document.createElement('p');
     heading.className='analysis-stats';
@@ -372,6 +396,7 @@ async function analyzeSource(text){
       const note=document.createElement('p');note.className='good';note.textContent='Font audit: embedded fonts detected.';report.append(note);
     }
     showProgress(80,'Building sample preview form');await nextPaint();
+    if(revision!==sourceRevision)return;
     renderDetectedFields(analysis);
     editor.classList.remove('hide');
     staticValidation=validateTemplateSource(text,analysis);
@@ -379,6 +404,7 @@ async function analyzeSource(text){
     showProgress(100,'Analysis complete');
     setStatus('Analysis complete. Customer fields detected. Sample values are for preview only.','good');
   }catch(error){
+    if(revision!==sourceRevision)return;
     showProgress(0,'Analysis failed — review the error below');
     setStatus(error instanceof Error?error.message:'Unable to analyze template.','error');
   }finally{
@@ -406,6 +432,7 @@ fileInput.addEventListener('change',async()=>{
   }
 });
 codeInput.addEventListener('input',()=>{
+  sourceRevision++;
   if(source||prepared){
     resetPrepared();progress.classList.add('hide');
     setStatus('Code changed. Click Analyze Code again.');
@@ -430,6 +457,7 @@ resetSample.addEventListener('click',()=>{
     thumb?.removeAttribute('src');thumb?.classList.add('hide');
   }
   clearMusic();
+  if(prepared)invalidatePreviewValidation();
   setStatus('Sample values reset. Customers will enter their own details.','good');
 });
 editor.addEventListener('submit',async event=>{

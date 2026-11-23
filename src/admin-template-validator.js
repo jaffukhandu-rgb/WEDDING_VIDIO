@@ -119,6 +119,26 @@ export function validateRuntimeReport(runtime, expectedScenes) {
         ', but the edited names require '+runtime.monogram.expected+'. Correct the binding before export.'
     };
   }
+  if (runtime.videoBackground) {
+    if (runtime.videoBackground.error) {
+      return {
+        id: 'runtime', status: 'fail', title: 'Background MP4 playback',
+        detail: 'The preview video reported a decoding/playback error.'
+      };
+    }
+    if (!runtime.videoBackground.ready || !runtime.videoBackground.advancing) {
+      return {
+        id: 'runtime', status: 'warning', title: 'Background MP4 playback',
+        detail: 'The background MP4 has not yet decoded and played forward. Click Play, wait for motion, and run checks again.'
+      };
+    }
+  }
+  if (Number.isFinite(runtime.smartTextFitRequired) && runtime.smartTextFitRequired < 0.55) {
+    return {
+      id: 'runtime', status: 'fail', title: 'Automatic text overflow',
+      detail: 'The invitation text cannot fit within the detected area at the minimum readable scale. Shorten the copy or choose a different layout.'
+    };
+  }
   if (Number.isFinite(runtime.smartTextFit) && runtime.smartTextFit < 0.78) {
     return {
       id: 'runtime', status: 'warning', title: 'Automatic text layout check',

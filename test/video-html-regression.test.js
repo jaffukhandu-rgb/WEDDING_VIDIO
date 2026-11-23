@@ -79,3 +79,20 @@ test("MP4 range slicing covers startup, seeks, suffix and invalid ranges", () =>
   assert.equal(headers["Content-Range"], "bytes 50-99/100");
   assert.equal(headers["Content-Length"], "50");
 });
+
+test("Smart invitation follows MP4 time rather than a separate looping CSS clock", () => {
+  const smart = buildVideoInvitationSource({
+    id, url, title: "Smart Wedding",
+    visualAnalysis: { version: 1, revealAt: 25.8,
+      textArea: { left: 16, top: 28, width: 68, height: 46 },
+      ink: "#fff1d2", shadow: "rgba(12,6,2,.7)" }
+  });
+  assert.ok(smart.includes("animation:none;transition:none"));
+  assert.ok(smart.includes("backgroundVideo.currentTime"));
+  assert.ok(smart.includes("textFitRequired"));
+  const scriptStart = smart.indexOf("<script>") + 8;
+  const scriptEnd = smart.indexOf("</script>", scriptStart);
+  assert.ok(scriptStart >= 8 && scriptEnd > scriptStart);
+  assert.doesNotThrow(() => new Function(smart.slice(scriptStart, scriptEnd)));
+  assert.equal(findVideoBackground(smart)?.id, id);
+});

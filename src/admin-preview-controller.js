@@ -20,6 +20,7 @@ const BRIDGE = String.raw`
   const pausedAnimations = new Set();
   const knownMedia = new Set();
   const mediaToResume = new Set();
+  let videoPlaybackObserved = false;
   let mutationObserver = null;
 
   function schedule(task) {
@@ -175,6 +176,7 @@ const BRIDGE = String.raw`
     const stage=document.querySelector(".stage")||document.querySelector("main");
     const bounds=stage?.getBoundingClientRect();
     const sceneCount=document.querySelectorAll(".scene").length;
+    const backgroundVideo=document.querySelector('video[data-wedding-background]');
     const bookPageCount=document.querySelectorAll(".book > .pg").length;
     const monogramNode=document.querySelector('[data-bind-initials="partner1,partner2"]');
     const monogramExpected=monogramNode?.getAttribute('data-expected-initials');
@@ -199,6 +201,17 @@ const BRIDGE = String.raw`
           const fit=Number(root.dataset.textFit);
           return Number.isFinite(fit) ? fit : null;
         })(),
+        smartTextFitRequired:(() => {
+          const root=document.querySelector('[data-video-auto-layout="v1"]');
+          if (!root) return null;
+          const required=Number(root.dataset.textFitRequired);
+          return Number.isFinite(required) ? required : null;
+        })(),
+        videoBackground:backgroundVideo ? {
+          ready:backgroundVideo.readyState>=2&&backgroundVideo.videoWidth>0,
+          advancing:videoPlaybackObserved,
+          error:backgroundVideo.error?.message||null
+        } : null,
         brokenImages:[...document.images].filter(img=>!img.complete||(img.currentSrc&&img.naturalWidth===0)).length,
         overflowingText:[...document.querySelectorAll('h1,h2,h3,p,[data-bind]')].filter(node=>{
           const rect=node.getBoundingClientRect();
@@ -237,6 +250,19 @@ const BRIDGE = String.raw`
   });
 
   window.addEventListener("load", () => {
+    const video=document.querySelector('video[data-wedding-background]');
+    if (video) {
+      let previousTime=video.currentTime;
+      video.addEventListener("timeupdate", () => {
+        if (video.currentTime > previousTime + .03 && !videoPlaybackObserved) {
+          videoPlaybackObserved=true;
+          sendRuntimeReport();
+        }
+        previousTime=video.currentTime;
+      });
+      video.addEventListener("loadeddata", sendRuntimeReport);
+      video.addEventListener("error", sendRuntimeReport);
+    }
     window.parent.postMessage({ channel: CHANNEL, state: "ready" }, "*");
     nativeSetTimeout(sendRuntimeReport, 400);
   }, { once: true });
