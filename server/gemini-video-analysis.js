@@ -4,7 +4,19 @@ import { isSupportedVideoDuration } from "../src/video-html-contract.js";
 
 // Gemini never supplies HTML or JavaScript. Only a validated, bounded plan
 // can modify the existing generated invitation's text placement and timing.
-const MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.5-flash";
+const FALLBACK_MODEL = "gemini-3.5-flash-lite";
+const SUPPORTED_MODELS = new Set([DEFAULT_MODEL, FALLBACK_MODEL]);
+
+// This setting is server-only and never comes from the browser.
+export function resolveGeminiModel(configured = process.env.GEMINI_MODEL) {
+  const model = typeof configured === "string" ? configured.trim() : "";
+  if (!model) return DEFAULT_MODEL;
+  if (!SUPPORTED_MODELS.has(model)) {
+    throw geminiError("Unsupported configured Gemini model.", "model_unavailable");
+  }
+  return model;
+}
 
 // Expose only fixed diagnostic codes. Never return provider error bodies,
 // request frames, or API credentials to the browser or server logs.
@@ -120,7 +132,23 @@ const SCHEMA = {
   required: ["revealAt", "textArea", "ink", "confidence", "warnings"]
 };
 
-export async function requestGeminiPlan(sample, apiKey, fetcher = fetch) {
+export async function requestGeminiPlan(
+  sample, apiKey, fetcher = fetch, configuredModel = process.env.GEMINI_MODEL
+) {
+  const model = resolveGeminiModel(configuredModel);
+  try {
+    return await requestGeminiPlanForModel(sample, apiKey, fetcher, model);
+  } catch (error) {
+    // Retry only a missing model. Do not double-call on quotas, bad keys,
+    // timeouts or unsafe model output; the existing local analyzer handles those.
+    if (model === DEFAULT_MODEL && error?.reason === "model_unavailable") {
+      return requestGeminiPlanForModel(sample, apiKey, fetcher, FALLBACK_MODEL);
+    }
+    throw error;
+  }
+}
+
+async function requestGeminiPlanForModel(sample, apiKey, fetcher, model) {
   const parts = [{
     text: "You are planning ONE editable wedding invitation overlay for a portrait MP4. " +
       "You receive chronologically sampled still frames, NOT the full video. " +
@@ -142,7 +170,7 @@ export async function requestGeminiPlan(sample, apiKey, fetcher = fetch) {
   const timeout = setTimeout(() => controller.abort(), 25000);
   try {
     const response = await fetcher(
-      "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -151,8 +179,7 @@ export async function requestGeminiPlan(sample, apiKey, fetcher = fetch) {
           generationConfig: {
             responseMimeType: "application/json",
             responseSchema: SCHEMA,
-            temperature: 0.1,
-            thinkingConfig: { thinkingBudget: 0 },
+            thinkingConfig: { thinkingLevel: "low" },
             maxOutputTokens: 1600
           }
         }),
@@ -170,9 +197,10 @@ export async function requestGeminiPlan(sample, apiKey, fetcher = fetch) {
         classifyGeminiFailure(response.status, providerError?.status, detailReason));
     }
     const payload = await response.json();
-    const text = payload?.candidates?.[0]?.content?.parts?.find(part =>
-      typeof part.text === "string")?.text;
-    if (typeof text !== "string" || text.length > 10000) {
+    const text = payload?.candidates?.[0]?.content?.parts
+      ?.filter(part => typeof part.text === "string" && !part.thought)
+      .map(part => part.text).join("").trim();
+    if (typeof text !== "string" || !text || text.length > 10000) {
       throw geminiError("Gemini did not return a JSON plan.", "empty_response");
     }
     let parsed;
