@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan, requestGeminiDesign, runGeminiStage, classifyGeminiFailure, resolveGeminiModel } from "../server/gemini-video-analysis.js";
+import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan, requestGeminiDesign, runGeminiStage, classifyGeminiFailure, resolveGeminiModel, resolveGeminiFallback, safeGeminiDiagnostics } from "../server/gemini-video-analysis.js";
 
 const duration = 34.37;
 const jpeg = "abcd".repeat(120);
@@ -73,7 +73,7 @@ test("Sends timestamped images to Gemini with server-only key", async () => {
   assert.ok(payload.generationConfig.responseSchema.required.includes("scenes"));
   assert.ok(!payload.generationConfig.responseSchema.required.includes("panels"));
   assert.match(payload.contents[0].parts[0].text, /End every panel by 34\.27 seconds/);
-  assert.match(request.url, /models\/gemini-3\.5-flash:generateContent$/);
+  assert.match(request.url, /models\/gemini-3\.5-flash-lite:generateContent$/);
   assert.ok(request.url.startsWith("https://generativelanguage.googleapis.com/"));
 });
 
@@ -189,8 +189,13 @@ test("Optional empty panel fields and bounded decimal areas preserve legacy layo
   assert.equal(plan.textArea.top + plan.textArea.height, 94);
 });
 
-test("Defaults to Gemini 3.5 Flash and supports only server-approved models", () => {
-  assert.equal(resolveGeminiModel(""), "gemini-3.5-flash");
+test("Defaults to Flash-Lite candidates and supports only server-approved models", () => {
+  assert.equal(resolveGeminiModel(""), "gemini-3.5-flash-lite");
+  assert.equal(resolveGeminiFallback("gemini-3.5-flash-lite", ""), "gemini-3.1-flash-lite");
+  assert.equal(resolveGeminiFallback("gemini-3.5-flash", ""), "gemini-3.5-flash-lite");
+  assert.equal(resolveGeminiFallback("gemini-3.5-flash-lite", "none"), null);
+  assert.equal(resolveGeminiFallback("gemini-3.5-flash-lite", "gemini-3.5-flash-lite"), null);
+  assert.throws(() => resolveGeminiFallback("gemini-3.5-flash-lite", "../bad"), /Unsupported/);
   assert.equal(resolveGeminiModel("gemini-3.5-flash"), "gemini-3.5-flash");
   assert.equal(resolveGeminiModel("gemini-3.5-flash-lite"), "gemini-3.5-flash-lite");
   assert.throws(() => resolveGeminiModel("gemini-2.5-flash"), /Unsupported/);
@@ -269,7 +274,7 @@ test("Independent creative request uses a small style-only schema and bounded re
   assert.throws(() => validateGeminiFrames(sample, 1, 3), /Invalid/);
 });
 
-test("Transient stage timeout gets exactly one retry within its shared deadline", async () => {
+test("Slow timeout switches directly to fallback within its shared deadline", async () => {
   let clock = 0;
   const budgets = [];
   const attempts = [];
@@ -280,10 +285,13 @@ test("Transient stage timeout gets exactly one retry within its shared deadline"
       throw Object.assign(new Error("timeout"), { reason: "timeout" });
     }
     return "ok";
-  }, { now: () => clock, onAttempt: report => attempts.push(report) });
+  }, { now: () => clock, random: () => 0, sleep: async ms => { clock += ms; },
+    primaryModel: "gemini-3.5-flash-lite", fallbackModel: "gemini-3.1-flash-lite",
+    onAttempt: report => attempts.push(report) });
   assert.equal(result, "ok");
-  assert.deepEqual(budgets, [60_000, 30_000]);
+  assert.deepEqual(budgets, [60_000, 29_000]);
   assert.deepEqual(attempts.map(x => x.outcome), ["timeout", "ok"]);
+  assert.deepEqual(attempts.map(x => x.model), ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]);
 });
 
 test("Non-transient stage failures are not retried", async () => {
@@ -295,4 +303,62 @@ test("Non-transient stage failures are not retried", async () => {
     }), error => error.reason === reason);
     assert.equal(calls, 1);
   }
+});
+
+test("Fast upstream failures get one delayed primary retry, then fallback", async () => {
+  let clock = 0;
+  const calls = [], delays = [], reports = [];
+  const result = await runGeminiStage(async (budget, model) => {
+    calls.push({ budget, model });
+    clock += 2_000;
+    if (calls.length < 3) throw Object.assign(new Error("unavailable"), {
+      reason: "provider_unavailable", upstreamStatus: 503, providerStatus: "UNAVAILABLE"
+    });
+    return "ok";
+  }, { now: () => clock, random: () => .5, sleep: async ms => { delays.push(ms); clock += ms; },
+    primaryModel: "gemini-3.5-flash-lite", fallbackModel: "gemini-3.1-flash-lite",
+    onAttempt: info => reports.push(info) });
+  assert.equal(result, "ok");
+  assert.deepEqual(calls.map(x => x.model), ["gemini-3.5-flash-lite", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]);
+  assert.deepEqual(delays, [1250, 2250]);
+  assert.equal(reports[0].upstreamStatus, 503);
+  assert.equal(reports[0].providerStatus, "UNAVAILABLE");
+  assert.ok(calls[2].budget <= 90_000 - 7_500);
+});
+
+test("A missing primary model switches once without an identical request", async () => {
+  const calls = [];
+  await runGeminiStage(async (_budget, model) => {
+    calls.push(model);
+    if (calls.length === 1) throw Object.assign(new Error("missing"), { reason: "model_unavailable" });
+    return "ok";
+  }, { primaryModel: "gemini-3.5-flash-lite", fallbackModel: "gemini-3.1-flash-lite",
+    sleep: async () => { throw Error("Unexpected delay"); } });
+  assert.deepEqual(calls, ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]);
+});
+
+test("Exact model request disables hidden legacy fallback and retains safe HTTP metadata", async () => {
+  let calls = 0;
+  await assert.rejects(requestGeminiPlan(sample, "private-key", async () => {
+    calls++;
+    return { ok: false, status: 404, json: async () => ({ error: {
+      status: "NOT_FOUND", message: "private-key raw upstream message"
+    } }) };
+  }, "gemini-3.5-flash", 20_000, { allowModelFallback: false }),
+  error => error.reason === "model_unavailable" && error.upstreamStatus === 404 &&
+    error.providerStatus === "NOT_FOUND" && !error.message.includes("private-key"));
+  assert.equal(calls, 1);
+  assert.deepEqual(safeGeminiDiagnostics({ upstreamStatus: 503, providerStatus: "secret" }), { upstreamStatus: 503 });
+});
+
+test("Exhausted fallback stops without another request", async () => {
+  let count = 0, clock = 0;
+  await assert.rejects(runGeminiStage(async () => {
+    count++;
+    clock += 1_000;
+    throw Object.assign(new Error("unavailable"), { reason: "provider_unavailable" });
+  }, { now: () => clock, random: () => 0, sleep: async ms => { clock += ms; },
+    primaryModel: "gemini-3.5-flash-lite", fallbackModel: "gemini-3.1-flash-lite" }),
+  error => error.reason === "provider_unavailable");
+  assert.equal(count, 3);
 });

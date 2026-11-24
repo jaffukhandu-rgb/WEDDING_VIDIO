@@ -298,6 +298,12 @@ const AI_LAYOUT_DETAILS = {
   panel_boundaries: "panel timing", panel_text_area: "panel text area"
 };
 
+function safeAiModel(value) {
+  return typeof value === "string" &&
+    /^gemini-(?:3\.5-flash(?:-lite)?|3\.1-flash-lite|3\.6-flash|3\.8-flash)$/.test(value)
+    ? value : null;
+}
+
 function aiError(reason, detail) {
   const code = Object.hasOwn(AI_REASONS, reason) ? reason : "request_failed";
   const message = AI_REASONS[code] + (code === "invalid_layout" && Object.hasOwn(AI_LAYOUT_DETAILS, detail)
@@ -381,6 +387,9 @@ export async function runVideoAiStages(session, options = {}) {
   const finish = () => ({ ...scene, design: design || null, aiStageStatus: {
     scene: session.scenePlan ? "ready" : "fallback",
     design: design ? "ready" : !designPrompt ? "not_requested" : "fallback"
+  }, aiModels: {
+    scene: session.scenePlan ? safeAiModel(session.sceneModel) : null,
+    design: design ? safeAiModel(session.designModel) : null
   }, warnings: [...scene.warnings, ...warnings] });
   if (!refineDesign && session.scenePlan && (!designPrompt || design)) return finish();
   if (!options.ai?.adminKey || !options.ai?.apiRoot || !images?.length) {
@@ -407,6 +416,7 @@ export async function runVideoAiStages(session, options = {}) {
       try { scene = refineAiScene(result.plan, localPlan, decoded, duration); }
       catch { throw aiError("invalid_layout"); }
       session.scenePlan = scene;
+      session.sceneModel = safeAiModel(result.model);
     } catch (error) {
       warnings.push("Gemini unavailable (" + error.message + "). Used local frame analysis.");
       blocked = ["invalid_key", "permission_denied", "quota_exceeded", "model_unavailable"].includes(error.reason);
@@ -423,6 +433,7 @@ export async function runVideoAiStages(session, options = {}) {
       if (!design) throw aiError("invalid_layout");
       session.design = design;
       session.designPrompt = designPrompt;
+      session.designModel = safeAiModel(result.model);
     } catch (error) {
       warnings.push("Custom Gemini design unavailable (" + error.message + "). " +
         (refineDesign ? "Current design retained." : "Standard style used."));
@@ -440,7 +451,7 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
     return runVideoAiStages(options.session, options);
   }
   if (options.session) {
-    for (const key of ["source", "localPlan", "decoded", "images", "scenePlan", "design", "designPrompt"]) {
+    for (const key of ["source", "localPlan", "decoded", "images", "scenePlan", "sceneModel", "design", "designPrompt", "designModel"]) {
       delete options.session[key];
     }
   }

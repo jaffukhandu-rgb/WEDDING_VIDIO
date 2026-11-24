@@ -676,6 +676,11 @@ function initVideoHtmlTab() {
       (designPrompt ? (visualAnalysis.design ? "Custom Gemini design applied. " : "Custom design not available; standard style used. ") : "") +
       (visualAnalysis.aiStageStatus ? "Gemini scene: " + visualAnalysis.aiStageStatus.scene +
         "; design: " + visualAnalysis.aiStageStatus.design + ". " : "") +
+      (visualAnalysis.aiModels?.scene || visualAnalysis.aiModels?.design
+        ? "AI models used: " + [
+          visualAnalysis.aiModels.scene && "scene " + visualAnalysis.aiModels.scene,
+          visualAnalysis.aiModels.design && "design " + visualAnalysis.aiModels.design
+        ].filter(Boolean).join("; ") + ". " : "") +
       "Video reference: " + result.id + ". " +
       (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
         "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");
@@ -759,7 +764,9 @@ function initVideoHtmlTab() {
         videoHtmlCode.value = updated;
         if (!detail.applied) analyzeVideoHtml();
         visualReport.hidden = false;
-        visualReport.textContent = "Follow-up design applied. Existing video, timing and invitation fields preserved. Review the preview before exporting.";
+        visualReport.textContent = "Follow-up design applied" +
+          (visualAnalysis.aiModels?.design ? " using " + visualAnalysis.aiModels.design : "") +
+          ". Existing video, timing and invitation fields preserved. Review the preview before exporting.";
         status.textContent = "Design updated. Preview the revised invitation.";
         if (promptInput) promptInput.value = "";
         generationProgress.complete("Updated invitation HTML ready");

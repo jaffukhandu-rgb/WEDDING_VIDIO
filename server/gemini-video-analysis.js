@@ -6,9 +6,12 @@ import { normalizeDesignPrompt, validateVideoDesign, resolveVideoDesign, mergeVi
 
 // Gemini supplies scene evidence and optional bounded design data. The browser
 // generates HTML/CSS and keeps timing, customer fields and executable code under application control.
-const DEFAULT_MODEL = "gemini-3.5-flash";
-const FALLBACK_MODEL = "gemini-3.5-flash-lite";
-const SUPPORTED_MODELS = new Set([DEFAULT_MODEL, FALLBACK_MODEL]);
+const DEFAULT_MODEL = "gemini-3.5-flash-lite";
+const FALLBACK_MODEL = "gemini-3.1-flash-lite";
+const LEGACY_MODEL = "gemini-3.5-flash";
+const SUPPORTED_MODELS = new Set([
+  DEFAULT_MODEL, FALLBACK_MODEL, LEGACY_MODEL, "gemini-3.6-flash", "gemini-3.8-flash"
+]);
 
 // This setting is server-only and never comes from the browser.
 export function resolveGeminiModel(configured = process.env.GEMINI_MODEL) {
@@ -18,6 +21,14 @@ export function resolveGeminiModel(configured = process.env.GEMINI_MODEL) {
     throw geminiError("Unsupported configured Gemini model.", "model_unavailable");
   }
   return model;
+}
+
+export function resolveGeminiFallback(primary, configured = process.env.GEMINI_FALLBACK_MODEL) {
+  const model = typeof configured === "string" ? configured.trim() : "";
+  if (model === "none") return null;
+  const fallback = model ? resolveGeminiModel(model) :
+    primary === DEFAULT_MODEL ? FALLBACK_MODEL : DEFAULT_MODEL;
+  return fallback === primary ? null : fallback;
 }
 
 // Expose only fixed diagnostic codes. Never return provider error bodies,
@@ -43,10 +54,20 @@ export function classifyGeminiFailure(httpStatus, providerStatus, detailReason) 
   if (httpStatus >= 500) return "provider_unavailable";
   return "request_failed";
 }
+const PROVIDER_STATUSES = new Set(["INTERNAL", "UNAVAILABLE", "DEADLINE_EXCEEDED",
+  "RESOURCE_EXHAUSTED", "INVALID_ARGUMENT", "PERMISSION_DENIED", "UNAUTHENTICATED",
+  "NOT_FOUND", "FAILED_PRECONDITION", "UNKNOWN", "ABORTED", "CANCELLED"]);
 function geminiError(message, reason) {
   const error = new Error(message);
   error.reason = reason;
   return error;
+}
+export function safeGeminiDiagnostics(error) {
+  return {
+    ...(Number.isInteger(error?.upstreamStatus) && error.upstreamStatus >= 100 &&
+      error.upstreamStatus <= 599 ? { upstreamStatus: error.upstreamStatus } : {}),
+    ...(PROVIDER_STATUSES.has(error?.providerStatus) ? { providerStatus: error.providerStatus } : {})
+  };
 }
 export const GEMINI_STAGE_BUDGET_MS = 90_000;
 const FIRST_ATTEMPT_MS = 60_000;
@@ -227,7 +248,7 @@ const SCHEMA = {
 
 export async function requestGeminiPlan(
   sample, apiKey, fetcher = fetch, configuredModel = process.env.GEMINI_MODEL,
-  budgetMs = GEMINI_STAGE_BUDGET_MS
+  budgetMs = GEMINI_STAGE_BUDGET_MS, { allowModelFallback = true } = {}
 ) {
   const model = resolveGeminiModel(configuredModel);
   const deadline = Date.now() + budgetMs;
@@ -236,8 +257,8 @@ export async function requestGeminiPlan(
   } catch (error) {
     // Retry only a missing model. Do not double-call on quotas, bad keys,
     // timeouts or unsafe model output; the existing local analyzer handles those.
-    if (model === DEFAULT_MODEL && error?.reason === "model_unavailable") {
-      return requestGeminiPlanForModel(sample, apiKey, fetcher, FALLBACK_MODEL, deadline);
+    if (allowModelFallback && model === LEGACY_MODEL && error?.reason === "model_unavailable") {
+      return requestGeminiPlanForModel(sample, apiKey, fetcher, DEFAULT_MODEL, deadline);
     }
     throw error;
   }
@@ -293,7 +314,7 @@ async function requestGeminiPlanForModel(sample, apiKey, fetcher, model, deadlin
 // Style generation is independent of scene timing, with only reference images.
 export async function requestGeminiDesign(
   sample, apiKey, fetcher = fetch, configuredModel = process.env.GEMINI_MODEL,
-  budgetMs = GEMINI_STAGE_BUDGET_MS
+  budgetMs = GEMINI_STAGE_BUDGET_MS, { allowModelFallback = true } = {}
 ) {
   const model = resolveGeminiModel(configuredModel);
   const deadline = Date.now() + budgetMs;
@@ -321,8 +342,8 @@ export async function requestGeminiDesign(
   let parsed;
   try { parsed = await run(model); }
   catch (error) {
-    if (model !== DEFAULT_MODEL || error?.reason !== "model_unavailable") throw error;
-    parsed = await run(FALLBACK_MODEL);
+    if (!allowModelFallback || model !== LEGACY_MODEL || error?.reason !== "model_unavailable") throw error;
+    parsed = await run(DEFAULT_MODEL);
   }
   const design = previousDesign ? mergeVideoDesign(previousDesign, parsed) : validateVideoDesign(parsed);
   if (!design) throw geminiError("Gemini returned an invalid design.", "invalid_layout");
@@ -359,8 +380,12 @@ async function requestGeminiJson(parts, schema, maxOutputTokens, apiKey, fetcher
       const providerError = errorBody?.error;
       const details = Array.isArray(providerError?.details) ? providerError.details : [];
       const detailReason = details.map(item => item?.reason).find(item => typeof item === "string");
-      throw geminiError("Gemini analysis is unavailable.",
+      const error = geminiError("Gemini analysis is unavailable.",
         classifyGeminiFailure(response.status, providerError?.status, detailReason));
+      Object.assign(error, safeGeminiDiagnostics({
+        upstreamStatus: response.status, providerStatus: providerError?.status
+      }));
+      throw error;
     }
     const payload = await response.json();
     const text = payload?.candidates?.[0]?.content?.parts
@@ -382,26 +407,57 @@ async function requestGeminiJson(parts, schema, maxOutputTokens, apiKey, fetcher
   }
 }
 
-// Each attempt and model fallback consumes the same stage budget.
-export async function runGeminiStage(run, { now = Date.now, budgetMs = GEMINI_STAGE_BUDGET_MS,
-  firstAttemptMs = FIRST_ATTEMPT_MS, onAttempt = () => {} } = {}) {
+// One shared deadline across primary, delayed retry and optional fallback.
+// No automatic retry for quota, auth, invalid requests or invalid output.
+// Only the route owns recovery; its underlying request targets one exact model.
+export async function runGeminiStage(run, {
+  now = Date.now, budgetMs = GEMINI_STAGE_BUDGET_MS, firstAttemptMs = FIRST_ATTEMPT_MS,
+  primaryModel = resolveGeminiModel(), fallbackModel = resolveGeminiFallback(primaryModel),
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), random = Math.random,
+  onAttempt = () => {}
+} = {}) {
   const deadline = now() + budgetMs;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  let model = primaryModel, primaryRetried = false, lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
     const remaining = deadline - now();
-    if (remaining <= 0) throw geminiError("Gemini request timed out.", "timeout");
+    if (remaining < 5_000) throw lastError || geminiError("Gemini request timed out.", "timeout");
+    // A long first attempt may go straight to the fallback. A fast failure
+    // leaves time for a short same-model retry and a separate fallback.
+    const reserve = fallbackModel && model === primaryModel && primaryRetried ? 20_000 : 0;
+    const budget = attempt === 1 ? Math.min(firstAttemptMs, remaining)
+      : reserve ? Math.min(25_000, Math.max(5_000, remaining - reserve)) : remaining;
     const started = now();
     try {
-      const value = await run(attempt === 1 ? Math.min(firstAttemptMs, remaining) : remaining);
-      onAttempt({ attempt, elapsedMs: now() - started, outcome: "ok" });
+      const value = await run(budget, model);
+      onAttempt({ attempt, model, elapsedMs: now() - started, outcome: "ok" });
       return value;
     } catch (error) {
+      lastError = error;
       const reason = error?.name === "AbortError" ? "timeout" :
         FAILURE_REASONS.has(error?.reason) ? error.reason : "request_failed";
-      onAttempt({ attempt, elapsedMs: now() - started, outcome: reason });
-      if (attempt === 2 || !["timeout", "provider_unavailable"].includes(reason) ||
-          deadline - now() < 5_000) throw error;
+      onAttempt({ attempt, model, elapsedMs: now() - started, outcome: reason,
+        ...safeGeminiDiagnostics(error) });
+      if (attempt === 3 || !["timeout", "provider_unavailable", "model_unavailable"].includes(reason)) throw error;
+      if (model !== primaryModel) throw error;
+      const available = deadline - now();
+      const canSwitch = Boolean(fallbackModel && fallbackModel !== model);
+      // Missing model or a slow timeout: skip an expensive identical retry.
+      // Fast server errors can retry once if enough time remains for fallback.
+      if (canSwitch && (reason === "model_unavailable" || reason === "timeout" ||
+          primaryRetried || available < 32_000)) {
+        model = fallbackModel;
+      } else if (!primaryRetried && reason !== "model_unavailable") {
+        primaryRetried = true;
+      } else if (canSwitch) {
+        model = fallbackModel;
+      } else throw error;
+      const delay = reason === "model_unavailable" ? 0 :
+        Math.min(2_000, 1_000 * 2 ** (attempt - 1)) + Math.floor(random() * 500);
+      if (deadline - now() < delay + 5_000) throw error;
+      if (delay) await sleep(delay);
     }
   }
+  throw lastError;
 }
 
 export function geminiVideoAnalysisRouter() {
@@ -424,26 +480,32 @@ export function geminiVideoAnalysisRouter() {
     activeRequest = true;
     const started = Date.now();
     try {
-      const model = resolveGeminiModel();
+      const primaryModel = resolveGeminiModel();
+      const fallbackModel = resolveGeminiFallback(primaryModel);
       const request = stage === "design" ? requestGeminiDesign : requestGeminiPlan;
+      let usedModel = primaryModel;
       const value = await runGeminiStage(
-        budget => request(sample, apiKey, fetch, model, budget),
-        { onAttempt: ({ attempt, elapsedMs, outcome }) =>
-          console.info("Gemini video stage:", JSON.stringify({ stage, model, frames: sample.frames.length,
-            attempt, elapsedMs, outcome })) }
+        (budget, model) => request(sample, apiKey, fetch, model, budget, { allowModelFallback: false }),
+        { primaryModel, fallbackModel, onAttempt: report => {
+          if (report.outcome === "ok") usedModel = report.model;
+          console.info("Gemini video stage:", JSON.stringify({
+            stage, frames: sample.frames.length, ...report
+          }));
+        } }
       );
-      return res.json(stage === "design" ? { design: value } : { plan: value });
+      return res.json(stage === "design" ? { design: value, model: usedModel } : { plan: value, model: usedModel });
     } catch (error) {
       const reason = error?.name === "AbortError" ? "timeout" :
         FAILURE_REASONS.has(error?.reason) ? error.reason : "request_failed";
       const layoutDetail = reason === "invalid_layout" && LAYOUT_DETAILS.has(error?.layoutDetail)
         ? error.layoutDetail : null;
       console.warn("Gemini video stage unavailable:", JSON.stringify({
-        stage, reason, elapsedMs: Date.now() - started, ...(layoutDetail ? { layoutDetail } : {})
+        stage, reason, elapsedMs: Date.now() - started, ...safeGeminiDiagnostics(error),
+        ...(layoutDetail ? { layoutDetail } : {})
       }));
       return res.status(502).json({
         error: "Gemini analysis failed. Local video analysis remains available.",
-        reason, stage,
+        reason, stage, ...safeGeminiDiagnostics(error),
         ...(layoutDetail ? { layoutDetail } : {})
       });
     } finally {
