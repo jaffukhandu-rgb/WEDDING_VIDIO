@@ -295,7 +295,7 @@ const AI_LAYOUT_DETAILS = {
   palette: "palette or confidence", warnings: "warning format", scene_list: "scene list",
   scene_metadata: "scene description", scene_boundaries: "scene boundaries", scene_coverage: "scene coverage",
   scene_text_area: "scene text area", panel_list: "panel list",
-  panel_boundaries: "panel timing", panel_text_area: "panel text area"
+  panel_boundaries: "panel timing", panel_text_area: "panel text area", design_schema: "invalid style properties"
 };
 
 function safeAiModel(value) {

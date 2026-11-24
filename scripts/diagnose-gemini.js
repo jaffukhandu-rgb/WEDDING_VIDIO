@@ -7,7 +7,7 @@ import {
   classifyGeminiFailure, requestGeminiPlan, requestGeminiDesign,
   resolveGeminiModel, safeGeminiDiagnostics, validateGeminiFrames
 } from "../server/gemini-video-analysis.js";
-import { resolveVideoDesign } from "../src/video-invitation-design.js";
+import { resolveVideoDesign, applyExplicitDesignEdit } from "../src/video-invitation-design.js";
 
 const DEFAULT_MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
 const API = "https://generativelanguage.googleapis.com/v1beta/models/";
@@ -67,7 +67,7 @@ async function videoSample(filename) {
 
 const KNOWN_REASONS = new Set(["invalid_key", "permission_denied", "model_unavailable",
   "quota_exceeded", "invalid_request", "provider_unavailable", "timeout", "empty_response",
-  "invalid_json", "invalid_layout", "request_failed"]);
+  "invalid_json", "invalid_layout", "followup_mismatch", "request_failed"]);
 
 async function basicRequest(model, key, fetcher, payload) {
   const controller = new AbortController();
@@ -115,7 +115,10 @@ export async function runGeminiDiagnostics({
       const reason = error?.name === "AbortError" ? "timeout" :
         KNOWN_REASONS.has(error?.reason) ? error.reason : "request_failed";
       row = { model, stage, outcome: "fail", elapsedMs: now() - started,
-        reason, ...safeGeminiDiagnostics(error) };
+        reason, ...safeGeminiDiagnostics(error),
+        ...(error?.layoutDetail === "design_schema" ? { layoutDetail: "design_schema" } : {}),
+        ...(reason === "followup_mismatch" ? { requestedChangesMissed: error.requestedChangesMissed,
+          unexpectedChanges: error.unexpectedChanges } : {}) };
     }
     results.push(row); log(row);
     return { row, value };
@@ -154,12 +157,22 @@ export async function runGeminiDiagnostics({
     const previousDesign = resolveVideoDesign(initial.value);
     const followup = validateGeminiFrames({ ...brief, previousDesign,
       designPrompt: "Increase nameSize to 10.5 and set borderWidth to 0. Keep all other settings." }, 1, 3);
+    const expected = { ...previousDesign, nameSize: 10.5, borderWidth: 0 };
+    const local = applyExplicitDesignEdit(previousDesign, followup.designPrompt);
+    const localPassed = Boolean(local && Object.keys(expected).every(key => expected[key] === local[key]) &&
+      Object.keys(local).length === Object.keys(expected).length);
+    log({ model, stage: "local_exact_edit", outcome: localPassed ? "pass" : "fail",
+      apiCalls: 0 });
     const edit = await check(model, "follow_up", async () => {
       const value = await requestDesign(followup, apiKey, fetcher, model, TIMEOUT_MS, EXACT_MODEL);
-      const expected = { ...previousDesign, nameSize: 10.5, borderWidth: 0 };
-      if (Object.keys(expected).some(key => expected[key] !== value[key]) ||
-          Object.keys(value).some(key => !Object.hasOwn(expected, key))) {
-        throw Object.assign(Error("Follow-up differs from requested changes"), { reason: "invalid_layout" });
+      const requestedChangesMissed = ["nameSize", "borderWidth"].filter(key => expected[key] !== value[key]);
+      const unexpectedChanges = Object.keys(resolveVideoDesign(value) || {}).filter(key =>
+        !["nameSize", "borderWidth"].includes(key) && expected[key] !== value[key]);
+      if (requestedChangesMissed.length || unexpectedChanges.length ||
+          Object.keys(expected).some(key => expected[key] !== value[key])) {
+        throw Object.assign(Error("Follow-up differs from requested changes"), {
+          reason: "followup_mismatch", requestedChangesMissed, unexpectedChanges
+        });
       }
       return value;
     });

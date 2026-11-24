@@ -92,3 +92,12 @@ Each model uses up to four generation calls plus one metadata request. Review ti
 - [ ] Run full npm test and npm run build on the local checkout.
 - [ ] Verify upload, follow-up prompt, customer form, preview and MP4 export in the browser.
 - [ ] Optional later experiment: Gemma 4 and native MP4 analysis (not integrated into production).
+
+### Follow-up reliability checkpoint
+
+- [x] Live synthetic diagnostic reported by the developer: both Lite model IDs and text/initial design requests worked; 3.5 Flash Lite also passed scene analysis. The other model reported HTTP 503 for scene and follow-up. Neither passed the AI follow-up check.
+- [x] Separate exact local edits from creative AI edits. Examples: `Set nameSize to 10.5 and remove border`, `Set body size to 4.2`. Only fully recognized commands are applied locally to verified managed CSS; mixed/creative prompts still use Gemini. Out-of-range exact values are rejected rather than clamped.
+- [x] Separate initial-design and follow-up prompts; preserve unchanged properties and validate all returned settings.
+- [x] Diagnostic distinguishes invalid style schema (`invalid_layout`, `design_schema`) from valid output that missed requested changes (`followup_mismatch`). The local exact-edit check is logged separately and never counted as an AI model pass.
+- [ ] Re-run live model diagnostic; compare follow-up results and real-video quality.
+- [ ] Verify precise local follow-up and creative AI follow-up in Admin Studio; run full build/test and preview/export checks.

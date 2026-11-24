@@ -86,6 +86,37 @@ export function mergeVideoDesign(previous, changes) {
   return validateVideoDesign({ ...base, ...patch });
 }
 
+// Only fully recognized, explicit instructions are handled locally.
+// Never partially apply a mixed creative request or silently clamp its values.
+export function applyExplicitDesignEdit(previous, instruction) {
+  const base = resolveVideoDesign(previous);
+  if (!base) return null;
+  const prompt = normalizeDesignPrompt(instruction).toLowerCase()
+    .replace(/[.!?]+$/, "").trim();
+  const clauses = prompt.split(/\s*(?:;|,(?!\d)|\band\b|\.\s+)\s*/);
+  const patch = {};
+  const fieldNames = { namesize: "nameSize", bodysize: "bodySize", borderwidth: "borderWidth" };
+  for (const raw of clauses) {
+    const clause = raw.trim().replace(/^please\s+/, "");
+    if (/^(?:keep|preserve) (?:all other|the other|remaining) (?:settings|properties)(?: unchanged)?$/.test(clause)) continue;
+    let field, value;
+    if (/^(?:remove (?:the )?border|no border)$/.test(clause)) {
+      field = "borderWidth"; value = 0;
+    } else {
+      const match = clause.match(/^(?:set|change|increase|decrease) (?:the )?(name\s*size|body\s*size|border\s*width) to (-?(?:\d+(?:\.\d+)?|\.\d+))$/);
+      if (!match) return null;
+      field = fieldNames[match[1].replace(/\s/g, "")];
+      value = Number(match[2]);
+    }
+    if (Object.hasOwn(patch, field)) return null;
+    patch[field] = value;
+  }
+  if (!Object.keys(patch).length) return null;
+  const updated = mergeVideoDesign(base, patch);
+  if (!updated) throw Error("Requested design value is outside the allowed range (name size 6.5–11, body size 3–4.6, border width 0–0.45).");
+  return updated;
+}
+
 export function buildVideoDesignCss(value) {
   const d = resolveVideoDesign(value);
   if (!d) return "";

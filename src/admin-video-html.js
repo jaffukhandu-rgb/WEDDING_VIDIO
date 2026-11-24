@@ -1,6 +1,6 @@
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
-import { buildVideoDesignBlock, buildVideoDesignCss, readVideoDesignBlock, replaceVideoDesignBlock, normalizeDesignPrompt } from "./video-invitation-design.js";
+import { buildVideoDesignBlock, buildVideoDesignCss, readVideoDesignBlock, replaceVideoDesignBlock, normalizeDesignPrompt, applyExplicitDesignEdit } from "./video-invitation-design.js";
 import { createVideoGenerationProgress } from "./video-generation-progress.js";
 import { analyzeTemplate } from "./admin-engine.js";
 import { validateSceneTimeline, validateReadableWindows, allocateReadablePanels } from "./video-scene-timeline.js";
@@ -729,7 +729,12 @@ function initVideoHtmlTab() {
     status.textContent = "Working with the saved video — no new upload.";
     try {
       const previousScene = session.scenePlan, previousDesign = session.design;
-      const visualAnalysis = await analyzeVideoVisual(source, percent => {
+      // A fully recognized exact edit needs neither video decoding nor an AI request.
+      // Use the same verified CSS replacement path as a creative follow-up.
+      const explicitDesign = refineDesign ? applyExplicitDesignEdit(currentStyle.design, designPrompt) : null;
+      const visualAnalysis = explicitDesign ? {
+        design: explicitDesign, aiStageStatus: { design: "ready" }, warnings: []
+      } : await analyzeVideoVisual(source, percent => {
         generationProgress.set("frames", "Reading saved video frames", percent / 100);
       }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage,
         ...(refineDesign ? { refineDesign: true, previousDesign: currentStyle.design }
@@ -752,7 +757,8 @@ function initVideoHtmlTab() {
         const updated = replaceVideoDesignBlock(originalVideoCode, visualAnalysis.design);
         if (updated === originalVideoCode ||
             buildVideoDesignCss(visualAnalysis.design) === buildVideoDesignCss(currentStyle.design)) {
-          status.textContent = "Gemini returned no design changes. Try a more specific instruction.";
+          status.textContent = explicitDesign ? "The requested settings are already applied or have no visible effect."
+            : "Gemini returned no design changes. Try a more specific instruction.";
           generationProgress.fail("No design change returned");
           return;
         }
@@ -763,9 +769,15 @@ function initVideoHtmlTab() {
         codeInput.dispatchEvent(new CustomEvent("wedding:refine-video-design", { detail }));
         videoHtmlCode.value = updated;
         if (!detail.applied) analyzeVideoHtml();
+        if (explicitDesign) {
+          session.design = explicitDesign;
+          session.designPrompt = designPrompt;
+          session.designModel = null;
+        }
         visualReport.hidden = false;
         visualReport.textContent = "Follow-up design applied" +
-          (visualAnalysis.aiModels?.design ? " using " + visualAnalysis.aiModels.design : "") +
+          (explicitDesign ? " locally (no AI request)" :
+            visualAnalysis.aiModels?.design ? " using " + visualAnalysis.aiModels.design : "") +
           ". Existing video, timing and invitation fields preserved. Review the preview before exporting.";
         status.textContent = "Design updated. Preview the revised invitation.";
         if (promptInput) promptInput.value = "";

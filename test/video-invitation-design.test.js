@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateVideoDesign, buildVideoDesignCss, normalizeDesignPrompt, resolveVideoDesign, mergeVideoDesign, buildVideoDesignBlock, readVideoDesignBlock, replaceVideoDesignBlock } from "../src/video-invitation-design.js";
+import { validateVideoDesign, buildVideoDesignCss, normalizeDesignPrompt, resolveVideoDesign, mergeVideoDesign, applyExplicitDesignEdit, buildVideoDesignBlock, readVideoDesignBlock, replaceVideoDesignBlock } from "../src/video-invitation-design.js";
 import { buildVideoInvitationSource } from "../src/admin-video-html.js";
 import { validateGeminiFrames, requestGeminiPlan, requestGeminiDesign } from "../server/gemini-video-analysis.js";
 
@@ -95,4 +95,37 @@ test("Gemini follow-up request contains the previous style and merges only valid
   assert.deepEqual(result, { ...previousDesign, nameSize: 10.5, borderWidth: 0 });
   assert.ok(request.contents[0].parts[0].text.includes(JSON.stringify(previousDesign)));
   assert.throws(() => validateGeminiFrames({ duration: 30, frames, previousDesign: { html: "bad" } }, 1, 3), /Invalid previous/);
+});
+
+test("Exact multi-property edits preserve every other resolved style field", () => {
+  const previous = resolveVideoDesign(glass);
+  const next = applyExplicitDesignEdit(previous, "Increase nameSize to 10.5 and set borderWidth to 0. Keep all other settings.");
+  assert.deepEqual(next, { ...previous, nameSize: 10.5, borderWidth: 0 });
+  assert.deepEqual(applyExplicitDesignEdit(previous, "Remove the border"), { ...previous, borderWidth: 0 });
+  assert.deepEqual(applyExplicitDesignEdit(previous, "Set body size to 4.2"), { ...previous, bodySize: 4.2 });
+  assert.equal(previous.borderWidth, .18);
+});
+
+test("Local edits never partially apply creative, ambiguous or duplicate instructions", () => {
+  assert.equal(applyExplicitDesignEdit(glass, "Remove border and make it royal"), null);
+  assert.equal(applyExplicitDesignEdit(glass, "Make the names bigger"), null);
+  assert.equal(applyExplicitDesignEdit(glass, "Set nameSize to 9 and set nameSize to 10"), null);
+  assert.equal(applyExplicitDesignEdit(glass, "Remove border or change the color"), null);
+  assert.equal(applyExplicitDesignEdit(glass, "Keep all other settings"), null);
+  assert.throws(() => applyExplicitDesignEdit(glass, "Set nameSize to 100"), /outside the allowed range/);
+  assert.equal(applyExplicitDesignEdit(glass, "Set nameSize to 100 and make it royal"), null);
+});
+
+test("Follow-up AI prompt avoids redesign instructions and reports an invalid style schema", async () => {
+  const previousDesign = resolveVideoDesign(glass);
+  const sample = validateGeminiFrames({ duration: 30, frames: [{ time: 12, jpeg: "a".repeat(120) }],
+    previousDesign, designPrompt: "Make it royal" }, 1, 3);
+  await assert.rejects(requestGeminiDesign(sample, "test-key", async (_url, options) => {
+    const prompt = JSON.parse(options.body).contents[0].parts[0].text;
+    assert.ok(prompt.includes("Do not redesign it"));
+    assert.ok(!prompt.includes("Choose panel treatment"));
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [
+      { text: JSON.stringify({ nameSize: 100 }) }
+    ] } }] }) };
+  }, "gemini-3.5-flash-lite"), error => error.reason === "invalid_layout" && error.layoutDetail === "design_schema");
 });

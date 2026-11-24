@@ -56,3 +56,39 @@ test("Diagnostic stops model calls after a failed metadata check and reports onl
   assert.equal(result[0].reason, "provider_unavailable");
   assert.ok(!JSON.stringify(result).includes("secret"));
 });
+
+test("Diagnostic separates local edit success from model instruction mismatch", async () => {
+  const rows = [];
+  const model = "gemini-3.5-flash-lite";
+  const result = await runGeminiDiagnostics({ apiKey: "secret", models: [model], log: row => rows.push(row),
+    fetcher: async url => ({ ok: true, json: async () => url.endsWith(":generateContent")
+      ? { candidates: [{ content: { parts: [{ text: "OK" }] } }] }
+      : { supportedGenerationMethods: ["generateContent"] } }),
+    requestPlan: async () => ({ scenes: [] }),
+    requestDesign: async sample => sample.previousDesign
+      ? { ...sample.previousDesign, nameSize: 10.5, blur: 2 }
+      : { surface: "glass", blur: 8, nameSize: 8.5 }
+  });
+  const local = rows.find(row => row.stage === "local_exact_edit");
+  assert.equal(local.outcome, "pass");
+  assert.equal(local.apiCalls, 0);
+  assert.equal(result.at(-1).reason, "followup_mismatch");
+  assert.deepEqual(result.at(-1).requestedChangesMissed, ["borderWidth"]);
+  assert.deepEqual(result.at(-1).unexpectedChanges, ["blur"]);
+  assert.equal(result.length, 5);
+});
+
+test("Diagnostic distinguishes invalid design properties from a valid but incorrect edit", async () => {
+  const result = await runGeminiDiagnostics({ apiKey: "secret", models: ["gemini-3.5-flash-lite"], log: () => {},
+    fetcher: async url => ({ ok: true, json: async () => url.endsWith(":generateContent")
+      ? { candidates: [{ content: { parts: [{ text: "OK" }] } }] }
+      : { supportedGenerationMethods: ["generateContent"] } }),
+    requestPlan: async () => ({ scenes: [] }),
+    requestDesign: async sample => {
+      if (sample.previousDesign) throw Object.assign(Error("invalid"), { reason: "invalid_layout", layoutDetail: "design_schema" });
+      return { surface: "glass" };
+    }
+  });
+  assert.equal(result.at(-1).reason, "invalid_layout");
+  assert.equal(result.at(-1).layoutDetail, "design_schema");
+});
