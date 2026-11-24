@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan, classifyGeminiFailure, resolveGeminiModel } from "../server/gemini-video-analysis.js";
+import { validateGeminiFrames, validateGeminiPlan, requestGeminiPlan, requestGeminiDesign, runGeminiStage, classifyGeminiFailure, resolveGeminiModel } from "../server/gemini-video-analysis.js";
 
 const duration = 34.37;
 const jpeg = "abcd".repeat(120);
@@ -249,4 +249,50 @@ test("Explicit Flash-Lite selection bypasses primary model", async () => {
   assert.equal(result.aiAssisted, true);
   assert.equal(urls.length, 1);
   assert.match(urls[0], /gemini-3\.5-flash-lite:generateContent$/);
+});
+
+test("Independent creative request uses a small style-only schema and bounded reference frames", async () => {
+  const input = validateGeminiFrames({ ...sample, frames: sample.frames.slice(0, 3),
+    designPrompt: "Gold glass" }, 1, 3);
+  const design = { surface: "glass", font: "elegant", blur: 8 };
+  let payload;
+  const result = await requestGeminiDesign(input, "test-key", async (_url, options) => {
+    payload = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [
+      { text: JSON.stringify(design) }
+    ] } }] }) };
+  }, "gemini-3.5-flash");
+  assert.deepEqual(result, design);
+  assert.equal(payload.generationConfig.maxOutputTokens, 1100);
+  assert.equal("scenes" in payload.generationConfig.responseSchema.properties, false);
+  assert.equal(payload.contents[0].parts.filter(part => part.inlineData).length, 3);
+  assert.throws(() => validateGeminiFrames(sample, 1, 3), /Invalid/);
+});
+
+test("Transient stage timeout gets exactly one retry within its shared deadline", async () => {
+  let clock = 0;
+  const budgets = [];
+  const attempts = [];
+  const result = await runGeminiStage(async budget => {
+    budgets.push(budget);
+    if (budgets.length === 1) {
+      clock += 60_000;
+      throw Object.assign(new Error("timeout"), { reason: "timeout" });
+    }
+    return "ok";
+  }, { now: () => clock, onAttempt: report => attempts.push(report) });
+  assert.equal(result, "ok");
+  assert.deepEqual(budgets, [60_000, 30_000]);
+  assert.deepEqual(attempts.map(x => x.outcome), ["timeout", "ok"]);
+});
+
+test("Non-transient stage failures are not retried", async () => {
+  for (const reason of ["quota_exceeded", "invalid_key", "permission_denied", "invalid_layout"]) {
+    let calls = 0;
+    await assert.rejects(runGeminiStage(async () => {
+      calls++;
+      throw Object.assign(new Error(reason), { reason });
+    }), error => error.reason === reason);
+    assert.equal(calls, 1);
+  }
 });
