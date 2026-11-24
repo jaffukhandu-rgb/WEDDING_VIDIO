@@ -1,6 +1,8 @@
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
-import { buildVideoDesignCss, normalizeDesignPrompt } from "./video-invitation-design.js";
+import { buildVideoDesignBlock, readVideoDesignBlock, replaceVideoDesignBlock, normalizeDesignPrompt } from "./video-invitation-design.js";
+import { createVideoGenerationProgress } from "./video-generation-progress.js";
+import { analyzeTemplate } from "./admin-engine.js";
 import { validateSceneTimeline, validateReadableWindows, allocateReadablePanels } from "./video-scene-timeline.js";
 
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
@@ -150,7 +152,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       ".copy[data-scene-timeline] .event-info{font-size:3.1em}"
     ].join("\n");
   }
-  if (isTimeline) styles += "\n" + buildVideoDesignCss(visualAnalysis.design);
+  if (isTimeline) styles += "\n" + buildVideoDesignBlock(visualAnalysis.design);
   const timelineScript = isTimeline ? [
     "  const panelTimeline = " + JSON.stringify(timelinePanels || []) + ";",
     "  const backgroundVideo = document.querySelector('video[data-wedding-background]');",
@@ -516,6 +518,7 @@ function initVideoHtmlTab() {
   const uploadLoader = document.querySelector("#video-html-upload-loader");
   const uploadProgress = document.querySelector("#video-html-upload-progress");
   const uploadLabel = document.querySelector("#video-html-upload-label");
+  const progressPercent = document.querySelector("#video-html-progress-percent");
   const status = document.querySelector("#video-html-status");
   const storageStatus = document.querySelector("#video-html-storage-status");
   const visualReport = document.querySelector("#video-html-visual-report");
@@ -566,10 +569,18 @@ function initVideoHtmlTab() {
   let pendingVideoReplacement = false;
   let retrySession = null;
   let retryVideoId = null;
-  function showAiStage(message) {
-    uploadProgress.removeAttribute("value");
-    uploadLabel.textContent = message;
-    status.textContent = message;
+  const generationProgress = createVideoGenerationProgress(({ value, message, estimated, state }) => {
+    uploadLoader.hidden = false;
+    uploadLoader.dataset.state = state;
+    uploadProgress.value = value;
+    uploadProgress.setAttribute("aria-valuetext", value + "% overall" + (estimated ? " (estimated)" : ""));
+    if (progressPercent) progressPercent.textContent = value + "%";
+    if (uploadLabel.textContent !== message + (estimated ? " · estimated progress" : "")) {
+      uploadLabel.textContent = message + (estimated ? " · estimated progress" : "");
+    }
+  });
+  function showAiStage(message, stage = "evidence") {
+    generationProgress.set(stage, message);
   }
   function setRetryAvailable(available) {
     if (retryButton) retryButton.hidden = !available;
@@ -619,6 +630,7 @@ function initVideoHtmlTab() {
   fileInput.addEventListener("change", () => {
     retrySession = null;
     retryVideoId = null;
+    uploadLoader.hidden = true;
     setRetryAvailable(false);
     visualReport.hidden = true;
     assetLink.hidden = true;
@@ -648,6 +660,8 @@ function initVideoHtmlTab() {
       ? "Uploaded to Cloudinary. The video is accessible through the website renderer URL below."
       : "Uploaded to MongoDB GridFS. The video is accessible through the website renderer URL below.";
     // Reuse the existing analyzer and editor, but keep the HTML visible here.
+    // Validate the new source before replacing the existing editor.
+    analyzeTemplate(source);
     videoHtmlCode.value = source;
     pendingVideoReplacement = false;
     analyzeVideoHtml();
@@ -687,40 +701,80 @@ function initVideoHtmlTab() {
     let designPrompt;
     try { designPrompt = normalizeDesignPrompt(promptInput?.value); }
     catch (error) { status.textContent = error.message; return; }
-    if (!window.confirm("Retry AI using the existing video? Successful regeneration replaces the current HTML and resets preview sample values. Save a draft first if needed.")) return;
     const originalVideoCode = videoHtmlCode.value, originalCode = codeInput.value;
+    const currentStyle = readVideoDesignBlock(originalVideoCode);
+    const refineDesign = Boolean(currentStyle?.design && designPrompt);
+    if (currentStyle?.design && !designPrompt) {
+      status.textContent = "Enter a follow-up design instruction to refine the current style.";
+      promptInput?.focus();
+      return;
+    }
+    if (!refineDesign && !window.confirm("Retry AI using the existing video? Successful regeneration replaces the current HTML and resets preview sample values. Save a draft first if needed.")) return;
     const session = retryVideoId === background.id && retrySession ? retrySession : {};
     const source = session.source || background.url;
     createButton.disabled = retryButton.disabled = fileInput.disabled = true;
     if (promptInput) promptInput.disabled = true;
-    uploadLoader.hidden = false;
-    showAiStage("Retrying AI without uploading the video again…");
+    generationProgress.start(refineDesign ? "Refining the current invitation" : "Retrying AI with the existing video");
+    generationProgress.set("validate", "Checking existing invitation", 1);
+    status.textContent = "Working with the saved video — no new upload.";
     try {
       const previousScene = session.scenePlan, previousDesign = session.design;
       const visualAnalysis = await analyzeVideoVisual(source, percent => {
-        uploadProgress.value = percent;
-        status.textContent = uploadLabel.textContent = "Reading saved video: " + percent + "%";
-      }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage });
+        generationProgress.set("frames", "Reading saved video frames", percent / 100);
+      }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage,
+        ...(refineDesign ? { refineDesign: true, previousDesign: currentStyle.design } : {}) });
       retrySession = session;
       retryVideoId = background.id;
       if (videoHtmlCode.value !== originalVideoCode || codeInput.value !== originalCode) {
         status.textContent = "Source changed during retry. Existing HTML preserved; retry again to apply the retained analysis.";
+        generationProgress.fail("Source changed — existing HTML preserved");
         return;
       }
       const stages = visualAnalysis.aiStageStatus;
+      if (refineDesign) {
+        if (stages?.design !== "ready" || !visualAnalysis.design) {
+          status.textContent = "Follow-up design failed. Existing HTML preserved. " + visualAnalysis.warnings.join(" ");
+          generationProgress.fail("Design unavailable — current invitation preserved");
+          return;
+        }
+        generationProgress.set("generate", "Validating the updated design");
+        const updated = replaceVideoDesignBlock(originalVideoCode, visualAnalysis.design);
+        if (updated === originalVideoCode) {
+          status.textContent = "Gemini returned no design changes. Try a more specific instruction.";
+          generationProgress.fail("No design change returned");
+          return;
+        }
+        analyzeTemplate(updated);
+        // Apply only the managed CSS block. If this exact source was analyzed,
+        // retain its existing editable form and soundtrack in Admin Studio.
+        const detail = { previous: originalVideoCode, next: updated, applied: false };
+        codeInput.dispatchEvent(new CustomEvent("wedding:refine-video-design", { detail }));
+        videoHtmlCode.value = updated;
+        if (!detail.applied) analyzeVideoHtml();
+        visualReport.hidden = false;
+        visualReport.textContent = "Follow-up design applied. Existing video, timing and invitation fields preserved. Review the preview before exporting.";
+        status.textContent = "Design updated. Preview the revised invitation.";
+        if (promptInput) promptInput.value = "";
+        generationProgress.complete("Updated invitation HTML ready");
+        return;
+      }
       const improved = session.scenePlan !== previousScene || session.design !== previousDesign;
       if (!stages || (stages.scene !== "ready" && stages.design !== "ready") ||
           (designPrompt && stages.design !== "ready" && (!improved || previousDesign))) {
         status.textContent = "AI retry did not produce the requested result. Existing HTML preserved. " + visualAnalysis.warnings.join(" ");
+        generationProgress.fail("AI retry unavailable — existing HTML preserved");
         return;
       }
       // Preserve a previously generated design if its replacement failed.
+      generationProgress.set("generate", "Generating and validating HTML");
       showGeneratedInvitation({ id: background.id }, visualAnalysis, designPrompt);
+      if (visualAnalysis.design && promptInput) promptInput.value = "";
       status.textContent = "AI retry finished using the existing video. Review the updated HTML and preview.";
+      generationProgress.complete();
     } catch (error) {
       status.textContent = (error instanceof Error ? error.message : "AI retry failed.") + " Existing HTML preserved.";
+      generationProgress.fail("Retry failed — existing HTML preserved");
     } finally {
-      uploadLoader.hidden = true;
       createButton.disabled = retryButton.disabled = fileInput.disabled = false;
       if (promptInput) promptInput.disabled = false;
     }
@@ -750,45 +804,36 @@ function initVideoHtmlTab() {
     fileInput.disabled = true;
     if (retryButton) retryButton.disabled = true;
     if (promptInput) promptInput.disabled = true;
-    status.textContent = "Checking the video format and duration…";
+    generationProgress.start("Preparing invitation");
+    generationProgress.set("validate", "Checking video format and duration");
+    status.textContent = "Generating your invitation…";
     try {
       await inspectVideo(file);
-      status.textContent = "Automatically analyzing the video frames…";
+      generationProgress.set("frames", "Analyzing video frames");
       visualReport.hidden = true;
-      uploadLoader.hidden = false;
-      uploadProgress.value = 0;
-      uploadLabel.textContent = "Analyzing video frames: 0%";
       // Analyze BEFORE upload so a failure cannot create another stored MP4.
       const session = {};
       const visualAnalysis = await analyzeVideoVisual(file, percent => {
-        status.textContent = "Analyzing video frames and readable area: " + percent + "%";
-        uploadProgress.value = percent;
-        uploadLabel.textContent = "Analyzing video frames: " + percent + "%";
+        generationProgress.set("frames", "Analyzing video frames and readable areas", percent / 100);
       }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage });
-      status.textContent = "Video analyzed. Uploading the background securely…";
-      uploadProgress.value = 0;
-      uploadLabel.textContent = "Uploading MP4: 0% transferred";
+      generationProgress.set("upload", "Uploading background securely");
       const result = await uploadWithProgress(file, key, (percent, transferred) => {
-        if (percent !== null) {
-          uploadProgress.value = percent;
-        } else {
-          uploadProgress.removeAttribute("value");
-        }
-        uploadLabel.textContent = transferred
-          ? "100% transferred — storing in Cloudinary / MongoDB…"
-          : percent === null ? "Uploading MP4…"
-          : "Uploading MP4: " + percent + "% transferred";
+        generationProgress.set("upload", transferred
+          ? "Saving uploaded video in storage"
+          : "Uploading background securely", percent === null ? 0 : percent / 100);
       });
-      uploadProgress.value = 100;
-      uploadLabel.textContent = "Upload saved successfully.";
+      generationProgress.set("generate", "Generating and validating HTML");
       retrySession = session;
       retryVideoId = result.id;
       showGeneratedInvitation(result, visualAnalysis, designPrompt);
+      if (visualAnalysis.design && promptInput) promptInput.value = "";
+      generationProgress.complete(visualAnalysis.design || !designPrompt
+        ? "Invitation HTML ready" : "Invitation HTML ready — standard design used");
       // Stay on Video + HTML; existing editable fields appear below this panel.
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to create video template.";
+      generationProgress.fail("Invitation generation failed");
     } finally {
-      uploadLoader.hidden = true;
       createButton.disabled = false;
       fileInput.disabled = false;
       if (retryButton) retryButton.disabled = false;

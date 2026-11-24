@@ -1,5 +1,6 @@
 import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
 import {findVideoBackground} from './video-html-contract.js';
+import {readVideoDesignBlock,replaceVideoDesignBlock} from './video-invitation-design.js';
 import {createPreviewController} from './admin-preview-controller.js';
 import {validateTemplateSource,validateRuntimeReport} from './admin-template-validator.js';
 import {createAdminDelivery} from './admin-delivery.js';
@@ -427,6 +428,26 @@ async function analyzeSource(text){
     analysisRunning=false;analyzeButton.disabled=false;fileInput.disabled=false;
   }
 }
+// A managed CSS-only edit can retain the current customer form and music.
+// Verify the change independently; never allow this path to replace scripts,
+// CONFIG, video references or timing.
+codeInput.addEventListener('wedding:refine-video-design',event=>{
+  const detail=event.detail;
+  if(!detail||analysisRunning||!lastAnalysis||source!==detail.previous||codeInput.value!==source)return;
+  try{
+    const nextDesign=readVideoDesignBlock(detail.next)?.design;
+    if(!nextDesign||replaceVideoDesignBlock(source,nextDesign)!==detail.next)return;
+    const analysis=analyzeTemplate(detail.next);
+    const checks=validateTemplateSource(detail.next,analysis);
+    source=detail.next;codeInput.value=source;sourceRevision++;lastAnalysis=analysis;
+    prepared='';save.disabled=true;
+    closePreviewModal();expandPreview.disabled=true;
+    previewController.reset();preview.replaceChildren();
+    resetValidation();staticValidation=checks;renderValidation();
+    setStatus('Design refined. Customer sample values retained. Prepare a fresh preview before export.','good');
+    detail.applied=true;
+  }catch{/* The caller retains the normal source-analysis path. */}
+});
 analyzeButton.addEventListener('click',()=>{void analyzeSource(codeInput.value);});
 clearButton.addEventListener('click',()=>{
   if(analysisRunning)return;

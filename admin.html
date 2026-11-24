@@ -36,6 +36,18 @@ main{max-width:1320px}
 .media-editor input[type=file]{max-width:100%;font-size:.88rem}
 .media-editor audio{width:100%;margin-top:12px}
 #analysis-progress{max-width:100%}
+.video-generation-progress{margin-top:16px;padding:16px;border:1px solid #37455e;border-radius:12px;background:#172237}
+.video-generation-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.video-generation-heading label{margin:0;font-weight:600;color:#e8eaf1}
+#video-html-progress-percent{font-weight:700;color:#e8c78f;font-variant-numeric:tabular-nums;font-size:1.2rem}
+#video-html-upload-progress{display:block;width:100%;height:10px;accent-color:#d7b77d;border:0;border-radius:99px;overflow:hidden;background:#26334a}
+#video-html-upload-progress::-webkit-progress-bar{background:#26334a;border-radius:99px}
+#video-html-upload-progress::-webkit-progress-value{background:#d7b77d;border-radius:99px;transition:width .25s ease}
+#video-html-upload-progress::-moz-progress-bar{background:#d7b77d;border-radius:99px}
+#video-html-upload-label{margin:10px 0 0;line-height:1.5;overflow-wrap:anywhere}
+.video-generation-progress[data-state="complete"]{border-color:#527967}
+.video-generation-progress[data-state="failed"]{border-color:#986651}
+@media(prefers-reduced-motion:reduce){#video-html-upload-progress::-webkit-progress-value{transition:none}}
 .preview{width:min(100%,400px)}
 #report .analysis-stats{font-weight:600;color:#d3bb8d}
 #report .font-report{border-left:3px solid #aa8655;padding:7px 12px;background:#1d2434}
@@ -294,15 +306,15 @@ main{max-width:1240px;padding:24px 22px 56px}
     <div class="field"><label for="video-html-file">Background MP4 · H.264 recommended · 9:16 · maximum 32 MB</label><input id="video-html-file" type="file" accept=".mp4,video/mp4"></div>
     <div class="field"><label for="video-html-title">Invitation template name</label><input id="video-html-title" type="text" maxlength="120" value="Royal Wedding Film Invitation"></div>
   </div>
-  <div class="field" style="margin-top:12px"><label for="video-html-design-prompt">Custom AI design instructions (optional)</label><textarea id="video-html-design-prompt" rows="3" maxlength="1200" aria-describedby="video-html-design-help" placeholder="Example: transparent glass panels, elegant gold typography, centered names and minimal floral styling"></textarea><p class="muted" id="video-html-design-help">Describe the visual style before generating HTML. Gemini chooses design settings; the local engine retains safe timing and editable customer details. If AI is unavailable, the standard design is used.</p></div>
+  <div class="field" style="margin-top:12px"><label for="video-html-design-prompt">Custom AI design instructions (optional)</label><textarea id="video-html-design-prompt" rows="3" maxlength="1200" aria-describedby="video-html-design-help" placeholder="Example: transparent glass panels, elegant gold typography, centered names and minimal floral styling"></textarea><p class="muted" id="video-html-design-help">Describe the initial style, or enter a follow-up instruction after a successful design. Use Retry / refine AI design to update the existing video. Timing and customer fields remain unchanged for managed style edits.</p></div>
   <p class="muted">Enter the Admin access key in section 5 before uploading. Video audio is muted; the separate soundtrack control remains available.</p>
   <p id="video-html-storage-status" role="status" aria-live="polite">Checking video storage configuration…</p>
   <details>
     <summary>Cloudinary setup (server configuration)</summary>
     <p class="muted">Add <code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code> and <code>CLOUDINARY_API_SECRET</code> to the renderer's private <code>.env</code> file, then restart the renderer. Keep these credentials out of HTML, browser code and GitHub. MongoDB remains necessary for published template records.</p>
   </details>
-  <div class="actions"><button id="video-html-create" class="active" type="button">Upload video and generate HTML</button><button id="video-html-retry-ai" type="button" hidden>Retry / change AI design (reuse video)</button></div>
-  <div id="video-html-upload-loader" hidden role="status" aria-live="polite" style="margin-top:12px"><label for="video-html-upload-progress">MP4 upload progress</label><progress id="video-html-upload-progress" value="0" max="100" style="display:block;width:100%;height:12px;accent-color:#d7b77d"></progress><p id="video-html-upload-label" class="muted">Preparing upload…</p></div>
+  <div class="actions"><button id="video-html-create" class="active" type="button">Upload video and generate HTML</button><button id="video-html-retry-ai" type="button" hidden>Retry / refine AI design (reuse video)</button></div>
+  <div id="video-html-upload-loader" class="video-generation-progress" hidden><div class="video-generation-heading"><label for="video-html-upload-progress">Invitation generation</label><span id="video-html-progress-percent" aria-hidden="true">0%</span></div><progress id="video-html-upload-progress" value="0" max="100"></progress><p id="video-html-upload-label" class="muted" role="status" aria-live="polite">Preparing invitation…</p></div>
   <p id="video-html-status" role="status" aria-live="polite">Choose a finished portrait MP4, or paste an existing Video + HTML template below.</p>
   <p id="video-html-visual-report" class="muted" role="status" aria-live="polite" hidden></p>
   <p id="video-html-playback-report" class="muted" role="status" aria-live="polite" hidden></p>
