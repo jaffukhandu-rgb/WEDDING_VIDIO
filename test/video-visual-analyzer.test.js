@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeVideoVisual, deriveVisualPlan, reconcileReadableWindows } from "../src/video-visual-analyzer.js";
+import { analyzeVideoVisual, deriveVisualPlan, reconcileReadableWindows, runVideoAiStages, selectSceneEvidenceTimes, selectDesignFrames } from "../src/video-visual-analyzer.js";
 import { buildVideoInvitationSource } from "../src/admin-video-html.js";
 import { analyzeTemplate, prepareTemplate } from "../src/admin-engine.js";
 import { findVideoBackground } from "../src/video-html-contract.js";
@@ -214,4 +214,63 @@ test("Refined semantic scene boundaries are retained when reconciling quiet wind
     { safeWindows: [window(9.2, 19.8)] }, scenes, 30);
   assert.equal(result.safeWindows[0].start, 9.2);
   assert.equal(result.scenes[0].end, 9);
+});
+
+test("Reduced Gemini samples cover the full video and representative readable windows", () => {
+  const localPlan = deriveVisualPlan(makeFrames(twoWindows), 30);
+  const times = selectSceneEvidenceTimes(30, localPlan, [8,9,20,23,24]);
+  assert.ok(times.length <= 14 && times.length >= 5);
+  assert.ok(times[0] < 1 && times.at(-1) > 29);
+  assert.ok(localPlan.safeWindows.every(window => times.some(time => time >= window.start && time <= window.end)));
+  const references = selectDesignFrames(times.map(time => ({ time, jpeg: "mock" })), localPlan.safeWindows);
+  assert.ok(references.length >= 1 && references.length <= 3);
+});
+
+test("Retry after design timeout retains the successful scene", async t => {
+  const localPlan = deriveVisualPlan(makeFrames(twoWindows), 30);
+  const session = { localPlan, decoded: makeFrames(twoWindows),
+    images: Array.from({ length: 9 }, (_, i) => ({ time: i * 3.5, jpeg: "mock" })),
+    scenePlan: { ...localPlan, aiAssisted: true } };
+  const calls = [];
+  let fail = true;
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls.push([url, options.method]);
+    if (!options.method) return Response.json({ enabled: true });
+    assert.ok(url.endsWith("/video-design"));
+    return fail ? Response.json({ reason: "timeout" }, { status: 502 }) :
+      Response.json({ design: { surface: "glass", blur: 8 } });
+  });
+  const options = { ai: { apiRoot: "http://localhost", adminKey: "test" }, designPrompt: "glass" };
+  const first = await runVideoAiStages(session, options);
+  assert.deepEqual(first.aiStageStatus, { scene: "ready", design: "fallback" });
+  fail = false;
+  const second = await runVideoAiStages(session, options);
+  assert.deepEqual(second.aiStageStatus, { scene: "ready", design: "ready" });
+  assert.deepEqual(second.safeWindows, first.safeWindows);
+  assert.equal(second.design.surface, "glass");
+  assert.equal(calls.filter(([url, method]) => method === "POST" && url.endsWith("/video-analysis")).length, 0);
+  const before = calls.length;
+  await runVideoAiStages(session, options);
+  assert.equal(calls.length, before);
+});
+
+test("Successful design survives scene timeout and is reused when scenes are retried", async t => {
+  const decoded = makeFrames(twoWindows);
+  const localPlan = deriveVisualPlan(decoded, 30);
+  const session = { localPlan, decoded,
+    images: Array.from({ length: 9 }, (_, i) => ({ time: i * 3.5, jpeg: "mock" })) };
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls.push([url, options.method]);
+    if (!options.method) return Response.json({ enabled: true });
+    if (url.endsWith("/video-design")) return Response.json({ design: { surface: "outline" } });
+    assert.equal("designPrompt" in JSON.parse(options.body), false);
+    return Response.json({ reason: "timeout" }, { status: 502 });
+  });
+  const options = { ai: { apiRoot: "http://localhost", adminKey: "test" }, designPrompt: "outline" };
+  const first = await runVideoAiStages(session, options);
+  assert.deepEqual(first.aiStageStatus, { scene: "fallback", design: "ready" });
+  const second = await runVideoAiStages(session, options);
+  assert.deepEqual(second.design, first.design);
+  assert.equal(calls.filter(([url, method]) => method === "POST" && url.endsWith("/video-design")).length, 1);
 });

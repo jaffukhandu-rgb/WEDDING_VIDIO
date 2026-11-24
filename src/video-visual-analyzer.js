@@ -236,8 +236,207 @@ function seek(video, time) {
     } catch(error) { finish(error); }
   });
 }
-export async function analyzeVideoVisual(source, onProgress = () => {}, options = {}) {
+// Keep a full-video overview plus the earliest and central samples of
+// representative readable windows. The dense local scan remains unchanged.
+export function selectSceneEvidenceTimes(duration, localPlan, edges) {
+  const windows = localPlan.safeWindows;
+  const centres = windows.map(w => (w.start + w.end) / 2);
+  const all = sceneSampleTimes(duration, localPlan.revealAt, [...edges, ...centres]);
+  if (all.length <= 14) return all;
+  const selected = new Set([all[0], all.at(-1)]);
+  const representative = windows.length <= 3 ? windows :
+    [windows[0], windows[Math.floor(windows.length / 2)], windows.at(-1)];
+  for (const window of representative) {
+    const inside = all.filter(time => time >= window.start && time <= window.end);
+    if (!inside.length) continue;
+    selected.add(inside[0]);
+    const middle = (window.start + window.end) / 2;
+    selected.add(inside.reduce((best, time) => Math.abs(time - middle) < Math.abs(best - middle) ? time : best));
+  }
+  while (selected.size < 14) {
+    const distance = time => Math.min(...[...selected].map(other => Math.abs(time - other)));
+    selected.add(all.filter(time => !selected.has(time)).reduce((best, time) =>
+      distance(time) > distance(best) ? time : best));
+  }
+  return [...selected].sort((x, y) => x - y);
+}
+
+export function selectDesignFrames(images, windows) {
+  const chosen = [];
+  const representative = windows.length <= 3 ? windows :
+    [windows[0], windows[Math.floor(windows.length / 2)], windows.at(-1)];
+  for (const window of representative) {
+    const inside = images.filter(frame => frame.time >= window.start && frame.time <= window.end);
+    if (!inside.length) continue;
+    const middle = (window.start + window.end) / 2;
+    const frame = inside.reduce((best, item) =>
+      Math.abs(item.time - middle) < Math.abs(best.time - middle) ? item : best);
+    if (!chosen.includes(frame)) chosen.push(frame);
+  }
+  if (!chosen.length && images.length) chosen.push(images[Math.floor(images.length / 2)]);
+  return chosen.sort((x, y) => x.time - y.time);
+}
+
+const AI_REASONS = {
+  invalid_key: "invalid API key",
+  permission_denied: "API permission denied",
+  model_unavailable: "selected model unavailable",
+  quota_exceeded: "API quota exceeded",
+  invalid_request: "Gemini rejected the request",
+  provider_unavailable: "Gemini service unavailable",
+  timeout: "Gemini request timed out",
+  empty_response: "Gemini produced no plan",
+  invalid_json: "Gemini returned invalid JSON",
+  invalid_layout: "Gemini returned an invalid layout",
+  request_failed: "request failed"
+};
+const AI_LAYOUT_DETAILS = {
+  plan_shape: "plan structure", reveal_time: "reveal time", text_area: "text area bounds",
+  palette: "palette or confidence", warnings: "warning format", scene_list: "scene list",
+  scene_metadata: "scene description", scene_boundaries: "scene boundaries", scene_coverage: "scene coverage",
+  scene_text_area: "scene text area", panel_list: "panel list",
+  panel_boundaries: "panel timing", panel_text_area: "panel text area"
+};
+
+function aiError(reason, detail) {
+  const code = Object.hasOwn(AI_REASONS, reason) ? reason : "request_failed";
+  const message = AI_REASONS[code] + (code === "invalid_layout" && Object.hasOwn(AI_LAYOUT_DETAILS, detail)
+    ? ": " + AI_LAYOUT_DETAILS[detail] : "");
+  return Object.assign(new Error(message), { reason: code });
+}
+
+export const GEMINI_CLIENT_STAGE_TIMEOUT_MS = 105_000;
+async function fetchAiJson(endpoint, headers, body, timeoutMs = GEMINI_CLIENT_STAGE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(endpoint, {
+      headers: body ? { ...headers, "Content-Type": "application/json" } : headers,
+      cache: "no-store", ...(body ? { method: "POST", body: JSON.stringify(body) } : {}),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (controller.signal.aborted) throw aiError("timeout");
+    if (!response.ok) throw aiError(data?.reason, data?.layoutDetail);
+    if (!data) throw aiError("invalid_json");
+    return data;
+  } catch (error) {
+    if (controller.signal.aborted || error?.name === "AbortError") throw aiError("timeout");
+    if (Object.hasOwn(AI_REASONS, error?.reason)) throw error;
+    throw aiError("request_failed");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function refineAiScene(plan, localPlan, decoded, duration) {
+  // Reject malformed responses even if the server was compromised.
+  if (plan?.version !== 1 || plan.duration !== duration ||
+      !Number.isFinite(plan.revealAt) || plan.revealAt < 0 ||
+      plan.revealAt > duration - 1.5 || ![darkInk, lightInk].includes(plan.ink) ||
+      !["medium", "low"].includes(plan.confidence) ||
+      !Array.isArray(plan.warnings) || plan.warnings.length > 3 ||
+      plan.warnings.some(w => typeof w !== "string" || w.length > 130)) {
+    throw Error("Invalid AI video plan.");
+  }
+  const textArea = validateTextArea(plan.textArea);
+  // Shared strict scene/timeline validator is also used by the backend.
+  // Never let untrusted model-provided timing or selectors reach the HTML.
+  const timeline = (plan.scenes !== undefined || plan.panels !== undefined)
+    ? validateSceneTimeline(plan, duration) : null;
+  const scenePlan = timeline ? refineScenePlan(
+    { ...plan, textArea, ...timeline }, decoded, duration) : null;
+  const refined = scenePlan ? reconcileReadableWindows(
+    scenePlan, localPlan, timeline.scenes, duration, decoded) : null;
+  if (!refined) {
+    const excludedScenes = timeline?.scenes.filter(scene =>
+      scene.kind === "people" || scene.kind === "transition");
+    const fallback = excludedScenes?.length ? deriveVisualPlan(decoded, duration, excludedScenes) : localPlan;
+    return { ...fallback, aiAssisted: true, warnings: [
+      ...fallback.warnings, ...plan.warnings,
+      "Gemini supplied no locally verified text window. Review the local analysis."
+    ] };
+  }
+  return { ...plan, ...refined, design: null, shadow: textShadow(refined.ink),
+    warnings: [...plan.warnings,
+      "Locally refined " + refined.safeWindows.length + " readable window(s); verify motion and pacing.",
+      "Gemini-assisted layout: review the full video before publishing."] };
+}
+
+// Session evidence is in memory only. Successful stages are cached by video
+// and prompt, never by credentials; the caller supplies the current admin key.
+export async function runVideoAiStages(session, options = {}) {
   const designPrompt = normalizeDesignPrompt(options.designPrompt);
+  const { localPlan, decoded, images } = session;
+  const duration = localPlan.duration;
+  const onStage = options.onStage || (() => {});
+  let scene = session.scenePlan || localPlan;
+  let design = designPrompt && session.designPrompt === designPrompt ? session.design : null;
+  const warnings = [];
+  const finish = () => ({ ...scene, design: design || null, aiStageStatus: {
+    scene: session.scenePlan ? "ready" : "fallback",
+    design: !designPrompt ? "not_requested" : design ? "ready" : "fallback"
+  }, warnings: [...scene.warnings, ...warnings] });
+  if (session.scenePlan && (!designPrompt || design)) return finish();
+  if (!options.ai?.adminKey || !options.ai?.apiRoot || !images?.length) {
+    warnings.push("Gemini unavailable (not configured or no reference frames). Used available analysis.");
+    return finish();
+  }
+  const root = options.ai.apiRoot.replace(/\/$/, "");
+  const endpoint = root + "/api/admin/video-analysis";
+  const headers = { "X-Admin-Key": options.ai.adminKey };
+  try {
+    onStage("Checking Gemini availability…");
+    const capability = await fetchAiJson(endpoint, headers, null, 5000);
+    if (!capability.enabled) throw aiError("request_failed");
+  } catch (error) {
+    warnings.push("Gemini unavailable (" + error.message + "). Used available analysis.");
+    return finish();
+  }
+  let blocked = false;
+  if (!session.scenePlan) {
+    onStage("Gemini scene analysis…");
+    try {
+      const result = await fetchAiJson(endpoint, headers, { duration, frames: images,
+        localWindows: localPlan.safeWindows });
+      try { scene = refineAiScene(result.plan, localPlan, decoded, duration); }
+      catch { throw aiError("invalid_layout"); }
+      session.scenePlan = scene;
+    } catch (error) {
+      warnings.push("Gemini unavailable (" + error.message + "). Used local frame analysis.");
+      blocked = ["invalid_key", "permission_denied", "quota_exceeded", "model_unavailable"].includes(error.reason);
+    }
+  } else onStage("Reusing successful Gemini scene analysis…");
+  if (designPrompt && !design && !blocked) {
+    onStage("Gemini custom design…");
+    try {
+      const frames = selectDesignFrames(images, scene.safeWindows || []);
+      const result = await fetchAiJson(root + "/api/admin/video-design", headers, {
+        duration, frames, localWindows: scene.safeWindows || [], designPrompt });
+      design = validateVideoDesign(result.design);
+      if (!design) throw aiError("invalid_layout");
+      session.design = design;
+      session.designPrompt = designPrompt;
+    } catch (error) {
+      warnings.push("Custom Gemini design unavailable (" + error.message + "). Standard style used.");
+    }
+  } else if (designPrompt && !design) {
+    warnings.push("Custom design was not attempted because Gemini access is unavailable.");
+  }
+  onStage("AI stages finished; preparing invitation…");
+  return finish();
+}
+
+export async function analyzeVideoVisual(source, onProgress = () => {}, options = {}) {
+  normalizeDesignPrompt(options.designPrompt);
+  if (options.session?.source === source && options.session.localPlan && options.session.images?.length) {
+    return runVideoAiStages(options.session, options);
+  }
+  if (options.session) {
+    for (const key of ["source", "localPlan", "decoded", "images", "scenePlan", "design", "designPrompt"]) {
+      delete options.session[key];
+    }
+  }
   const local = source instanceof Blob;
   if (!local && typeof source !== "string") throw TypeError("Video URL or file required.");
   const url = local ? URL.createObjectURL(source) : source;
@@ -313,33 +512,17 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
     if (!fineTimes.size) onProgress(100);
     const decoded = [...measured.values()].sort((a, b) => a.time - b.time);
     const localPlan = deriveVisualPlan(decoded, duration);
-    // Video frame analysis always remains usable without an AI key.
     if (!options.ai?.adminKey || !options.ai?.apiRoot) return localPlan;
-    const root = options.ai.apiRoot.endsWith("/")
-      ? options.ai.apiRoot.slice(0, -1) : options.ai.apiRoot;
-    const endpoint = root + "/api/admin/video-analysis";
-    const headers = { "X-Admin-Key": options.ai.adminKey };
-    let aiFailure = "request failed";
+    const session = options.session || {};
+    const images = [];
     try {
-      const capabilityController = new AbortController();
-      const capabilityTimeout = setTimeout(() => capabilityController.abort(), 5000);
-      let status;
-      try {
-        status = await fetch(endpoint, {
-          headers, cache: "no-store", signal: capabilityController.signal
-        });
-      } finally { clearTimeout(capabilityTimeout); }
-      if (!status.ok) throw Error("Gemini capability unavailable.");
-      if (!(await status.json()).enabled) return localPlan;
       const sampleCanvas = document.createElement("canvas");
       sampleCanvas.width = 256;
       sampleCanvas.height = 455;
       const sampleContext = sampleCanvas.getContext("2d");
-      if (!sampleContext) return localPlan;
-      const images = [];
-      const centres = localPlan.safeWindows.map(window => (window.start + window.end) / 2);
-      const times = sceneSampleTimes(duration, localPlan.revealAt, [...selectedEdges, ...centres]);
-      aiFailure = "AI frame sampling failed";
+      if (!sampleContext) throw Error("Canvas unavailable.");
+      const times = selectSceneEvidenceTimes(duration, localPlan, selectedEdges);
+      options.onStage?.("Preparing representative Gemini frames…");
       for (const time of times) {
         await seek(video, time);
         sampleContext.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
@@ -347,92 +530,12 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
         if (!jpeg || jpeg.length > 180000) throw Error("Frame sample too large.");
         images.push({ time, jpeg });
       }
-      aiFailure = "AI request failed";
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 42000);
-      let response;
-      try {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ duration, frames: images, localWindows: localPlan.safeWindows,
-            ...(designPrompt ? { designPrompt } : {}) }),
-          signal: controller.signal
-        });
-      } finally { clearTimeout(timeout); }
-      if (!response.ok) {
-        const failure = await response.json().catch(() => ({}));
-        const reasons = {
-          invalid_key: "invalid API key",
-          permission_denied: "API permission denied",
-          model_unavailable: "selected model unavailable",
-          quota_exceeded: "API quota exceeded",
-          invalid_request: "Gemini rejected the request",
-          provider_unavailable: "Gemini service unavailable",
-          timeout: "Gemini request timed out",
-          empty_response: "Gemini produced no plan",
-          invalid_json: "Gemini returned invalid JSON",
-          invalid_layout: "Gemini returned an invalid layout",
-          request_failed: "request failed"
-        };
-        const layoutDetails = {
-          plan_shape: "plan structure", reveal_time: "reveal time", text_area: "text area bounds",
-          palette: "palette or confidence", warnings: "warning format", scene_list: "scene list",
-          scene_metadata: "scene description", scene_boundaries: "scene boundaries", scene_coverage: "scene coverage",
-          scene_text_area: "scene text area", panel_list: "panel list",
-          panel_boundaries: "panel timing", panel_text_area: "panel text area"
-        };
-        aiFailure = Object.hasOwn(reasons, failure?.reason) ? reasons[failure.reason] : "request failed";
-        if (failure?.reason === "invalid_layout" && Object.hasOwn(layoutDetails, failure.layoutDetail)) {
-          aiFailure += ": " + layoutDetails[failure.layoutDetail];
-        }
-        throw Error("AI video plan unavailable.");
-      }
-      const plan = (await response.json()).plan;
-      // Reject malformed responses even if the server was compromised.
-      aiFailure = "invalid Gemini layout";
-      if (plan?.version !== 1 || plan.duration !== duration ||
-          !Number.isFinite(plan.revealAt) || plan.revealAt < 0 ||
-          plan.revealAt > duration - 1.5 || ![darkInk, lightInk].includes(plan.ink) ||
-          !["medium", "low"].includes(plan.confidence) ||
-          !Array.isArray(plan.warnings) || plan.warnings.length > 3 ||
-          plan.warnings.some(w => typeof w !== "string" || w.length > 130)) {
-        throw Error("Invalid AI video plan.");
-      }
-      const textArea = validateTextArea(plan.textArea);
-      // Shared strict scene/timeline validator is also used by the backend.
-      // Never let untrusted model-provided timing or selectors reach the HTML.
-      aiFailure = "invalid AI scene timeline";
-      const timeline = (plan.scenes !== undefined || plan.panels !== undefined)
-        ? validateSceneTimeline(plan, duration) : null;
-      const scenePlan = timeline ? refineScenePlan(
-        { ...plan, textArea, ...timeline }, decoded, duration) : null;
-      const refined = scenePlan ? reconcileReadableWindows(
-        scenePlan, localPlan, timeline.scenes, duration, decoded) : null;
-      if (!refined) {
-        const excludedScenes = timeline?.scenes.filter(scene =>
-          scene.kind === "people" || scene.kind === "transition");
-        const fallback = excludedScenes?.length ? deriveVisualPlan(decoded, duration, excludedScenes) : localPlan;
-        return { ...fallback, warnings: [
-          ...fallback.warnings, ...plan.warnings,
-          "Gemini supplied no locally verified text window. Review the local analysis."
-        ] };
-      }
-      const design = designPrompt ? validateVideoDesign(plan.design) : null;
-      return { ...plan, ...refined, design, shadow: textShadow(refined.ink),
-        warnings: [
-          ...plan.warnings,
-          ...(designPrompt && !design ? ["Custom design was not returned or was invalid; used the standard invitation style."] : []),
-          "Locally refined " + refined.safeWindows.length + " readable window(s); verify motion and pacing.",
-          "Gemini-assisted layout: review the full video before publishing."
-        ]
-      };
     } catch {
-      return { ...localPlan, warnings: [
-        ...localPlan.warnings,
-        "Gemini unavailable (" + aiFailure + "). Used local frame analysis."
-      ] };
+      return { ...localPlan, warnings: [...localPlan.warnings,
+        "Gemini unavailable (AI frame sampling failed). Used local frame analysis."] };
     }
+    Object.assign(session, { source, localPlan, decoded, images });
+    return await runVideoAiStages(session, options);
   } finally {
     video.pause(); video.removeAttribute("src"); video.load();
     if (local) URL.revokeObjectURL(url);
