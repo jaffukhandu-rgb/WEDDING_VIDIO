@@ -505,13 +505,16 @@ export function uploadWithProgress(file, key, onProgress) {
   });
 }
 
-function initVideoHtmlTab() {
+export function initVideoHtmlTab() {
   const codeTab = document.querySelector("#via-code-tab");
   const videoTab = document.querySelector("#via-video-tab");
   const codePanel = document.querySelector("#code-panel");
   const videoPanel = document.querySelector("#video-html-panel");
   const fileInput = document.querySelector("#video-html-file");
   const titleInput = document.querySelector("#video-html-title");
+  const aiToggle = document.querySelector("#video-html-enable-ai");
+  const aiFields = document.querySelector("#video-html-ai-fields");
+  const aiHelp = document.querySelector("#video-html-ai-help");
   const promptInput = document.querySelector("#video-html-design-prompt");
   const createButton = document.querySelector("#video-html-create");
   const retryButton = document.querySelector("#video-html-retry-ai");
@@ -582,9 +585,31 @@ function initVideoHtmlTab() {
   function showAiStage(message, stage = "evidence") {
     generationProgress.set(stage, message);
   }
-  function setRetryAvailable(available) {
-    if (retryButton) retryButton.hidden = !available;
+  // Opt-in is per workspace visit, never restored from a saved template or key.
+  let retryAvailable = false;
+  if (aiToggle) aiToggle.checked = false;
+  const aiEnabled = () => aiToggle?.checked === true;
+  function syncAiControls() {
+    const enabled = aiEnabled();
+    const busy = createButton.disabled;
+    if (aiToggle) aiToggle.disabled = busy;
+    if (aiFields) aiFields.hidden = !enabled;
+    if (aiHelp) aiHelp.textContent = enabled
+      ? "AI is on. Gemini may receive sampled video frames and your optional design instructions."
+      : "AI is off. Generate with the local invitation engine; no Gemini requests.";
+    if (promptInput) promptInput.disabled = !enabled || busy;
+    if (retryButton) {
+      retryButton.hidden = !enabled || !retryAvailable;
+      retryButton.disabled = !enabled || !retryAvailable || busy;
+    }
+    createButton.textContent = enabled ? "Upload video and generate HTML with AI" : "Upload video and generate HTML";
   }
+  function setRetryAvailable(available) {
+    retryAvailable = available;
+    syncAiControls();
+  }
+  aiToggle?.addEventListener("change", syncAiControls);
+  syncAiControls();
   function analyzeVideoHtml() {
     if (pendingVideoReplacement) {
       status.textContent = "A different MP4 is selected. Upload and generate new HTML before analyzing or exporting it.";
@@ -642,7 +667,7 @@ function initVideoHtmlTab() {
     }
   });
 
-  function showGeneratedInvitation(result, visualAnalysis, designPrompt) {
+  function showGeneratedInvitation(result, visualAnalysis, designPrompt, assisted) {
     const url = API_ROOT + "/api/video-backgrounds/" + result.id;
     const source = buildVideoInvitationSource({
       id: result.id,
@@ -674,6 +699,7 @@ function initVideoHtmlTab() {
         : visualAnalysis.scenes?.length
           ? "Detected scenes: " + visualAnalysis.scenes.length + ". " : "") +
       (designPrompt ? (visualAnalysis.design ? "Custom Gemini design applied. " : "Custom design not available; standard style used. ") : "") +
+      (!assisted ? "AI assistance off; local analysis only. " : "") +
       (visualAnalysis.aiStageStatus ? "Gemini scene: " + visualAnalysis.aiStageStatus.scene +
         "; design: " + visualAnalysis.aiStageStatus.design + ". " : "") +
       (visualAnalysis.aiModels?.scene || visualAnalysis.aiModels?.design
@@ -691,7 +717,7 @@ function initVideoHtmlTab() {
   // is cached for this workspace session; after refresh the stored video can
   // be decoded again without creating another upload.
   retryButton?.addEventListener("click", async () => {
-    if (createButton.disabled || pendingVideoReplacement) return;
+    if (!aiEnabled() || createButton.disabled || pendingVideoReplacement) return;
     const background = findVideoBackground(videoHtmlCode.value);
     if (!background || background.origin !== new URL(API_ROOT).origin) {
       status.textContent = "Analyze a valid stored Video + HTML invitation first.";
@@ -722,8 +748,8 @@ function initVideoHtmlTab() {
       ? "Retry AI using the existing video? Successful regeneration replaces the current HTML and resets preview sample values. Save a draft first if needed."
       : "This source does not contain managed design settings. Regenerate it once using the saved video and a full design prompt to enable follow-up edits? Save a draft first if needed.")) return;
     const source = session.source || background.url;
-    createButton.disabled = retryButton.disabled = fileInput.disabled = true;
-    if (promptInput) promptInput.disabled = true;
+    createButton.disabled = fileInput.disabled = true;
+    syncAiControls();
     generationProgress.start(refineDesign ? "Refining the current invitation" : "Retrying AI with the existing video");
     generationProgress.set("validate", "Checking existing invitation", 1);
     status.textContent = "Working with the saved video — no new upload.";
@@ -798,7 +824,7 @@ function initVideoHtmlTab() {
       }
       // Preserve a previously generated design if its replacement failed.
       generationProgress.set("generate", "Generating and validating HTML");
-      showGeneratedInvitation({ id: background.id }, visualAnalysis, designPrompt);
+      showGeneratedInvitation({ id: background.id }, visualAnalysis, designPrompt, true);
       if (visualAnalysis.design && promptInput) promptInput.value = "";
       status.textContent = "AI retry finished using the existing video. Review the updated HTML and preview.";
       generationProgress.complete();
@@ -806,12 +832,14 @@ function initVideoHtmlTab() {
       status.textContent = (error instanceof Error ? error.message : "AI retry failed.") + " Existing HTML preserved.";
       generationProgress.fail("Retry failed — existing HTML preserved");
     } finally {
-      createButton.disabled = retryButton.disabled = fileInput.disabled = false;
-      if (promptInput) promptInput.disabled = false;
+      createButton.disabled = fileInput.disabled = false;
+      syncAiControls();
     }
   });
 
   createButton.addEventListener("click", async () => {
+    if (createButton.disabled) return;
+    const assisted = aiEnabled();
     const file = fileInput.files?.[0];
     if (!file) {
       status.textContent = "Select a portrait MP4 background first.";
@@ -829,12 +857,11 @@ function initVideoHtmlTab() {
       return;
     }
     let designPrompt;
-    try { designPrompt = normalizeDesignPrompt(promptInput?.value); }
+    try { designPrompt = assisted ? normalizeDesignPrompt(promptInput?.value) : ""; }
     catch (error) { status.textContent = error.message; return; }
     createButton.disabled = true;
     fileInput.disabled = true;
-    if (retryButton) retryButton.disabled = true;
-    if (promptInput) promptInput.disabled = true;
+    syncAiControls();
     generationProgress.start("Preparing invitation");
     generationProgress.set("validate", "Checking video format and duration");
     status.textContent = "Generating your invitation…";
@@ -846,7 +873,8 @@ function initVideoHtmlTab() {
       const session = {};
       const visualAnalysis = await analyzeVideoVisual(file, percent => {
         generationProgress.set("frames", "Analyzing video frames and readable areas", percent / 100);
-      }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage });
+      }, assisted ? { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage }
+        : { session });
       generationProgress.set("upload", "Uploading background securely");
       const result = await uploadWithProgress(file, key, (percent, transferred) => {
         generationProgress.set("upload", transferred
@@ -856,7 +884,7 @@ function initVideoHtmlTab() {
       generationProgress.set("generate", "Generating and validating HTML");
       retrySession = session;
       retryVideoId = result.id;
-      showGeneratedInvitation(result, visualAnalysis, designPrompt);
+      showGeneratedInvitation(result, visualAnalysis, designPrompt, assisted);
       if (visualAnalysis.design && promptInput) promptInput.value = "";
       generationProgress.complete(visualAnalysis.design || !designPrompt
         ? "Invitation HTML ready" : "Invitation HTML ready — standard design used");
@@ -867,8 +895,7 @@ function initVideoHtmlTab() {
     } finally {
       createButton.disabled = false;
       fileInput.disabled = false;
-      if (retryButton) retryButton.disabled = false;
-      if (promptInput) promptInput.disabled = false;
+      syncAiControls();
     }
   });
 }

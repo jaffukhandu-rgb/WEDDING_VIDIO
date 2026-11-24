@@ -275,6 +275,11 @@ main{max-width:1240px;padding:24px 22px 56px}
 /* Isolated Video + HTML tab; existing Code panel styles are unchanged. */
 #code-panel[hidden],#video-html-panel[hidden]{display:none!important}
 .video-html-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.65fr);gap:14px}
+.video-ai-option{margin-top:16px;padding:12px 14px;border:1px solid #34405a;border-radius:10px}
+.video-ai-toggle{display:flex;align-items:center;gap:10px;min-height:36px;cursor:pointer;font-weight:600;color:#e8eaf1}
+.video-ai-toggle input{width:20px;height:20px;flex:0 0 20px;margin:0;accent-color:#d7b77d;cursor:pointer}
+.video-ai-toggle input:disabled{cursor:not-allowed}
+#video-html-ai-help{margin:4px 0 0}
 #video-html-panel p{line-height:1.55}
 #video-html-status{overflow-wrap:anywhere;color:#e7d0a3}
 #video-html-panel .video-html-editor{margin-top:18px}
@@ -306,7 +311,11 @@ main{max-width:1240px;padding:24px 22px 56px}
     <div class="field"><label for="video-html-file">Background MP4 · H.264 recommended · 9:16 · maximum 32 MB</label><input id="video-html-file" type="file" accept=".mp4,video/mp4"></div>
     <div class="field"><label for="video-html-title">Invitation template name</label><input id="video-html-title" type="text" maxlength="120" value="Royal Wedding Film Invitation"></div>
   </div>
-  <div class="field" style="margin-top:12px"><label for="video-html-design-prompt">Custom AI design instructions (optional)</label><textarea id="video-html-design-prompt" rows="3" maxlength="1200" aria-describedby="video-html-design-help" placeholder="Example: transparent glass panels, elegant gold typography, centered names and minimal floral styling"></textarea><p class="muted" id="video-html-design-help">Describe the initial style, or enter a follow-up instruction after a successful design. Use Retry / refine AI design to update the existing video. Timing and customer fields remain unchanged for managed style edits.</p></div>
+  <div class="video-ai-option">
+    <label class="video-ai-toggle" for="video-html-enable-ai"><input id="video-html-enable-ai" type="checkbox" autocomplete="off" aria-describedby="video-html-ai-help" aria-controls="video-html-ai-fields"> Enable AI assistance</label>
+    <p class="muted" id="video-html-ai-help">AI is off. Generate with the local invitation engine; no Gemini requests.</p>
+    <div class="field" id="video-html-ai-fields" style="margin-top:12px" hidden><label for="video-html-design-prompt">Custom AI design instructions (optional)</label><textarea id="video-html-design-prompt" rows="3" maxlength="1200" aria-describedby="video-html-design-help" placeholder="Example: transparent glass panels, elegant gold typography, centered names and minimal floral styling" disabled></textarea><p class="muted" id="video-html-design-help">Describe the initial style, or enter a follow-up instruction after a successful design. Use Retry / refine AI design to update the existing video. Timing and customer fields remain unchanged for managed style edits.</p></div>
+  </div>
   <p class="muted">Enter the Admin access key in section 5 before uploading. Video audio is muted; the separate soundtrack control remains available.</p>
   <p id="video-html-storage-status" role="status" aria-live="polite">Checking video storage configuration…</p>
   <details>

@@ -89,7 +89,7 @@ if (UUID.test(videoId || "")) {
     try {
       const visualAnalysis = await analyzeVideoVisual(url, percent => {
         showMessage("Analyzing saved video for readable invitation placement: " + percent + "%");
-      }, { ai: { adminKey: mainAdminKey?.value.trim(), apiRoot: API_ROOT } });
+      }); // Library handoff starts locally; enable AI and refine explicitly in the workspace.
       const source = buildVideoInvitationSource({
         id: videoId, url, title: titleInput.value || "Video Invitation", visualAnalysis
       });

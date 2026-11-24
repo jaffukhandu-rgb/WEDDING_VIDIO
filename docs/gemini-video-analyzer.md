@@ -101,3 +101,12 @@ Each model uses up to four generation calls plus one metadata request. Review ti
 - [x] Diagnostic distinguishes invalid style schema (`invalid_layout`, `design_schema`) from valid output that missed requested changes (`followup_mismatch`). The local exact-edit check is logged separately and never counted as an AI model pass.
 - [ ] Re-run live model diagnostic; compare follow-up results and real-video quality.
 - [ ] Verify precise local follow-up and creative AI follow-up in Admin Studio; run full build/test and preview/export checks.
+
+### Optional AI assistance — admin opt-in
+
+- [x] AI assistance starts unchecked on each workspace visit. No model request, capability check or AI JPEG sampling is needed in local mode.
+- [x] Only enabling the checkbox reveals the AI prompt and makes retry/refine available for an analyzed saved video. The checkbox is locked during an active operation.
+- [x] Uploaded Videos library handoff is local-only. To use AI afterwards, enable assistance and choose Retry / refine AI design.
+- [x] Turning AI off does not clear the invitation, saved style, customer sample fields or soundtrack. The hidden prompt is ignored for local generation.
+- [x] Existing server admin authentication, provider configuration, storage, renderer and export pipeline remain unchanged.
+- [ ] Verify local/AI mode on the live admin page, including upload, saved-video handoff, preview and export.

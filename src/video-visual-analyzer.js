@@ -372,6 +372,7 @@ function refineAiScene(plan, localPlan, decoded, duration) {
 // Session evidence is in memory only. Successful stages are cached by video
 // and prompt, never by credentials; the caller supplies the current admin key.
 export async function runVideoAiStages(session, options = {}) {
+  if (!options.ai?.adminKey || !options.ai?.apiRoot) return session.localPlan;
   const designPrompt = normalizeDesignPrompt(options.designPrompt);
   const { localPlan, decoded, images } = session;
   const duration = localPlan.duration;
@@ -448,6 +449,8 @@ export async function runVideoAiStages(session, options = {}) {
 export async function analyzeVideoVisual(source, onProgress = () => {}, options = {}) {
   normalizeDesignPrompt(options.designPrompt);
   if (options.session?.source === source && options.session.localPlan && options.session.images?.length) {
+    // A retained AI session must not opt the user into AI on a later local-only run.
+    if (!options.ai?.adminKey || !options.ai?.apiRoot) return options.session.localPlan;
     return runVideoAiStages(options.session, options);
   }
   if (options.session) {
