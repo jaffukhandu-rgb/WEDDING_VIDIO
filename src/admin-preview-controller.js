@@ -198,9 +198,10 @@ const BRIDGE = String.raw`
         smartTextFit:(() => {
           const root=document.querySelector('[data-video-auto-layout="v1"]');
           if (!root) return null;
-          const fit=Number(root.dataset.textFit);
+          const fit=Number(root.dataset.timelineTextFit ?? root.dataset.textFit);
           return Number.isFinite(fit) ? fit : null;
         })(),
+        smartTextOverflow:document.querySelector('[data-scene-timeline]')?.dataset.timelineTextOverflow === "true",
         timelineReadability:document.querySelector('[data-scene-timeline]')?.dataset.timelineReadability || null,
         smartTextFitRequired:(() => {
           const root=document.querySelector('[data-video-auto-layout="v1"]');

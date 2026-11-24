@@ -1,7 +1,7 @@
 import express from "express";
 import { requireAdmin } from "./admin-access.js";
 import { isSupportedVideoDuration } from "../src/video-html-contract.js";
-import { validateSceneTimeline } from "../src/video-scene-timeline.js";
+import { validateSceneTimeline, validateTextArea } from "../src/video-scene-timeline.js";
 
 // Gemini never supplies HTML or JavaScript. Only a validated, bounded plan
 // can modify the existing generated invitation's text placement and timing.
@@ -26,6 +26,11 @@ const FAILURE_REASONS = new Set([
   "quota_exceeded", "invalid_request", "provider_unavailable",
   "timeout", "empty_response", "invalid_json", "invalid_layout",
   "request_failed"
+]);
+const LAYOUT_DETAILS = new Set([
+  "plan_shape", "reveal_time", "text_area", "palette", "warnings",
+  "scene_list", "scene_metadata", "scene_boundaries", "scene_coverage", "scene_text_area",
+  "panel_list", "panel_boundaries", "panel_text_area"
 ]);
 export function classifyGeminiFailure(httpStatus, providerStatus, detailReason) {
   if (detailReason === "API_KEY_INVALID") return "invalid_key";
@@ -52,42 +57,79 @@ const isRecord = value => value !== null && typeof value === "object" &&
 const finiteBetween = (value, min, max) =>
   typeof value === "number" && Number.isFinite(value) &&
   value >= min && value <= max;
+const endBefore = (duration, margin) => Math.floor((duration - margin + 1e-9) * 100) / 100;
+
+function layoutError(message, layoutDetail) {
+  return Object.assign(geminiError(message, "invalid_layout"), { layoutDetail });
+}
+
+function validateGeminiTimeline(value, duration) {
+  let { scenes, panels } = value;
+  if (panels == null || (Array.isArray(panels) && panels.length === 0)) {
+    if (scenes === undefined) return null;
+  }
+
+  // Gemini can round an exact, fractional clip end up to the nearest tenth.
+  // Clip this small overrun without extending any scene or inventing coverage.
+  const roundedClipEnd = duration + .05 + 1e-9;
+  const lastScene = Array.isArray(scenes) ? scenes.at(-1) : null;
+  if (lastScene?.end > duration && finiteBetween(lastScene.end, duration, roundedClipEnd)) {
+    scenes = [...scenes.slice(0, -1), { ...lastScene, end: duration }];
+  }
+  const timeline = validateSceneTimeline({ scenes }, duration);
+
+  if (Array.isArray(panels) && panels.length <= 3) {
+    const latestEnd = endBefore(duration, .1);
+    panels = panels.map((panel, index) => {
+      if (!isRecord(panel)) return panel;
+      const previousEnd = panels[index - 1]?.end;
+      return {
+        ...panel,
+        start: typeof previousEnd === "number" &&
+          finiteBetween(panel.start, previousEnd - .01 - 1e-9, previousEnd)
+          ? previousEnd : panel.start,
+        end: finiteBetween(panel.end, latestEnd, roundedClipEnd) ? latestEnd : panel.end
+      };
+    });
+  }
+  try {
+    return validateSceneTimeline({ scenes: timeline.scenes, panels }, duration);
+  } catch (error) {
+    // Panels are advisory. Independently safe scene regions can still be
+    // intersected with decoded quiet intervals and scheduled by the client.
+    const panelFailure = ["panel_list", "panel_boundaries", "panel_text_area"]
+      .includes(error?.layoutDetail);
+    if (panelFailure && timeline.scenes.some(scene =>
+      scene.textArea && scene.end - scene.start >= 2.5 - 1e-9)) return timeline;
+    throw error;
+  }
+}
 
 export function validateGeminiPlan(value, duration) {
   if (!isRecord(value) || !isSupportedVideoDuration(duration)) {
-    throw new Error("Invalid Gemini scene analysis.");
+    throw layoutError("Invalid Gemini scene analysis.", "plan_shape");
   }
-  const area = value.textArea;
-  if (!isRecord(area) ||
-      !finiteBetween(value.revealAt, 0, duration - 1.5) ||
-      !finiteBetween(area.left, 8, 55) ||
-      !finiteBetween(area.top, 12, 69) ||
-      !finiteBetween(area.width, 35, 85) ||
-      !finiteBetween(area.height, 23, 67) ||
-      area.left + area.width > 96 ||
-      area.top + area.height > 94 ||
-      !["#24160e", "#fff1d2"].includes(value.ink) ||
+  if (!finiteBetween(value.revealAt, 0, duration - 1.5)) {
+    throw layoutError("Gemini returned an unsafe or unreadable layout.", "reveal_time");
+  }
+  let textArea;
+  try { textArea = validateTextArea(value.textArea); }
+  catch { throw layoutError("Gemini returned an unsafe or unreadable layout.", "text_area"); }
+  if (!["#24160e", "#fff1d2"].includes(value.ink) ||
       !["medium", "low"].includes(value.confidence)) {
-    throw new Error("Gemini returned an unsafe or unreadable layout.");
+    throw layoutError("Gemini returned an unsafe or unreadable layout.", "palette");
   }
   if (!Array.isArray(value.warnings) || value.warnings.length > 3 ||
       value.warnings.some(item => typeof item !== "string" || item.length > 130)) {
-    throw new Error("Invalid Gemini layout warnings.");
+    throw layoutError("Invalid Gemini layout warnings.", "warnings");
   }
-  const timeline = (value.scenes !== undefined || value.panels !== undefined)
-    ? validateSceneTimeline(value, duration) : null;
-  if (timeline?.panels.length && Math.abs(value.revealAt - timeline.panels[0].start) > .75) {
-    throw new Error("AI text reveal does not match the first panel.");
-  }
+  const timeline = validateGeminiTimeline(value, duration);
   return {
     version: 1,
     duration,
-    revealAt: timeline?.panels.length ? timeline.panels[0].start
-      : Math.round(value.revealAt * 100) / 100,
-    textArea: {
-      left: Math.round(area.left), top: Math.round(area.top),
-      width: Math.round(area.width), height: Math.round(area.height)
-    },
+    revealAt: timeline?.panels[0]?.start ??
+      Math.min(Math.round(value.revealAt * 100) / 100, endBefore(duration, 1.5)),
+    textArea,
     ink: value.ink,
     shadow: value.ink === "#24160e"
       ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)",
@@ -121,23 +163,26 @@ export function validateGeminiFrames(input) {
   return { duration: input.duration, frames };
 }
 
+const TEXT_AREA_SCHEMA = {
+  type: "object",
+  properties: {
+    left: { type: "number", minimum: 8, maximum: 55 },
+    top: { type: "number", minimum: 12, maximum: 69 },
+    width: { type: "number", minimum: 35, maximum: 85 },
+    height: { type: "number", minimum: 23, maximum: 67 }
+  },
+  required: ["left", "top", "width", "height"]
+};
 const SCHEMA = {
   type: "object",
   properties: {
-    revealAt: { type: "number" },
-    textArea: {
-      type: "object",
-      properties: {
-        left: { type: "number" }, top: { type: "number" },
-        width: { type: "number" }, height: { type: "number" }
-      },
-      required: ["left", "top", "width", "height"]
-    },
+    revealAt: { type: "number", minimum: 0 },
+    textArea: TEXT_AREA_SCHEMA,
     ink: { type: "string", enum: ["#24160e", "#fff1d2"] },
     confidence: { type: "string", enum: ["medium", "low"] },
-    warnings: { type: "array", items: { type: "string" } },
+    warnings: { type: "array", maxItems: 3, items: { type: "string" } },
     scenes: {
-      type: "array", items: {
+      type: "array", minItems: 1, maxItems: 8, items: {
         type: "object",
         properties: {
           start: { type: "number" }, end: { type: "number" },
@@ -145,37 +190,26 @@ const SCHEMA = {
             "people", "invitation_surface", "decor", "transition", "other"
           ] },
           note: { type: "string" },
-          textArea: {
-            type: "object", properties: {
-              left: { type: "number" }, top: { type: "number" },
-              width: { type: "number" }, height: { type: "number" }
-            }, required: ["left", "top", "width", "height"]
-          },
+          textArea: TEXT_AREA_SCHEMA,
           ink: { type: "string", enum: ["#24160e", "#fff1d2"] }
         },
         required: ["start", "end", "kind", "note"]
       }
     },
     panels: {
-      type: "array", items: {
+      type: "array", maxItems: 3, items: {
         type: "object",
         properties: {
           kind: { type: "string", enum: ["intro", "details", "events"] },
           start: { type: "number" }, end: { type: "number" },
-          textArea: {
-            type: "object",
-            properties: {
-              left: { type: "number" }, top: { type: "number" },
-              width: { type: "number" }, height: { type: "number" }
-            },
-            required: ["left", "top", "width", "height"]
-          }
+          textArea: TEXT_AREA_SCHEMA,
+          ink: { type: "string", enum: ["#24160e", "#fff1d2"] }
         },
         required: ["kind", "start", "end", "textArea"]
       }
     }
   },
-  required: ["revealAt", "textArea", "ink", "confidence", "warnings"]
+  required: ["revealAt", "textArea", "ink", "confidence", "warnings", "scenes"]
 };
 
 export async function requestGeminiPlan(
@@ -198,20 +232,23 @@ async function requestGeminiPlanForModel(sample, apiKey, fetcher, model) {
   const parts = [{
     text: "Analyze this portrait wedding-video timeline using timestamped JPEG frames. " +
       "These are selected samples, not every frame; never claim frame-exact boundaries. " +
-      "Describe 1-8 consecutive scenes covering 0 to the full video duration using " +
-      "start/end seconds, kind (people, invitation_surface, decor, transition, other), " +
-      "and a short factual note. Distinguish people, camera motion, boards, floral " +
+      "Describe 1-8 consecutive scenes using start/end seconds, kind " +
+      "(people, invitation_surface, decor, transition, other), and a factual note up to 120 characters. " +
+      "Start at 0, use the same time for each shared scene boundary, and end at the exact " +
+      "supplied duration. Each scene must last at least 0.35 seconds. Distinguish people, camera motion, boards, floral " +
       "decoration, smoke, and scene transitions based only on visible evidence. " +
       "Identify EVERY safely readable invitation surface or decoration across the entire clip, " +
       "including early and middle scenes, not only the ending. For EACH suitable scene " +
       "include its largest safe textArea and ink. Omit textArea for faces, moving cameras, " +
       "transitions and unsuitable decoration. Separate different board views and motion into scenes. " +
       "Propose a brief JSON-only plan with revealAt, textArea, ink, confidence and up to three " +
-      "warnings. Where multiple safe windows exist, distribute names/message (intro), date/venue " +
+      "warnings of at most 130 characters each. Where multiple safe windows exist, distribute names/message (intro), date/venue " +
       "(details) and optional programme (events) across them; leave gaps during movement. " +
-      "Provide 2-3 non-overlapping panels only when sufficient reading time exists, each at " +
-      "least 2.5 seconds. Set revealAt equal to the first panel start. If not enough time, " +
-      "omit panels. The browser will refine scene timing using decoded motion samples. " +
+      "Provide 2-3 non-overlapping panels in intro, details, optional events order only " +
+      "when each fits a safe scene for at least 2.5 seconds. End every panel by " +
+      endBefore(sample.duration, .1) + " seconds. Set revealAt equal to the first panel start. " +
+      "If there isn't enough time, omit panels and set revealAt between 0 and " +
+      endBefore(sample.duration, 1.5) + " seconds. The browser will refine timing using decoded motion samples. " +
       "All textArea values are PERCENT of frame (left 8..55, top 12..69, " +
       "width 35..85, height 23..67, right <=96, bottom <=94). " +
       "Use ink #24160e on light or #fff1d2 on dark regions, confidence medium/low. " +
@@ -267,8 +304,8 @@ async function requestGeminiPlanForModel(sample, apiKey, fetcher, model) {
     }
     try {
       return validateGeminiPlan(parsed, sample.duration);
-    } catch {
-      throw geminiError("Gemini returned an invalid layout.", "invalid_layout");
+    } catch (error) {
+      throw layoutError("Gemini returned an invalid layout.", error?.layoutDetail);
     }
   } finally {
     clearTimeout(timeout);
@@ -298,10 +335,13 @@ export function geminiVideoAnalysisRouter() {
     } catch (error) {
       const reason = error?.name === "AbortError" ? "timeout" :
         FAILURE_REASONS.has(error?.reason) ? error.reason : "request_failed";
-      console.warn("Gemini video plan unavailable:", reason);
+      const layoutDetail = reason === "invalid_layout" && LAYOUT_DETAILS.has(error?.layoutDetail)
+        ? error.layoutDetail : null;
+      console.warn("Gemini video plan unavailable:", reason + (layoutDetail ? "/" + layoutDetail : ""));
       return res.status(502).json({
         error: "Gemini analysis failed. Local video analysis remains available.",
-        reason
+        reason,
+        ...(layoutDetail ? { layoutDetail } : {})
       });
     } finally {
       activeRequest = false;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildVideoInvitationSource } from "../src/admin-video-html.js";
+import { buildVideoInvitationSource, describeVideoTiming } from "../src/admin-video-html.js";
 import { findVideoBackground, isVideoBackgroundMarkerPresent } from "../src/video-html-contract.js";
 import { analyzeTemplate, prepareTemplate } from "../src/admin-engine.js";
 import { backgroundByteRange, backgroundResponseHeaders } from "../server/video-backgrounds.js";
@@ -118,4 +118,96 @@ test("Generated Video + HTML uses source duration for smart reveal timeline", ()
   assert.ok(smart.includes("animation:none;transition:none"));
   assert.ok(smart.includes("data-wedding-background"));
   assert.equal(findVideoBackground(smart)?.id, id);
+});
+
+function runInvitation(html) {
+  const listeners = new Map();
+  let updateFrame;
+  const video = {
+    currentTime: 0,
+    addEventListener: (event, listener) => listeners.set(event, listener),
+    requestVideoFrameCallback: listener => { updateFrame = listener; }
+  };
+  const root = {
+    nodes: new Map(),
+    querySelector(selector) {
+      if (!this.nodes.has(selector)) this.nodes.set(selector, createNode());
+      return this.nodes.get(selector);
+    },
+    ...createNode()
+  };
+  function createNode() {
+    return {
+      textContent: "", hidden: false, style: {}, dataset: {}, children: [],
+      clientWidth: 270, scrollWidth: 250, clientHeight: 480, scrollHeight: 220,
+      appendChild(node) { this.children.push(node); }
+    };
+  }
+  const document = { querySelector: selector => selector === ".copy" ? root : video, createElement: createNode };
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  new Function("document", "window", script)(document, { addEventListener() {} });
+  return {
+    root,
+    playAt(time, event) {
+      video.currentTime = time;
+      if (event) listeners.get(event)();
+      else updateFrame();
+    }
+  };
+}
+
+const textArea = { left: 16, top: 28, width: 68, height: 46 };
+const ink = "#fff1d2";
+
+test("Personalized reading slots and event pages remain inside decoded windows on frame updates and seeks", () => {
+  const safeWindows = [[3, 14], [17, 34], [37, 53], [56, 72], [75, 85]].map(([start, end]) =>
+    ({ start, end, textArea, ink }));
+  const analysis = { version: 1, duration: 88, revealAt: 3, textArea, ink, motionRefined: true, safeWindows };
+  const html = buildVideoInvitationSource({ id, url, visualAnalysis: analysis });
+  const events = ["Mehendi", "Sangeet", "Nikah", "Reception", "Farewell"].map(name =>
+    ({ name, date: "2027-02-14", time: "7 PM", venue: "The Royal Courtyard", note: "Please join our family" }));
+  const template = html.replace(/events: \[\{[\s\S]*?\}\]/, "events: [" +
+    events.map(event => "{" + Object.entries(event).map(([key, value]) =>
+      key + ": " + JSON.stringify(value)).join(", ") + "}").join(", ") + "]");
+  const address = "Second floor, opposite the main garden entrance, above the old library on Royal Courtyard Road";
+  const { root, playAt } = runInvitation(prepareTemplate(template, {
+    partner1: "Abdul Rahman Muhammed Al Husseini",
+    partner2: "Zoya Mariam Noor Abdullah",
+    address,
+    events
+  }));
+  const readEvents = new Set();
+  let sawAddress = false;
+  for (let time = .25; time < analysis.duration; time += .25) {
+    playAt(time);
+    if (Number(root.style.opacity) < .9) continue;
+    assert.ok(safeWindows.some(window => time >= window.start && time < window.end));
+    const field = root.querySelector(".address");
+    sawAddress ||= !field.hidden && field.textContent === address;
+    const programme = root.querySelector(".events-list");
+    if (!programme.hidden) {
+      for (const page of programme.children.filter(node => !node.hidden)) {
+        for (const entry of page.children) readEvents.add(entry.children[0].textContent);
+      }
+    }
+  }
+  assert.equal(sawAddress, true);
+  assert.deepEqual([...readEvents], events.map(event => event.name));
+  assert.equal(root.dataset.timelineReadability, "ok");
+  playAt(4, "seeked");
+  assert.equal(root.style.opacity, "1");
+  assert.equal(root.querySelector(".message").hidden, false);
+  playAt(15, "seeked");
+  assert.equal(root.style.opacity, "0");
+  playAt(0, "playing");
+  assert.equal(root.style.opacity, "0");
+});
+
+test("A motion-refined analysis without readable footage keeps text hidden and reports the shortage", () => {
+  const analysis = { version: 1, duration: 8, revealAt: 0, textArea, ink, motionRefined: true, safeWindows: [] };
+  const { root, playAt } = runInvitation(buildVideoInvitationSource({ id, url, visualAnalysis: analysis }));
+  playAt(6, "seeked");
+  assert.equal(root.style.opacity, "0");
+  assert.equal(root.dataset.timelineReadability, "short");
+  assert.equal(describeVideoTiming(analysis), "No stable window long enough for text.");
 });

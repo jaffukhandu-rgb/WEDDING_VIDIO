@@ -58,6 +58,23 @@ test("Bounded scenes and panels validate without accepting HTML or unsafe positi
   }, duration), /Invalid video scene boundaries/);
 });
 
+test("Validating a fractional clip end and edge-aligned box is idempotent", () => {
+  const duration = 30.037;
+  const input = {
+    scenes: [{
+      start: 0, end: duration, kind: "invitation_surface", note: "Board",
+      textArea: { left: 16.125, top: 32.125, width: 79.875, height: 61.875 }
+    }],
+    panels: [{ kind: "all", start: 4.037, end: duration - .1, textArea: area }]
+  };
+  const result = validateSceneTimeline(input, duration);
+  assert.equal(result.scenes[0].end, duration);
+  assert.deepEqual(validateSceneTimeline(result, duration), result);
+  assert.throws(() => validateSceneTimeline({ ...input,
+    panels: [{ ...input.panels[0], end: duration }]
+  }, duration), { layoutDetail: "panel_boundaries" });
+});
+
 test("No readable multi-panel window uses the original single-overlay generator", () => {
   const onlyScenes = { ...plan, panels: [] };
   const normalized = validateGeminiPlan(onlyScenes, duration);
@@ -216,4 +233,83 @@ test("No allocation crosses gaps or forces groups into too-short windows", () =>
     { kind: "intro", seconds: 3 }, { kind: "details", seconds: 3 }
   ]);
   assert.deepEqual(panels.map(panel => [panel.start, panel.end]), [[4,8],[10,14]]);
+});
+
+test("One board can use multiple supported regions without crossing intervening motion", () => {
+  const otherArea = { ...area, left: 20 };
+  const windows = readableWindows({
+    ink: plan.ink,
+    scenes: [
+      { start: 0, end: 2, kind: "people", note: "Guests" },
+      { start: 2, end: 14, kind: "invitation_surface", note: "Board" },
+      { start: 14, end: 15, kind: "other", note: "Ending" }
+    ],
+    panels: [
+      { kind: "intro", start: 2.2, end: 6.1, textArea: area },
+      { kind: "details", start: 8, end: 13.5, textArea: otherArea }
+    ]
+  }, [{ start: 11.2, end: 12 }], 15);
+  assert.deepEqual(windows.map(window => [window.start, window.end, window.textArea.left]),
+    [[2.2, 6.1, area.left], [8, 11.2, otherArea.left]]);
+});
+
+test("Local frame movement adjusts an estimated transition while text waits for quiet footage", () => {
+  const duration = 12.037;
+  const timeline = {
+    ink: plan.ink,
+    scenes: [
+      { start: 0, end: 3.25, kind: "people", note: "Guests" },
+      { start: 3.25, end: 6.25, kind: "transition", note: "Pan" },
+      { start: 6.25, end: duration, kind: "invitation_surface", note: "Board", textArea: area }
+    ],
+    panels: []
+  };
+  const frames = Array.from({ length: 48 }, (_, index) => {
+    const time = index / 4;
+    const luminance = time < 3.5 ? .2 : time < 5.5 ? .7 - index % 2 * .2 : .4;
+    return { time, luma: new Float32Array(96).fill(luminance) };
+  });
+
+  const refined = refineScenePlan(timeline, frames, duration);
+  assert.equal(refined.scenes[2].start, 5.5);
+  assert.equal(refined.scenes[1].end, refined.scenes[2].start);
+  assert.ok(refined.revealAt >= 5.72 && refined.revealAt < 6.25);
+});
+
+test("Spatially broad slow motion is detected while a small changing corner is allowed", () => {
+  const width = 96, height = 170;
+  const frame = (time, corner) => ({
+    time, width,
+    luma: Float32Array.from({ length: width * height }, (_, index) =>
+      .4 + (time && index % width < 64 ? .052 : 0) +
+      (corner && index % width < 16 && index < width * 20 ? .2 : 0))
+  });
+  assert.deepEqual(motionIntervals([frame(0), frame(.5), frame(1, true)], 5, {
+    padding: false
+  }), [{ start: 0, end: .5 }]);
+});
+
+test("Allocation prioritizes early readable footage and spreads event pages through safe windows", () => {
+  const windows = [
+    { start: 2, end: 6, textArea: area },
+    { start: 8, end: 13, textArea: area },
+    { start: 16, end: 21, textArea: area },
+    { start: 23, end: 29, textArea: area }
+  ];
+  const requirements = [
+    { kind: "intro", seconds: 3 }, { kind: "details", seconds: 4 },
+    { kind: "events", pageIndex: 0, seconds: 3 },
+    { kind: "events", pageIndex: 1, seconds: 5 }
+  ];
+  const panels = allocateReadablePanels(windows, requirements);
+  assert.deepEqual(panels.map(({ start, end, pageIndex }) => [start, end, pageIndex]), [
+    [2, 6, undefined], [8, 13, undefined], [16, 21, 0], [23, 29, 1]
+  ]);
+  const fewWindows = windows.slice(0, 2);
+  assert.deepEqual(allocateReadablePanels(fewWindows, requirements), []);
+  const compressed = allocateReadablePanels(fewWindows, requirements, { allowShort: true });
+  assert.equal(compressed.length, 4);
+  assert.deepEqual(compressed.slice(-2).map(panel => panel.pageIndex), [0, 1]);
+  assert.ok(compressed.every(panel => panel.end > panel.start && fewWindows.some(window =>
+    window.start <= panel.start && window.end >= panel.end)));
 });

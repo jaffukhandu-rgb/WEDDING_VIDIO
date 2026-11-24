@@ -1,9 +1,14 @@
 import { isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
-import { sceneSampleTimes, validateSceneTimeline, motionIntervals, refineScenePlan } from "./video-scene-timeline.js";
+import { sceneSampleTimes, validateSceneTimeline, motionIntervals, refineScenePlan,
+  validateReadableWindows, validateTextArea, planReadableWindows } from "./video-scene-timeline.js";
 
 // Visual heuristics only: decoded pixels cannot semantically identify a plaque.
 const W = 96, H = 170;
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+const roundTime = time => Math.round(time * 100) / 100;
+const darkInk = "#24160e";
+const lightInk = "#fff1d2";
+const textShadow = ink => ink === darkInk ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)";
 
 function lumaFromRgba(rgba) {
   const luma = new Float32Array(W * H);
@@ -13,106 +18,118 @@ function lumaFromRgba(rgba) {
   }
   return luma;
 }
-function difference(first, second) {
-  let total = 0;
-  for (let i = 0; i < first.length; i += 3) total += Math.abs(first[i] - second[i]);
-  return total / Math.ceil(first.length / 3);
+function measureArea(frames, left, top, width, height) {
+  const x0 = Math.round(left * W), x1 = Math.round((left + width) * W);
+  const y0 = Math.round(top * H), y1 = Math.round((top + height) * H);
+  let mean = 0, spread = 0, texture = 0, motion = 0, peakMotion = 0;
+  let minBrightness = 1, maxBrightness = 0;
+  for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
+    const luma = frames[frameIndex].luma;
+    const previous = frameIndex ? frames[frameIndex - 1].luma : null;
+    let sum = 0, square = 0, edge = 0, change = 0, n = 0;
+    for (let y = y0; y < y1; y += 2) {
+      for (let x = x0; x < x1; x++) {
+        const i = y * W + x, v = luma[i];
+        sum += v; square += v * v; n++;
+        edge += Math.abs(v - luma[i - 1]) + Math.abs(v - luma[i + 1]) +
+          Math.abs(v - luma[i - W]) + Math.abs(v - luma[i + W]);
+        if (previous) change += Math.abs(v - previous[i]);
+      }
+    }
+    const frameAverage = sum / n;
+    mean += frameAverage;
+    spread += Math.sqrt(Math.max(0, square / n - frameAverage * frameAverage));
+    texture += edge / (4 * n);
+    motion += change / n;
+    peakMotion = Math.max(peakMotion, change / n);
+    minBrightness = Math.min(minBrightness, frameAverage);
+    maxBrightness = Math.max(maxBrightness, frameAverage);
+  }
+  return {
+    left, top, width, height, average: mean / frames.length,
+    variance: spread / frames.length, texture: texture / frames.length,
+    motion: motion / Math.max(1, frames.length - 1), peakMotion,
+    brightnessDrift: maxBrightness - minBrightness
+  };
 }
+
 function findArea(frames) {
-  // Choose an area that stays quiet while the invitation text is visible.
-  // Single-frame inspection can select a region that becomes busy moments later.
+  // Test rectangles across the middle of the frame. A narrow area can avoid
+  // a busy border or smoke, but prefer more space when contrast is comparable.
   let best = null;
-  for (const top of [.28, .32, .36, .40, .44]) {
-    for (const left of [.16, .19, .22]) {
-      for (const height of [.34, .40, .46]) {
-        const width = .84 - left;
-        const x0 = Math.round(left * W), x1 = Math.round((left + width) * W);
-        const y0 = Math.round(top * H), y1 = Math.round((top + height) * H);
-        let mean = 0, spread = 0, texture = 0, motion = 0;
-        let minBrightness = 1, maxBrightness = 0;
-        for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
-          const luma = frames[frameIndex].luma;
-          const previous = frameIndex ? frames[frameIndex - 1].luma : null;
-          let sum = 0, square = 0, edge = 0, change = 0, n = 0;
-          for (let y = y0 + 1; y < y1 - 1; y += 2) {
-            for (let x = x0 + 1; x < x1 - 1; x += 2) {
-              const i = y * W + x, v = luma[i];
-              sum += v; square += v * v; n++;
-              edge += Math.abs(v - luma[i - 1]) + Math.abs(v - luma[i + W]);
-              if (previous) change += Math.abs(v - previous[i]);
-            }
-          }
-          if (!n) continue;
-          const frameAverage = sum / n;
-          mean += frameAverage;
-          spread += Math.sqrt(Math.max(0, square / n - frameAverage * frameAverage));
-          texture += edge / (2 * n);
-          if (previous) motion += change / n;
-          minBrightness = Math.min(minBrightness, frameAverage);
-          maxBrightness = Math.max(maxBrightness, frameAverage);
-        }
-        const average = mean / frames.length;
-        const variance = spread / frames.length;
-        texture /= frames.length;
-        motion /= Math.max(1, frames.length - 1);
-        const brightnessDrift = maxBrightness - minBrightness;
-        const score = texture + .14 * variance + .30 * motion + .10 * brightnessDrift +
-          .13 * Math.abs(top + height / 2 - .51) + (height < .40 ? .008 : 0);
-        if (!best || score < best.score) {
-          best = { left, top, width, height, average, variance, texture,
-            motion, brightnessDrift, score };
+  for (const centerY of [.40, .49, .57, .65]) {
+    for (const centerX of [.35, .43, .50, .57, .65]) {
+      for (const width of [.36, .44, .52, .60, .68]) {
+        const left = centerX - width / 2;
+        if (left < .08 || left + width > .96) continue;
+        for (const height of [.28, .36, .44, .52]) {
+          const top = centerY - height / 2;
+          if (top < .12 || top + height > .94) continue;
+          const area = measureArea(frames, left, top, width, height);
+          if (area.average < .035 || area.texture > .065 || area.variance > .16 ||
+              area.motion > .037 || area.peakMotion > .075 || area.brightnessDrift > .15) continue;
+          const score = area.texture + .20 * area.variance + .55 * area.motion + .14 * area.brightnessDrift +
+            .06 * Math.abs(centerY - .53) + .08 * Math.abs(centerX - .5) - .08 * width * height;
+          if (!best || score < best.score) best = { ...area, score };
         }
       }
     }
   }
   return best;
 }
-export function deriveVisualPlan(frames, duration = 30) {
+
+function sortedFrames(frames) {
   if (!Array.isArray(frames) || frames.length < 6) throw Error("Insufficient decoded video frames.");
-  const ordered = [...frames].sort((a,b) => a.time - b.time);
-  const last = ordered[ordered.length - 1];
-  if (!last?.luma || ordered.some(frame => frame?.luma?.length !== W * H)) {
+  if (frames.some(frame => !Number.isFinite(frame?.time) || frame?.luma?.length !== W * H)) {
     throw Error("Invalid video image data.");
   }
-  const changes = ordered.slice(1).map((frame,i) => ({
-    start: ordered[i].time, end: frame.time,
-    motion: difference(ordered[i].luma, frame.luma)
-  }));
-  let stationaryFrom = last.time;
-  for (let i = changes.length - 1; i >= 0; i--) {
-    const item = changes[i];
-    if (item.motion > .024 || item.end - item.start > .8) break;
-    stationaryFrom = item.start;
-  }
-  const stable = duration - stationaryFrom >= 2.5;
-  const revealAt = Math.round((stable ? clamp(stationaryFrom + .8, duration - 7, duration - 2.5) : duration - 4.5) * 10) / 10;
-  const visibleFrames = ordered.filter(frame => frame.time >= revealAt);
-  const area = findArea(visibleFrames.length >= 2 ? visibleFrames : ordered.slice(-6));
-  const warnings = [];
-  if (!stable) warnings.push("No clear stationary ending detected; visually verify the text timing.");
-  if (area.texture > .065 || area.variance > .21) {
-    warnings.push("The proposed text region appears visually busy; verify readability.");
-  }
-  if (area.motion > .025 || area.brightnessDrift > .20) {
-    warnings.push("The proposed text region changes while text is visible; review placement and contrast.");
-  }
-  if (stable && duration - (stationaryFrom + .8) < 3.5) {
-    warnings.push("The stationary ending leaves less than 3.5 seconds to read; review pacing.");
-  }
-  const dark = area.average > .48;
+  return [...frames].sort((a, b) => a.time - b.time);
+}
+
+function percentArea(area) {
   return {
-    version: 1, duration,
-    revealAt,
-    textArea: {
-      left: Math.round(area.left * 100), top: Math.round(area.top * 100),
-      width: Math.round(area.width * 100), height: Math.round(area.height * 100)
-    },
-    ink: dark ? "#24160e" : "#fff1d2",
-    shadow: dark ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)",
-    confidence: stable && area.texture < .065 && area.variance < .21 &&
-      area.motion < .025 && area.brightnessDrift < .20 ? "medium" : "low",
-    candidateCuts: changes.filter(x => x.motion > .105).map(x => Number(x.end.toFixed(1))),
-    warnings
+    left: Math.round(area.left * 100), top: Math.round(area.top * 100),
+    width: Math.round(area.width * 100), height: Math.round(area.height * 100)
+  };
+}
+
+export function deriveVisualPlan(frames, duration = 30, excludedScenes = []) {
+  if (!isSupportedVideoDuration(duration)) throw Error("Unsupported video duration.");
+  const ordered = sortedFrames(frames);
+  const last = ordered.at(-1);
+  const coverageEnd = Math.min(last.time, duration - .1);
+  const windows = [];
+  let start = Math.max(ordered[0].time, .15);
+  const gaps = [...motionIntervals(ordered, duration), ...excludedScenes,
+    { start: coverageEnd, end: coverageEnd }].sort((a, b) => a.start - b.start);
+  for (const gap of gaps) {
+    const end = Math.min(gap.start, coverageEnd);
+    if (end - start >= 2.5) {
+      const quiet = ordered.filter(frame => frame.time >= start && frame.time <= end);
+      if (quiet.length >= 3) {
+        // Keep rectangle checks bounded on long shots, including both ends.
+        const sampled = quiet.length <= 18 ? quiet : Array.from({ length: 18 }, (_, index) =>
+          quiet[Math.round(index * (quiet.length - 1) / 17)]);
+        const area = findArea(sampled);
+        if (area) windows.push({ start, end,
+          textArea: percentArea(area), ink: area.average > .48 ? darkInk : lightInk });
+      }
+    }
+    start = Math.max(start, gap.end);
+  }
+  const safeWindows = validateReadableWindows(windows, duration);
+  const schedule = planReadableWindows(safeWindows);
+  const ink = schedule?.ink || lightInk;
+  const readableSeconds = safeWindows.reduce((total, window) => total + window.end - window.start, 0);
+  return {
+    version: 1, duration, motionRefined: true, safeWindows,
+    panels: schedule?.panels || [], revealAt: schedule?.revealAt ?? 0,
+    textArea: schedule?.textArea || { left: 20, top: 30, width: 60, height: 40 },
+    ink, shadow: textShadow(ink),
+    confidence: readableSeconds >= 6 ? "medium" : "low",
+    warnings: !safeWindows.length ? ["No stable, readable text window detected. Review the footage before publishing."]
+      : ["Locally estimated text placement. Check that the text fits the background throughout the preview.",
+        ...(readableSeconds < 6 ? ["There is little stable footage for the invitation text. Review reading time."] : [])]
   };
 }
 function seek(video, time) {
@@ -168,19 +185,49 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) throw Error("Canvas analysis is unavailable.");
-    const frames = [];
-    const times = [];
-    for (let t = Math.max(0, duration - 12); t < duration - .22; t += .5) times.push(Number(t.toFixed(2)));
-    for (let i = 0; i < times.length; i++) {
-      await seek(video, times[i]);
+    const measured = new Map();
+    const sampleMotion = async time => {
+      if (measured.has(time)) return;
+      await seek(video, time);
       ctx.drawImage(video, 0, 0, W, H);
       let image;
       try { image = ctx.getImageData(0, 0, W, H); }
       catch { throw Error("Video frame access blocked by cross-origin permissions."); }
-      frames.push({ time: times[i], luma: lumaFromRgba(image.data) });
-      onProgress(Math.round((i + 1) / times.length * 100));
+      measured.set(time, { time, width: W, luma: lumaFromRgba(image.data) });
+    };
+    // Decode the same bounded whole-video scan with or without Gemini.
+    const first = .2, last = roundTime(duration - .2);
+    const step = duration <= 45 ? .5 : 1;
+    const coarseTimes = [first];
+    for (let t = step; t < last; t += step) coarseTimes.push(t);
+    coarseTimes.push(last);
+    for (let i = 0; i < coarseTimes.length; i++) {
+      await sampleMotion(coarseTimes[i]);
+      onProgress(Math.round((i + 1) / coarseTimes.length * 80));
     }
-    const localPlan = deriveVisualPlan(frames, duration);
+
+    // The coarse change spans bracket timing uncertainty. Sample both sides
+    // of representative boundaries at quarter-second intervals before padding.
+    const rawMotion = motionIntervals([...measured.values()], duration, { padding: false });
+    const edges = rawMotion.flatMap(gap => [gap.start, gap.end]).filter(time => time > first && time < last);
+    const edgeLimit = 12;
+    const selectedEdges = edges.length <= edgeLimit ? edges : Array.from({ length: edgeLimit },
+      (_, i) => edges[Math.round(i * (edges.length - 1) / (edgeLimit - 1))]);
+    const fineTimes = new Set();
+    for (const edge of selectedEdges) {
+      for (let offset = -step; offset <= step; offset += .25) {
+        const time = roundTime(clamp(edge + offset, first, last));
+        if (!measured.has(time)) fineTimes.add(time);
+      }
+    }
+    let sampled = 0;
+    for (const time of [...fineTimes].sort((a, b) => a - b)) {
+      await sampleMotion(time);
+      onProgress(80 + Math.round(++sampled / fineTimes.size * 20));
+    }
+    if (!fineTimes.size) onProgress(100);
+    const decoded = [...measured.values()].sort((a, b) => a.time - b.time);
+    const localPlan = deriveVisualPlan(decoded, duration);
     // Video frame analysis always remains usable without an AI key.
     if (!options.ai?.adminKey || !options.ai?.apiRoot) return localPlan;
     const root = options.ai.apiRoot.endsWith("/")
@@ -197,44 +244,16 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
           headers, cache: "no-store", signal: capabilityController.signal
         });
       } finally { clearTimeout(capabilityTimeout); }
-      if (!status.ok || !(await status.json()).enabled) return localPlan;
+      if (!status.ok) throw Error("Gemini capability unavailable.");
+      if (!(await status.json()).enabled) return localPlan;
       const sampleCanvas = document.createElement("canvas");
       sampleCanvas.width = 256;
       sampleCanvas.height = 455;
       const sampleContext = sampleCanvas.getContext("2d");
       if (!sampleContext) return localPlan;
       const images = [];
-      // Decode a bounded low-resolution scan over the entire MP4 locally.
-      // Reuse the existing tail frames instead of seeking them again.
-      aiFailure = "local scene sampling failed";
-      const measured = new Map(frames.map(frame => [frame.time, frame]));
-      const scanDeadline = Date.now() + 45000;
-      const sampleMotion = async time => {
-        if (measured.has(time)) return;
-        if (Date.now() > scanDeadline) throw Error("Local scene scan timed out.");
-        await seek(video, time);
-        ctx.drawImage(video, 0, 0, W, H);
-        measured.set(time, { time, luma: lumaFromRgba(ctx.getImageData(0, 0, W, H).data) });
-      };
-      const step = duration <= 45 ? .5 : 1;
-      for (let t = 0; t < duration - .2; t += step) {
-        await sampleMotion(Number(Math.max(.2, t).toFixed(2)));
-      }
-      await sampleMotion(Number((duration - .2).toFixed(2)));
-      const ordered = () => [...measured.values()].sort((a,b) => a.time - b.time);
-      const coarseMotion = motionIntervals(ordered(), duration);
-      // Refine at most eight boundary regions with quarter-second samples.
-      const edges = coarseMotion.flatMap(gap => [gap.start, gap.end])
-        .filter(time => time > .4 && time < duration - .4);
-      const selectedEdges = edges.length <= 8 ? edges : Array.from({ length: 8 },
-        (_, i) => edges[Math.round(i * (edges.length - 1) / 7)]);
-      for (const edge of selectedEdges) {
-        for (const offset of [-.25, 0, .25]) {
-          await sampleMotion(Number(Math.max(.2, Math.min(duration - .2, edge + offset)).toFixed(2)));
-        }
-      }
-      const decoded = ordered();
-      const times = sceneSampleTimes(duration, localPlan.revealAt, selectedEdges);
+      const centres = localPlan.safeWindows.map(window => (window.start + window.end) / 2);
+      const times = sceneSampleTimes(duration, localPlan.revealAt, [...selectedEdges, ...centres]);
       aiFailure = "AI frame sampling failed";
       for (const time of times) {
         await seek(video, time);
@@ -270,50 +289,57 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
           invalid_layout: "Gemini returned an invalid layout",
           request_failed: "request failed"
         };
-        aiFailure = reasons[failure?.reason] || "request failed";
+        const layoutDetails = {
+          plan_shape: "plan structure", reveal_time: "reveal time", text_area: "text area bounds",
+          palette: "palette or confidence", warnings: "warning format", scene_list: "scene list",
+          scene_metadata: "scene description", scene_boundaries: "scene boundaries", scene_coverage: "scene coverage",
+          scene_text_area: "scene text area", panel_list: "panel list",
+          panel_boundaries: "panel timing", panel_text_area: "panel text area"
+        };
+        aiFailure = Object.hasOwn(reasons, failure?.reason) ? reasons[failure.reason] : "request failed";
+        if (failure?.reason === "invalid_layout" && Object.hasOwn(layoutDetails, failure.layoutDetail)) {
+          aiFailure += ": " + layoutDetails[failure.layoutDetail];
+        }
         throw Error("AI video plan unavailable.");
       }
       const plan = (await response.json()).plan;
       // Reject malformed responses even if the server was compromised.
-      const area = plan?.textArea;
+      aiFailure = "invalid Gemini layout";
       if (plan?.version !== 1 || plan.duration !== duration ||
           !Number.isFinite(plan.revealAt) || plan.revealAt < 0 ||
-          plan.revealAt > duration - 1.5 || !area ||
-          ![area.left, area.top, area.width, area.height].every(Number.isFinite) ||
-          area.left < 8 || area.left > 55 || area.top < 12 || area.top > 69 ||
-          area.width < 35 || area.width > 85 || area.height < 23 || area.height > 67 ||
-          area.left + area.width > 96 || area.top + area.height > 94 ||
-          !["#24160e", "#fff1d2"].includes(plan.ink) ||
+          plan.revealAt > duration - 1.5 || ![darkInk, lightInk].includes(plan.ink) ||
           !["medium", "low"].includes(plan.confidence) ||
           !Array.isArray(plan.warnings) || plan.warnings.length > 3 ||
           plan.warnings.some(w => typeof w !== "string" || w.length > 130)) {
         throw Error("Invalid AI video plan.");
       }
+      const textArea = validateTextArea(plan.textArea);
       // Shared strict scene/timeline validator is also used by the backend.
       // Never let untrusted model-provided timing or selectors reach the HTML.
       aiFailure = "invalid AI scene timeline";
       const timeline = (plan.scenes !== undefined || plan.panels !== undefined)
         ? validateSceneTimeline(plan, duration) : null;
-      const refined = timeline ? refineScenePlan({ ...plan, ...timeline }, decoded, duration) : null;
-      if (timeline && !refined) {
-        return { ...localPlan, warnings: [
-          ...localPlan.warnings, ...plan.warnings,
-          "Gemini found no locally verified readable window; used original single-overlay fallback."
+      const refined = timeline ? refineScenePlan({ ...plan, textArea, ...timeline }, decoded, duration) : null;
+      if (!refined) {
+        const excludedScenes = timeline?.scenes.filter(scene =>
+          scene.kind === "people" || scene.kind === "transition");
+        const fallback = excludedScenes?.length ? deriveVisualPlan(decoded, duration, excludedScenes) : localPlan;
+        return { ...fallback, warnings: [
+          ...fallback.warnings, ...plan.warnings,
+          "Gemini supplied no locally verified text window. Review the local analysis."
         ] };
       }
-      return { ...localPlan, ...plan, ...(refined || {}),
-        ...(refined ? { shadow: refined.ink === "#24160e" ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)" } : {}),
+      return { ...plan, ...refined, shadow: textShadow(refined.ink),
         warnings: [
-          ...localPlan.warnings, ...plan.warnings,
-          ...(refined ? ["Locally refined " + refined.safeWindows.length +
-            " readable window(s) across the full video; verify motion and pacing."] : []),
+          ...plan.warnings,
+          "Locally refined " + refined.safeWindows.length + " readable window(s); verify motion and pacing.",
           "Gemini-assisted layout: review the full video before publishing."
         ]
       };
     } catch {
       return { ...localPlan, warnings: [
         ...localPlan.warnings,
-        "Gemini unavailable (" + aiFailure + "); used reliable local video analysis."
+        "Gemini unavailable (" + aiFailure + "). Used local frame analysis."
       ] };
     }
   } finally {

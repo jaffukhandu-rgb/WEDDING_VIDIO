@@ -1,5 +1,5 @@
 import { getDraft, saveDraft } from "./admin-draft-store.js";
-import { buildVideoInvitationSource } from "./admin-video-html.js";
+import { buildVideoInvitationSource, describeVideoTiming } from "./admin-video-html.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
 import { findVideoBackground } from "./video-html-contract.js";
 
@@ -94,8 +94,8 @@ if (UUID.test(videoId || "")) {
         id: videoId, url, title: titleInput.value || "Video Invitation", visualAnalysis
       });
       loadSource(source, "video");
-      showMessage("Saved video analyzed. Text starts at " + visualAnalysis.revealAt.toFixed(1) +
-        "s; confidence " + visualAnalysis.confidence + ". " +
+      showMessage("Saved video analyzed. " + describeVideoTiming(visualAnalysis) +
+        " Analysis confidence: " + visualAnalysis.confidence + ". " +
         (visualAnalysis.warnings.join(" ") || "Review the full invitation before publishing."));
     } catch (error) {
       showMessage("Automatic analysis of the saved video failed: " +

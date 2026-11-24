@@ -70,6 +70,9 @@ test("Sends timestamped images to Gemini with server-only key", async () => {
   assert.equal("thinkingBudget" in payload.generationConfig.thinkingConfig, false);
   assert.equal("temperature" in payload.generationConfig, false);
   assert.equal(payload.generationConfig.maxOutputTokens, 2600);
+  assert.ok(payload.generationConfig.responseSchema.required.includes("scenes"));
+  assert.ok(!payload.generationConfig.responseSchema.required.includes("panels"));
+  assert.match(payload.contents[0].parts[0].text, /End every panel by 34\.27 seconds/);
   assert.match(request.url, /models\/gemini-3\.5-flash:generateContent$/);
   assert.ok(request.url.startsWith("https://generativelanguage.googleapis.com/"));
 });
@@ -119,7 +122,71 @@ test("Missing model response and invalid layout receive distinct errors", async 
         ...candidate, revealAt: 200
       }) }] }
     }] })
-  })), error => error.reason === "invalid_layout");
+  })), error => error.reason === "invalid_layout" && error.layoutDetail === "reveal_time");
+});
+
+test("Repairs a rounded fractional clip end and a final panel that reaches the clip end", async () => {
+  const seconds = 30.037333;
+  const clip = { ...sample, duration: seconds, frames: sample.frames.filter(frame => frame.time < seconds) };
+  const textArea = candidate.textArea;
+  const response = {
+    ...candidate,
+    revealAt: 25,
+    scenes: [
+      { start: 0, end: 8.94, kind: "people", note: "Moving camera" },
+      { start: 8.94, end: 30.04, kind: "invitation_surface", note: "Board", textArea }
+    ],
+    panels: [
+      { start: 13.56, end: 16.06, kind: "intro", textArea },
+      { start: 23.44, end: seconds, kind: "details", textArea }
+    ]
+  };
+  const plan = await requestGeminiPlan(clip, "test-key", async () => ({
+    ok: true,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(response) }] } }] })
+  }));
+  assert.equal(plan.scenes.at(-1).end, seconds);
+  assert.equal(plan.panels[0].end, 16.06);
+  assert.equal(plan.panels[1].end, 29.93);
+  assert.equal(plan.revealAt, plan.panels[0].start);
+});
+
+test("Keeps safe scene evidence when advisory panels overrun their usable time", () => {
+  const textArea = candidate.textArea;
+  const scenes = [
+    { start: 0, end: 5, kind: "people", note: "Guests" },
+    { start: 5, end: 17, kind: "decor", note: "Flower-framed space", textArea },
+    { start: 17, end: duration, kind: "invitation_surface", note: "Board", textArea }
+  ];
+  const panels = [
+    { start: 6, end: 10, kind: "intro", textArea },
+    { start: 9, end: 12, kind: "details", textArea }
+  ];
+  const plan = validateGeminiPlan({ ...candidate, scenes, panels }, duration);
+  assert.deepEqual(plan.scenes.map(scene => scene.start), [0, 5, 17]);
+  assert.deepEqual(plan.panels, []);
+  assert.throws(() => validateGeminiPlan({
+    ...candidate, scenes: scenes.map(scene => ({ ...scene, textArea: undefined })), panels
+  }, duration), error => error.layoutDetail === "panel_boundaries");
+  assert.throws(() => validateGeminiPlan({
+    ...candidate, scenes: [{ ...scenes[0], end: 2 }, ...scenes.slice(1)], panels
+  }, duration), error => error.layoutDetail === "scene_boundaries");
+  const slightOverlap = [panels[0], { ...panels[1], start: 9.995, end: 13 }];
+  assert.equal(validateGeminiPlan({ ...candidate, scenes, panels: slightOverlap }, duration)
+    .panels[1].start, panels[0].end);
+  const unsafePanel = { ...slightOverlap[1], textArea: { ...textArea, width: 200 } };
+  assert.deepEqual(validateGeminiPlan({
+    ...candidate, scenes, panels: [panels[0], unsafePanel]
+  }, duration).panels, []);
+});
+
+test("Optional empty panel fields and bounded decimal areas preserve legacy layout support", () => {
+  const plan = validateGeminiPlan({
+    ...candidate, panels: [], textArea: { left: 50.5, top: 40.5, width: 45.5, height: 53.5 }
+  }, duration);
+  assert.equal(plan.scenes, undefined);
+  assert.equal(plan.textArea.left + plan.textArea.width, 96);
+  assert.equal(plan.textArea.top + plan.textArea.height, 94);
 });
 
 test("Defaults to Gemini 3.5 Flash and supports only server-approved models", () => {

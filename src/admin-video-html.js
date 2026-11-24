@@ -31,6 +31,15 @@ function escapeHtml(value) {
   })[char]);
 }
 
+export function describeVideoTiming(analysis) {
+  if (analysis.motionRefined === true) {
+    const firstWindow = analysis.safeWindows?.[0];
+    return firstWindow ? "First readable window at " + firstWindow.start.toFixed(1) + "s."
+      : "No stable window long enough for text.";
+  }
+  return "Text starts at " + analysis.revealAt.toFixed(1) + "s.";
+}
+
 export function buildVideoInvitationSource({ id, url, title, visualAnalysis = null }) {
   if (!UUID.test(id)) throw new Error("Invalid uploaded background reference.");
   const parsed = new URL(url);
@@ -71,6 +80,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
   // and older published templates remain exactly as authored.
   const isSmart = visualAnalysis?.version === 1 &&
     visualAnalysis.textArea && Number.isFinite(visualAnalysis.revealAt);
+  const useSafeWindows = isSmart && visualAnalysis.motionRefined === true;
   let timelinePanels = null;
   if (isSmart && Array.isArray(visualAnalysis?.panels) &&
       visualAnalysis.panels.length >= 1) {
@@ -80,11 +90,11 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       ).panels;
     } catch { /* Invalid AI plan keeps the original single-panel invitation. */ }
   }
-  const isTimeline = Boolean(timelinePanels?.length);
+  const isTimeline = useSafeWindows || Boolean(timelinePanels?.length);
   let safeWindows = [];
-  if (isTimeline && visualAnalysis.motionRefined === true) {
+  if (useSafeWindows) {
     try { safeWindows = validateReadableWindows(visualAnalysis.safeWindows, visualAnalysis.duration); }
-    catch { /* Keep the existing validated panel schedule. */ }
+    catch { /* Require verified windows for a motion-refined plan. */ }
   }
   if (isSmart) {
     const rect = visualAnalysis.textArea;
@@ -127,6 +137,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       ".copy .event-item{display:flex;flex-direction:column;align-items:center;gap:.5cqw}",
       ".copy .event-title{font-weight:700;font-size:4cqw}",
       ".copy .event-info{font-size:3.1cqw;line-height:1.24;overflow-wrap:anywhere}",
+      ".copy[data-scene-timeline]{overflow:hidden}",
       ".copy[data-scene-timeline] .copy-inner{font-size:1cqw;gap:1em}",
       ".copy[data-scene-timeline] .names{font-size:8.5em}",
       ".copy[data-scene-timeline] .ceremony{font-size:3.35em}",
@@ -139,7 +150,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     ].join("\n");
   }
   const timelineScript = isTimeline ? [
-    "  const panelTimeline = " + JSON.stringify(timelinePanels) + ";",
+    "  const panelTimeline = " + JSON.stringify(timelinePanels || []) + ";",
     "  const backgroundVideo = document.querySelector('video[data-wedding-background]');",
     "  const selectors = ['.ceremony','.message','.names','.date-time','.venue','.address','.blessing'];",
     "  const groups = {",
@@ -172,56 +183,61 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     "    sum + Array.from(entry.children).reduce((n, node) => n + words(node.textContent), 0), 0) : 0;",
     "  const need = count => Math.max(2.5, .65 + count / 2.8);",
     "  const safeWindows = " + JSON.stringify(safeWindows) + ";",
-    ...(safeWindows.length ? [
+    ...(useSafeWindows ? [
       "  const allocate = " + allocateReadablePanels.toString() + ";",
-      "  const introNeed = need(fieldWords('intro')), detailsNeed = need(fieldWords('details'));",
-      "  const programmeNeed = eventPages.reduce((sum, page) => sum + need(eventWords(page)), 0);",
-      "  const preferred = [{kind:'intro',seconds:introNeed},{kind:'details',seconds:detailsNeed}];",
+      "  const requirements = [",
+      "    {kind:'intro',seconds:need(fieldWords('intro')) + .35},",
+      "    {kind:'details',seconds:need(fieldWords('details')) + .35}",
+      "  ];",
       "  const wantsProgramme = allEvents.length > 1 || panelTimeline.some(panel => panel.kind === 'events');",
-      "  let reallocated = wantsProgramme && programmeNeed > 0",
-      "    ? allocate(safeWindows, [...preferred, {kind:'events',seconds:programmeNeed}]) : [];",
-      "  if (!reallocated.length) reallocated = allocate(safeWindows, [preferred[0],",
-      "    {...preferred[1],seconds:detailsNeed + (allEvents.length > 1 ? programmeNeed : 0)}]);",
-      "  if (reallocated.length) panelTimeline.splice(0, panelTimeline.length, ...reallocated);",
-    ] : []),
-    "  const hasEventSlot = panelTimeline.some(panel => panel.kind === 'events');",
-    "  const schedules = panelTimeline.map(panel => {",
-    "    const pages = panel.kind === 'events' ? eventPages.map(page => need(eventWords(page)))",
-    "      : (panel.kind === 'details' || panel.kind === 'all') && !hasEventSlot && allEvents.length > 1",
-    "        ? [need(fieldWords(panel.kind)), ...eventPages.map(page => need(eventWords(page)))]",
-    "        : [need(fieldWords(panel.kind))];",
-    "    return pages.length ? pages : [2.5];",
-    "  });",
-    "  // Redistribute adjacent panels within a common safe rectangle using actual",
-    "  // personalized word counts. Never borrow seconds across a transition.",
-    "  const sameArea = (a, b) => ['left','top','width','height'].every(k => a.textArea[k] === b.textArea[k]);",
-    "  for (let first = 0; first < panelTimeline.length;) {",
-    "    let last = first;",
-    "    while (last + 1 < panelTimeline.length &&",
-    "      Math.abs(panelTimeline[last].end - panelTimeline[last + 1].start) <= .011 &&",
-    "      sameArea(panelTimeline[first], panelTimeline[last + 1]) &&",
-    "      panelTimeline[first].ink === panelTimeline[last + 1].ink &&",
-    "      (!safeWindows.length || safeWindows.some(w =>",
-    "        w.start <= panelTimeline[first].start && w.end >= panelTimeline[last + 1].end))) last++;",
-    "    if (last > first) {",
-    "      const start = panelTimeline[first].start, end = panelTimeline[last].end;",
-    "      const weights = schedules.slice(first, last + 1).map(list => list.reduce((a,b) => a+b, 0));",
-    "      const total = weights.reduce((a,b) => a+b, 0); let cursor = start;",
-    "      for (let i = first; i <= last; i++) {",
-    "        panelTimeline[i].start = cursor;",
-    "        cursor = i === last ? end : cursor + (end - start) * weights[i - first] / total;",
-    "        panelTimeline[i].end = cursor;",
-    "      }",
-    "    }",
-    "    first = last + 1;",
-    "  }",
-    "  const timingShort = panelTimeline.some((panel,i) =>",
-    "    panel.end - panel.start + .01 < schedules[i].reduce((a,b) => a+b, 0));",
+      "  if (wantsProgramme) eventPages.forEach((page, pageIndex) =>",
+      "    requirements.push({kind:'events',pageIndex,seconds:need(eventWords(page)) + .35}));",
+      "  const reallocated = allocate(safeWindows, requirements, {allowShort:true});",
+      "  panelTimeline.splice(0, panelTimeline.length, ...reallocated);",
+      "  const timingShort = panelTimeline.length !== requirements.length || panelTimeline.some((panel, i) =>",
+      "    panel.end - panel.start + .01 < requirements[i].seconds);"
+    ] : [
+      "  const hasEventSlot = panelTimeline.some(panel => panel.kind === 'events');",
+      "  const schedules = panelTimeline.map(panel => {",
+      "    const pages = panel.kind === 'events' ? eventPages.map(page => need(eventWords(page)))",
+      "      : (panel.kind === 'details' || panel.kind === 'all') && !hasEventSlot && allEvents.length > 1",
+      "        ? [need(fieldWords(panel.kind)), ...eventPages.map(page => need(eventWords(page)))]",
+      "        : [need(fieldWords(panel.kind))];",
+      "    return pages.length ? pages : [2.5];",
+      "  });",
+      "  const sameArea = (a, b) => ['left','top','width','height'].every(k => a.textArea[k] === b.textArea[k]);",
+      "  for (let first = 0; first < panelTimeline.length;) {",
+      "    let last = first;",
+      "    while (last + 1 < panelTimeline.length &&",
+      "      Math.abs(panelTimeline[last].end - panelTimeline[last + 1].start) <= .011 &&",
+      "      sameArea(panelTimeline[first], panelTimeline[last + 1]) &&",
+      "      panelTimeline[first].ink === panelTimeline[last + 1].ink) last++;",
+      "    if (last > first) {",
+      "      const start = panelTimeline[first].start, end = panelTimeline[last].end;",
+      "      const weights = schedules.slice(first, last + 1).map(list => list.reduce((a,b) => a+b, 0));",
+      "      const total = weights.reduce((a,b) => a+b, 0); let cursor = start;",
+      "      for (let i = first; i <= last; i++) {",
+      "        panelTimeline[i].start = cursor;",
+      "        cursor = i === last ? end : cursor + (end - start) * weights[i - first] / total;",
+      "        panelTimeline[i].end = cursor;",
+      "      }",
+      "    }",
+      "    first = last + 1;",
+      "  }",
+      "  const timingShort = panelTimeline.some((panel,i) =>",
+      "    panel.end - panel.start + .01 < schedules[i].reduce((a,b) => a+b, 0));",
+    ]),
     "  root.dataset.timelineReadability = timingShort ? 'short' : 'ok';",
     "  let activePanel = -1, activePage = -1;",
     "  const showPanel = (panel, pageIndex) => {",
-    "    const kind = (panel.kind === 'details' || panel.kind === 'all') && !hasEventSlot && pageIndex > 0",
-    "      ? 'events' : panel.kind;",
+    ...(useSafeWindows ? [
+      "    const kind = panel.kind;",
+      "    const visiblePage = pageIndex;"
+    ] : [
+      "    const kind = (panel.kind === 'details' || panel.kind === 'all') && !hasEventSlot && pageIndex > 0",
+      "      ? 'events' : panel.kind;",
+      "    const visiblePage = panel.kind === 'events' ? pageIndex : pageIndex - 1;"
+    ]),
     "    const allowed = groups[kind] || [];",
     "    for (const selector of selectors) {",
     "      const node = root.querySelector(selector);",
@@ -230,17 +246,16 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     "    const eventsVisible = kind === 'events' && eventPages.length > 0;",
     "    eventHost.hidden = !eventsVisible;",
     "    eventPages.forEach((page, i) => {",
-    "      page.hidden = !eventsVisible || i !== (panel.kind === 'events' ? pageIndex : pageIndex - 1);",
+    "      page.hidden = !eventsVisible || i !== visiblePage;",
     "    });",
     "    root.style.left = panel.textArea.left + '%';",
     "    root.style.top = panel.textArea.top + '%';",
     "    root.style.width = panel.textArea.width + '%';",
     "    root.style.height = panel.textArea.height + '%';",
-    "    if (panel.ink) {",
-    "      root.style.color = panel.ink;",
-    "      root.style.textShadow = panel.ink === '#24160e' ? '0 2px 6px rgba(255,245,224,.4)' : '0 2px 6px rgba(12,6,2,.7)';",
-    "    }",
-    "    fit();",
+    "    root.style.color = panel.ink || '';",
+    "    root.style.textShadow = !panel.ink ? '' : panel.ink === '#24160e'",
+    "      ? '0 2px 6px rgba(255,245,224,.4)' : '0 2px 6px rgba(12,6,2,.7)';",
+    "    return fit();",
     "  };",
     "  const updateReveal = () => {",
     "    if (!backgroundVideo) return;",
@@ -248,23 +263,53 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     "    const idx = panelTimeline.findIndex(panel => t >= panel.start && t < panel.end);",
     "    if (idx < 0) { root.style.opacity = '0'; return; }",
     "    const panel = panelTimeline[idx];",
-    "    const weights = schedules[idx], total = weights.reduce((a,b) => a+b, 0);",
-    "    const progress = (t - panel.start) / (panel.end - panel.start) * total;",
-    "    let pageIndex = 0, threshold = weights[0];",
-    "    while (pageIndex < weights.length - 1 && progress >= threshold) threshold += weights[++pageIndex];",
+    ...(useSafeWindows ? [
+      "    const pageIndex = panel.pageIndex ?? 0;"
+    ] : [
+      "    const weights = schedules[idx], total = weights.reduce((a,b) => a+b, 0);",
+      "    const progress = (t - panel.start) / (panel.end - panel.start) * total;",
+      "    let pageIndex = 0, threshold = weights[0];",
+      "    while (pageIndex < weights.length - 1 && progress >= threshold) threshold += weights[++pageIndex];",
+    ]),
     "    if (idx !== activePanel || pageIndex !== activePage) {",
     "      showPanel(panel, pageIndex); activePanel = idx; activePage = pageIndex;",
     "    }",
-    "    root.dataset.timelineReadability = timingShort ? 'short' : 'ok';",
     "    const enter = Math.min(1, Math.max(0, (t - panel.start) / .35));",
     "    const exit = Math.min(1, Math.max(0, (panel.end - t) / .35));",
     "    root.style.opacity = String(Math.min(enter, exit));",
     "  };",
+    "  const measureTimeline = () => {",
+    "    let worstScale = 1, overflow = false;",
+    "    const measure = (panel, pageIndex) => {",
+    "      const fitResult = showPanel(panel, pageIndex);",
+    "      worstScale = Math.min(worstScale, fitResult.scale);",
+    "      overflow ||= fitResult.overflow;",
+    "    };",
+    ...(useSafeWindows ? [
+      "    for (const panel of panelTimeline) measure(panel, panel.pageIndex ?? 0);"
+    ] : [
+      "    for (const [index, panel] of panelTimeline.entries()) {",
+      "      for (const pageIndex of schedules[index].keys()) measure(panel, pageIndex);",
+      "    }"
+    ]),
+    "    root.dataset.timelineTextFit = worstScale.toFixed(2);",
+    "    root.dataset.timelineTextOverflow = String(overflow);",
+    "    activePanel = activePage = -1;",
+    "    updateReveal();",
+    "  };",
+    "  window.addEventListener('resize', measureTimeline);",
+    "  if (document.fonts?.ready) document.fonts.ready.then(measureTimeline);",
     "  if (backgroundVideo) {",
-    "    for (const eventName of ['timeupdate','seeked','loadedmetadata','playing','ended']) {",
+    "    for (const eventName of ['timeupdate','seeking','seeked','loadedmetadata','playing','pause','ended']) {",
     "      backgroundVideo.addEventListener(eventName, updateReveal);",
     "    }",
-    "    updateReveal();",
+    "    if (backgroundVideo.requestVideoFrameCallback) {",
+    "      const updateFrame = () => {",
+    "        updateReveal(); backgroundVideo.requestVideoFrameCallback(updateFrame);",
+    "      };",
+    "      backgroundVideo.requestVideoFrameCallback(updateFrame);",
+    "    }",
+    "    measureTimeline();",
     "  }"
   ] : [
     "  // Follow the MP4 playhead through playback, looping and renderer seeks.",
@@ -314,36 +359,41 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       "  // Fit every editable field without covering the ornate border.",
       "  const inner = root.querySelector('.copy-inner');",
       "  const fit = () => {",
-      "    inner.style.transform = 'none';",
       ...(isTimeline ? [
-        "    // Fit font sizes, not a scaled bitmap. Expand short text as well as",
-        "    // shrinking longer text, using the measured available panel dimensions.",
         "    const stageWidth = root.parentElement?.clientWidth || root.clientWidth / .6;",
         "    const base = Math.max(1, stageWidth / 100);",
+        "    const usableHeight = root.clientHeight - 3.6 * base - 2;",
         "    const fits = scale => {",
         "      inner.style.fontSize = (base * scale).toFixed(3) + 'px';",
-        "      return inner.scrollHeight <= root.clientHeight - 8 &&",
-        "        inner.scrollWidth <= root.clientWidth - 8;",
+        "      return inner.scrollHeight <= usableHeight && inner.scrollWidth <= inner.clientWidth;",
         "    };",
-        "    let low = .55, high = 1.65;",
-        "    if (!fits(low)) {",
-        "      root.dataset.textFit = '0.55'; root.dataset.textFitRequired = '0.54'; return;",
+        "    let low = .72, high = 1.65;",
+        "    const overflow = !fits(low);",
+        "    if (!overflow) {",
+        "      for (let i = 0; i < 9; i++) {",
+        "        const mid = (low + high) / 2;",
+        "        if (fits(mid)) low = mid; else high = mid;",
+        "      }",
+        "      fits(low);",
         "    }",
-        "    for (let i = 0; i < 9; i++) { const mid = (low + high) / 2; if (fits(mid)) low = mid; else high = mid; }",
-        "    fits(low); root.dataset.textFit = Math.min(1, low).toFixed(2);",
-        "    root.dataset.textFitRequired = Math.min(1, low).toFixed(2); return;",
-      ] : []),
-      "    const h = Math.max(1, inner.scrollHeight);",
-      "    const w = Math.max(1, inner.scrollWidth);",
-      "    const required = Math.min(1, (root.clientHeight - 8) / h, (root.clientWidth - 8) / w);",
-      "    const factor = Math.max(.55, required);",
-      "    inner.style.transform = 'scale(' + factor.toFixed(3) + ')';",
-      "    root.dataset.textFit = factor.toFixed(2);",
-      "    root.dataset.textFitRequired = required.toFixed(2);",
+        "    root.dataset.textFit = Math.min(1, low).toFixed(2);",
+        "    return {scale:low,overflow};"
+      ] : [
+        "    inner.style.transform = 'none';",
+        "    const h = Math.max(1, inner.scrollHeight);",
+        "    const w = Math.max(1, inner.scrollWidth);",
+        "    const required = Math.min(1, (root.clientHeight - 8) / h, (root.clientWidth - 8) / w);",
+        "    const factor = Math.max(.55, required);",
+        "    inner.style.transform = 'scale(' + factor.toFixed(3) + ')';",
+        "    root.dataset.textFit = factor.toFixed(2);",
+        "    root.dataset.textFitRequired = required.toFixed(2);"
+      ]),
       "  };",
-      "  fit();",
-      "  window.addEventListener('resize', fit);",
-      "  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);",
+      ...(!isTimeline ? [
+        "  fit();",
+        "  window.addEventListener('resize', fit);",
+        "  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);"
+      ] : []),
       ...timelineScript
     ] : []),
     "})();"
@@ -631,13 +681,11 @@ function initVideoHtmlTab() {
       visualReport.hidden = false;
       visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
         " confidence. Video duration: " + visualAnalysis.duration.toFixed(1) +
-        "s. Text starts at " + visualAnalysis.revealAt.toFixed(1) +
-        "s. " + (visualAnalysis.panels?.length >= 1
-          ? "AI timeline: " + visualAnalysis.scenes.length + " scenes, " +
-            visualAnalysis.panels.length + " timed panels. "
+        "s. " + describeVideoTiming(visualAnalysis) + " " +
+        (visualAnalysis.motionRefined && visualAnalysis.safeWindows?.length
+          ? "Stable display windows: " + visualAnalysis.safeWindows.length + ". "
           : visualAnalysis.scenes?.length
-            ? "AI detected " + visualAnalysis.scenes.length +
-              " scenes; single-panel timing used. " : "") +
+            ? "Detected scenes: " + visualAnalysis.scenes.length + ". " : "") +
         "Video reference: " + result.id + ". " +
         (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
           "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");

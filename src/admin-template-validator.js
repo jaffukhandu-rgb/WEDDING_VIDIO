@@ -140,7 +140,8 @@ export function validateRuntimeReport(runtime, expectedScenes) {
       };
     }
   }
-  if (Number.isFinite(runtime.smartTextFitRequired) && runtime.smartTextFitRequired < 0.55) {
+  if (runtime.smartTextOverflow ||
+      (Number.isFinite(runtime.smartTextFitRequired) && runtime.smartTextFitRequired < 0.55)) {
     return {
       id: 'runtime', status: 'fail', title: 'Automatic text overflow',
       detail: 'The invitation text cannot fit within the detected area at the minimum readable scale. Shorten the copy or choose a different layout.'
