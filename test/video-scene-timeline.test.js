@@ -313,3 +313,15 @@ test("Allocation prioritizes early readable footage and spreads event pages thro
   assert.ok(compressed.every(panel => panel.end > panel.start && fewWindows.some(window =>
     window.start <= panel.start && window.end >= panel.end)));
 });
+
+test("Short schedules prefer a useful early window when the reading-time loss is modest", () => {
+  const windows = [[9.22, 12], [16, 19.82], [23.47, 29.84]].map(([start,end]) =>
+    ({ start, end, textArea: area }));
+  const requirements = [{ kind: "intro", seconds: 7 }, { kind: "details", seconds: 8 }];
+  const panels = allocateReadablePanels(windows, requirements, { allowShort: true });
+  assert.equal(panels[0].start, 9.22);
+  assert.equal(panels[1].start, 23.47);
+  const adequate = [{ start: 2, end: 4.5, textArea: area }, { start: 8, end: 16, textArea: area },
+    { start: 20, end: 29, textArea: area }];
+  assert.equal(allocateReadablePanels(adequate, requirements, { allowShort: true })[0].start, 8);
+});

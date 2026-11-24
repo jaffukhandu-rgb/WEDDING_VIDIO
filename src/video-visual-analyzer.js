@@ -53,23 +53,27 @@ function measureArea(frames, left, top, width, height) {
   };
 }
 
+function isReadableArea(area) {
+  return area.average >= .035 && area.texture <= .065 && area.variance <= .16 &&
+    area.motion <= .037 && area.peakMotion <= .075 && area.brightnessDrift <= .15;
+}
+
 function findArea(frames) {
   // Test rectangles across the middle of the frame. A narrow area can avoid
   // a busy border or smoke, but prefer more space when contrast is comparable.
   let best = null;
   for (const centerY of [.40, .49, .57, .65]) {
     for (const centerX of [.35, .43, .50, .57, .65]) {
-      for (const width of [.36, .44, .52, .60, .68]) {
+      for (const width of [.36, .44, .52, .60, .68, .76]) {
         const left = centerX - width / 2;
         if (left < .08 || left + width > .96) continue;
         for (const height of [.28, .36, .44, .52]) {
           const top = centerY - height / 2;
           if (top < .12 || top + height > .94) continue;
           const area = measureArea(frames, left, top, width, height);
-          if (area.average < .035 || area.texture > .065 || area.variance > .16 ||
-              area.motion > .037 || area.peakMotion > .075 || area.brightnessDrift > .15) continue;
+          if (!isReadableArea(area)) continue;
           const score = area.texture + .20 * area.variance + .55 * area.motion + .14 * area.brightnessDrift +
-            .06 * Math.abs(centerY - .53) + .08 * Math.abs(centerX - .5) - .08 * width * height;
+            .06 * Math.abs(centerY - .53) + .08 * Math.abs(centerX - .5) - .13 * width * height;
           if (!best || score < best.score) best = { ...area, score };
         }
       }
@@ -97,11 +101,14 @@ function percentArea(area) {
 // precise about when a continuous shot becomes still. Extend a model-approved
 // surface to the full overlapping local quiet interval, but never through a
 // scene that Gemini identified as people or a transition.
-export function reconcileReadableWindows(refined, localPlan, scenes, duration) {
+export function reconcileReadableWindows(refined, localPlan, scenes, duration, frames = []) {
   if (!refined?.safeWindows?.length || !localPlan?.safeWindows?.length) return refined;
-  const blocked = scenes.filter(scene =>
+  // Keep locally refined semantic boundaries rather than the original estimates.
+  const semanticScenes = refined.scenes || scenes;
+  const blocked = semanticScenes.filter(scene =>
     scene.kind === "people" || scene.kind === "transition");
-  const expanded = [];
+  const original = validateReadableWindows(refined.safeWindows, duration);
+  const expanded = original.map(window => ({ ...window }));
   for (const local of localPlan.safeWindows) {
     let segments = [{ start: local.start, end: local.end }];
     for (const scene of blocked) {
@@ -116,22 +123,57 @@ export function reconcileReadableWindows(refined, localPlan, scenes, duration) {
       });
     }
     for (const segment of segments) {
-      if (!refined.safeWindows.some(window =>
-        window.start < segment.end && window.end > segment.start)) continue;
-      expanded.push({ ...local, start: segment.start, end: segment.end });
+      const matches = original.map((window, index) => ({ window, index }))
+        .filter(({ window }) => window.start < segment.end && window.end > segment.start);
+      // Multiple model surfaces in one quiet shot may have different layouts.
+      // Preserve the distinct verified windows rather than merging them.
+      if (matches.length !== 1) continue;
+      const { index } = matches[0];
+      const current = expanded[index];
+      const start = Math.max(expanded[index - 1]?.end ?? 0, Math.min(current.start, segment.start));
+      const end = Math.min(expanded[index + 1]?.start ?? duration, Math.max(current.end, segment.end));
+      if (start === current.start && end === current.end) continue;
+      if (blocked.some(scene => scene.start < end && scene.end > start)) continue;
+      const ai = current.textArea, pixel = local.textArea;
+      const left = Math.max(ai.left, pixel.left), top = Math.max(ai.top, pixel.top);
+      const width = Math.min(ai.left + ai.width, pixel.left + pixel.width) - left;
+      const height = Math.min(ai.top + ai.height, pixel.top + pixel.height) - top;
+      if (width < 35 || height < 23) continue;
+      const shared = validateTextArea({ left, top, width, height });
+      let textArea = shared, ink = current.ink;
+      if (frames.length) {
+        const quiet = frames.filter(frame => frame.time >= start && frame.time <= end);
+        if (quiet.length < 3) continue;
+        const sample = quiet.length <= 18 ? quiet : Array.from({ length: 18 }, (_, i) =>
+          quiet[Math.round(i * (quiet.length - 1) / 17)]);
+        // Prefer the model's semantically identified board rectangle only if
+        // decoded pixels also verify it throughout the extended interval.
+        let verified = false;
+        for (const area of [ai, shared]) {
+          const measured = measureArea(sample, area.left / 100, area.top / 100,
+            area.width / 100, area.height / 100);
+          if (!isReadableArea(measured)) continue;
+          textArea = area;
+          ink = measured.average > .48 ? darkInk : lightInk;
+          verified = true;
+          break;
+        }
+        if (!verified) continue;
+      } else if (current.ink !== local.ink) continue;
+      expanded[index] = { start, end, textArea, ink };
     }
   }
-  for (const window of refined.safeWindows) {
-    if (!expanded.some(item => item.start <= window.start && item.end >= window.end)) {
-      expanded.push(window);
-    }
-  }
-  const safeWindows = validateReadableWindows(
-    expanded.sort((a, b) => a.start - b.start), duration);
+  // Replace each existing window once instead of appending overlapping copies.
+  const safeWindows = validateReadableWindows(expanded, duration);
   const schedule = planReadableWindows(safeWindows);
   if (!schedule) return refined;
-  const timeline = validateSceneTimeline({ scenes, panels: schedule.panels }, duration);
-  return { ...refined, ...schedule, ...timeline, safeWindows };
+  try {
+    const timeline = validateSceneTimeline({ scenes: semanticScenes, panels: schedule.panels }, duration);
+    return { ...refined, ...schedule, ...timeline, safeWindows };
+  } catch {
+    // A borderline rounded panel must not discard the verified AI plan.
+    return refined;
+  }
 }
 
 export function deriveVisualPlan(frames, duration = 30, excludedScenes = []) {
@@ -363,7 +405,7 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       const scenePlan = timeline ? refineScenePlan(
         { ...plan, textArea, ...timeline }, decoded, duration) : null;
       const refined = scenePlan ? reconcileReadableWindows(
-        scenePlan, localPlan, timeline.scenes, duration) : null;
+        scenePlan, localPlan, timeline.scenes, duration, decoded) : null;
       if (!refined) {
         const excludedScenes = timeline?.scenes.filter(scene =>
           scene.kind === "people" || scene.kind === "transition");

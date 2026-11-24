@@ -193,3 +193,25 @@ test("Local quiet timing expands a late Gemini surface without crossing semantic
   assert.equal(blocked.safeWindows[0].start, 16);
   assert.ok(blocked.safeWindows.every(window => window.start >= 16));
 });
+
+test("Partially overlapping local and AI windows reconcile without duplicating intervals", () => {
+  const textArea = { left: 20, top: 24, width: 56, height: 50 }, ink = "#fff1d2";
+  const window = (start, end) => ({ start, end, textArea, ink });
+  const scenes = [{ start: 0, end: 9, kind: "people", note: "Opening" },
+    { start: 9, end: 30, kind: "invitation_surface", note: "Board", textArea, ink }];
+  const refined = { scenes, safeWindows: [window(9, 18), window(23, 29)], revealAt: 9 };
+  const result = reconcileReadableWindows(refined, { safeWindows: [window(10, 19)] }, scenes, 30);
+  assert.deepEqual(result.safeWindows.map(w => [w.start, w.end]), [[9, 19], [23, 29]]);
+});
+
+test("Refined semantic scene boundaries are retained when reconciling quiet windows", () => {
+  const textArea = { left: 20, top: 24, width: 56, height: 50 }, ink = "#fff1d2";
+  const window = (start, end) => ({ start, end, textArea, ink });
+  const scenes = [{ start: 0, end: 10, kind: "transition", note: "Opening" },
+    { start: 10, end: 30, kind: "invitation_surface", note: "Board", textArea, ink }];
+  const adjusted = [{ ...scenes[0], end: 9 }, { ...scenes[1], start: 9 }];
+  const result = reconcileReadableWindows({ scenes: adjusted, safeWindows: [window(16, 19.8)] },
+    { safeWindows: [window(9.2, 19.8)] }, scenes, 30);
+  assert.equal(result.safeWindows[0].start, 9.2);
+  assert.equal(result.scenes[0].end, 9);
+});

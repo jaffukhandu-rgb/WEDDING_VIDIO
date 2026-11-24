@@ -290,12 +290,20 @@ export function validateReadableWindows(windows, duration) {
 export function allocateReadablePanels(windows, requirements, { allowShort = false } = {}) {
   if (!windows.length || !requirements.length ||
       requirements.some(item => !Number.isFinite(item.seconds) || item.seconds <= 0)) return [];
+  // Keep full reading time whenever possible. If no full schedule fits,
+  // allow a small reading-time tradeoff to avoid unnecessarily late starts.
+  if (allowShort) {
+    const full = allocateReadablePanels(windows, requirements);
+    if (full.length) return full;
+  }
   const epsilon = 1e-9;
+  const earliest = windows[0].start;
+  const score = choice => choice.covered + Math.max(0, 1.5 - .25 * (choice.firstStart - earliest));
   let best = [{ covered: 0, available: 0, firstStart: Infinity }];
   const preferred = (choice, current) => {
     if (!current) return true;
-    if (allowShort && Math.abs(choice.covered - current.covered) > epsilon) {
-      return choice.covered > current.covered;
+    if (allowShort && Math.abs(score(choice) - score(current)) > epsilon) {
+      return score(choice) > score(current);
     }
     if (choice.firstStart !== current.firstStart) return choice.firstStart < current.firstStart;
     return choice.available > current.available + epsilon;
