@@ -156,7 +156,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     "  const groups = {",
     "    intro: ['.ceremony','.message','.names'],",
     "    details: ['.names','.date-time','.venue','.address','.blessing'],",
-    "    events: ['.ceremony'],",
+    "    events: [],",
     "    all: selectors",
     "  };",
     "  const eventHost = root.querySelector('.events-list');",

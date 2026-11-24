@@ -186,6 +186,7 @@ test("Personalized reading slots and event pages remain inside decoded windows o
     sawAddress ||= !field.hidden && field.textContent === address;
     const programme = root.querySelector(".events-list");
     if (!programme.hidden) {
+      assert.equal(root.querySelector(".ceremony").hidden, true);
       for (const page of programme.children.filter(node => !node.hidden)) {
         for (const entry of page.children) readEvents.add(entry.children[0].textContent);
       }
