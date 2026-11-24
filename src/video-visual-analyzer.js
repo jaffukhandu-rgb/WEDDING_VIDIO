@@ -1,5 +1,5 @@
 import { isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
-import { normalizeDesignPrompt, validateVideoDesign } from "./video-invitation-design.js";
+import { normalizeDesignPrompt, validateVideoDesign, resolveVideoDesign, mergeVideoDesign } from "./video-invitation-design.js";
 import { sceneSampleTimes, validateSceneTimeline, motionIntervals, refineScenePlan,
   validateReadableWindows, validateTextArea, planReadableWindows } from "./video-scene-timeline.js";
 
@@ -371,13 +371,17 @@ export async function runVideoAiStages(session, options = {}) {
   const duration = localPlan.duration;
   const onStage = options.onStage || (() => {});
   let scene = session.scenePlan || localPlan;
-  let design = designPrompt && session.designPrompt === designPrompt ? session.design : null;
+  // Explicit edits use the style from the actual editor, not a stale cache.
+  const previousDesign = resolveVideoDesign(options.previousDesign);
+  const refineDesign = Boolean(options.refineDesign && designPrompt && previousDesign);
+  let design = !refineDesign && designPrompt && session.designPrompt === designPrompt
+    ? session.design : null;
   const warnings = [];
   const finish = () => ({ ...scene, design: design || null, aiStageStatus: {
     scene: session.scenePlan ? "ready" : "fallback",
     design: !designPrompt ? "not_requested" : design ? "ready" : "fallback"
   }, warnings: [...scene.warnings, ...warnings] });
-  if (session.scenePlan && (!designPrompt || design)) return finish();
+  if (!refineDesign && session.scenePlan && (!designPrompt || design)) return finish();
   if (!options.ai?.adminKey || !options.ai?.apiRoot || !images?.length) {
     warnings.push("Gemini unavailable (not configured or no reference frames). Used available analysis.");
     return finish();
@@ -386,7 +390,7 @@ export async function runVideoAiStages(session, options = {}) {
   const endpoint = root + "/api/admin/video-analysis";
   const headers = { "X-Admin-Key": options.ai.adminKey };
   try {
-    onStage("Checking Gemini availability…");
+    onStage("Checking Gemini availability…", "evidence");
     const capability = await fetchAiJson(endpoint, headers, null, 5000);
     if (!capability.enabled) throw aiError("request_failed");
   } catch (error) {
@@ -394,8 +398,8 @@ export async function runVideoAiStages(session, options = {}) {
     return finish();
   }
   let blocked = false;
-  if (!session.scenePlan) {
-    onStage("Gemini scene analysis…");
+  if (!session.scenePlan && !refineDesign) {
+    onStage("Gemini scene analysis…", "scene");
     try {
       const result = await fetchAiJson(endpoint, headers, { duration, frames: images,
         localWindows: localPlan.safeWindows });
@@ -406,24 +410,26 @@ export async function runVideoAiStages(session, options = {}) {
       warnings.push("Gemini unavailable (" + error.message + "). Used local frame analysis.");
       blocked = ["invalid_key", "permission_denied", "quota_exceeded", "model_unavailable"].includes(error.reason);
     }
-  } else onStage("Reusing successful Gemini scene analysis…");
+  } else onStage(refineDesign ? "Keeping the current invitation timing…" : "Reusing successful Gemini scene analysis…", "scene");
   if (designPrompt && !design && !blocked) {
-    onStage("Gemini custom design…");
+    onStage(refineDesign ? "Refining your current design with Gemini…" : "Gemini custom design…", "design");
     try {
       const frames = selectDesignFrames(images, scene.safeWindows || []);
       const result = await fetchAiJson(root + "/api/admin/video-design", headers, {
-        duration, frames, localWindows: scene.safeWindows || [], designPrompt });
-      design = validateVideoDesign(result.design);
+        duration, frames, localWindows: scene.safeWindows || [], designPrompt,
+        ...(refineDesign ? { previousDesign } : {}) });
+      design = refineDesign ? mergeVideoDesign(previousDesign, result.design) : validateVideoDesign(result.design);
       if (!design) throw aiError("invalid_layout");
       session.design = design;
       session.designPrompt = designPrompt;
     } catch (error) {
-      warnings.push("Custom Gemini design unavailable (" + error.message + "). Standard style used.");
+      warnings.push("Custom Gemini design unavailable (" + error.message + "). " +
+        (refineDesign ? "Current design retained." : "Standard style used."));
     }
   } else if (designPrompt && !design) {
     warnings.push("Custom design was not attempted because Gemini access is unavailable.");
   }
-  onStage("AI stages finished; preparing invitation…");
+  onStage("AI stages finished; preparing invitation…", "aiDone");
   return finish();
 }
 
@@ -522,7 +528,7 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       const sampleContext = sampleCanvas.getContext("2d");
       if (!sampleContext) throw Error("Canvas unavailable.");
       const times = selectSceneEvidenceTimes(duration, localPlan, selectedEdges);
-      options.onStage?.("Preparing representative Gemini frames…");
+      options.onStage?.("Preparing representative Gemini frames…", "evidence");
       for (const time of times) {
         await seek(video, time);
         sampleContext.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);

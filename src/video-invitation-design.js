@@ -67,14 +67,28 @@ function rgba(hex, alpha) {
   return "rgba(" + [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16)).join(",")
     + "," + alpha + ")";
 }
-export function buildVideoDesignCss(value) {
+// Resolve the same defaults used by the CSS generator, so a partial change
+// never resets a previously implicit font, spacing or panel setting.
+export function resolveVideoDesign(value) {
   const design = validateVideoDesign(value);
-  if (!design) return "";
-  const d = { surface: "none", font: "classic", nameFont: design.font || "classic",
+  if (!design) return null;
+  return { surface: "none", font: "classic", nameFont: design.font || "classic",
     alignment: "center", nameWeight: 650, nameSize: 8.5, bodySize: 3.6,
     nameItalic: true, namesFirst: false, titleTracking: .09, gap: .7,
     panelOpacity: .25, blur: 8, radius: 2.2, borderColor: "#e8c889",
     borderOpacity: .45, borderWidth: .18, ...design };
+}
+
+export function mergeVideoDesign(previous, changes) {
+  const base = resolveVideoDesign(previous);
+  const patch = validateVideoDesign(changes);
+  if (!base || !patch) return null;
+  return validateVideoDesign({ ...base, ...patch });
+}
+
+export function buildVideoDesignCss(value) {
+  const d = resolveVideoDesign(value);
+  if (!d) return "";
   const selector = ".copy[data-scene-timeline]";
   const alignment = { center: "center", left: "flex-start", right: "flex-end" }[d.alignment];
   const panel = ink => {
@@ -103,4 +117,40 @@ export function buildVideoDesignCss(value) {
     selector + '[data-design-ink="light"] .names{color:' + light + "}",
     selector + '[data-design-ink="dark"] .names{color:' + dark + "}"
   ].join("\n");
+}
+
+// Metadata is deliberately limited to validated style settings, not prompts,
+// scripts, HTML or customer data. It travels with a generated source/draft.
+const DESIGN_BLOCK = /\/\* wedding-ai-design:v1 ([^\r\n]*?) \*\/\n([\s\S]*?)\n\/\* wedding-ai-design:end \*\//g;
+export function buildVideoDesignBlock(value) {
+  const design = resolveVideoDesign(value);
+  return "/* wedding-ai-design:v1 " + JSON.stringify(design) + " */\n" +
+    buildVideoDesignCss(design) + "\n/* wedding-ai-design:end */";
+}
+
+export function readVideoDesignBlock(html) {
+  if (typeof html !== "string" || html.length > 1024 * 1024) return null;
+  const matches = [...html.matchAll(DESIGN_BLOCK)];
+  if (matches.length !== 1) return null;
+  const [block, json, css] = matches[0];
+  const headEnd = html.indexOf("</head>");
+  const styleStart = html.lastIndexOf("<style>", matches[0].index);
+  const styleEnd = html.indexOf("</style>", matches[0].index);
+  if (headEnd < 0 || styleStart < 0 || styleEnd < 0 ||
+      styleEnd > headEnd || matches[0].index + block.length > styleEnd ||
+      html.slice(styleStart + 7, matches[0].index).includes("</style>")) return null;
+  try {
+    const parsed = JSON.parse(json);
+    const design = parsed === null ? null : resolveVideoDesign(parsed);
+    if ((parsed !== null && !design) || css !== buildVideoDesignCss(design)) return null;
+    return { design, block };
+  } catch { return null; }
+}
+
+export function replaceVideoDesignBlock(html, value) {
+  const current = readVideoDesignBlock(html);
+  const design = resolveVideoDesign(value);
+  if (!current || !design) throw new Error("Cannot safely refine this invitation style.");
+  // The entire non-design source remains byte-for-byte identical.
+  return html.replace(current.block, () => buildVideoDesignBlock(design));
 }

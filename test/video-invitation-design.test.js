@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateVideoDesign, buildVideoDesignCss, normalizeDesignPrompt } from "../src/video-invitation-design.js";
+import { validateVideoDesign, buildVideoDesignCss, normalizeDesignPrompt, resolveVideoDesign, mergeVideoDesign, buildVideoDesignBlock, readVideoDesignBlock, replaceVideoDesignBlock } from "../src/video-invitation-design.js";
 import { buildVideoInvitationSource } from "../src/admin-video-html.js";
-import { validateGeminiFrames, requestGeminiPlan } from "../server/gemini-video-analysis.js";
+import { validateGeminiFrames, requestGeminiPlan, requestGeminiDesign } from "../server/gemini-video-analysis.js";
 
 const textArea = { left: 20, top: 24, width: 56, height: 50 };
 const ink = "#fff1d2";
@@ -55,4 +55,44 @@ test("Gemini receives a validated creative brief and local evidence; returns saf
   assert.ok(request.contents[0].parts[0].text.includes("Locally measured quiet windows"));
   assert.ok(request.generationConfig.responseSchema.properties.design);
   assert.equal(JSON.stringify(request).includes("test-key"), false);
+});
+
+test("Follow-up style patches preserve previous explicit and implicit design values", () => {
+  const current = resolveVideoDesign(glass);
+  const changed = mergeVideoDesign(current, { nameSize: 10, borderWidth: 0 });
+  assert.deepEqual(changed, { ...current, nameSize: 10, borderWidth: 0 });
+  assert.equal(changed.surface, "glass");
+  assert.equal(changed.blur, 12);
+  assert.equal(mergeVideoDesign(current, { html: "<script>bad</script>" }), null);
+});
+
+test("Design metadata can safely round-trip through a saved source and only replace its CSS block", () => {
+  const block = buildVideoDesignBlock(glass);
+  const html = "<html><head><style>.other{color:red}\\n".replace("\\n", "\n") + block +
+    "</style></head><body><script>const CONFIG = {partner1: 'Custom Name'};</script></body></html>";
+  const current = readVideoDesignBlock(html);
+  assert.deepEqual(current.design, resolveVideoDesign(glass));
+  const changed = mergeVideoDesign(current.design, { nameSize: 10, borderWidth: 0 });
+  const next = replaceVideoDesignBlock(html, changed);
+  assert.equal(next.replace(readVideoDesignBlock(next).block, ""), html.replace(block, ""));
+  assert.equal(readVideoDesignBlock(next).design.nameSize, 10);
+  assert.equal(readVideoDesignBlock(html.replace("blur(12px)", "blur(15px)")), null);
+  assert.throws(() => replaceVideoDesignBlock("<html></html>", changed), /safely refine/);
+});
+
+test("Gemini follow-up request contains the previous style and merges only validated changes", async () => {
+  const frames = [{ time: 12, jpeg: "a".repeat(120) }];
+  const previousDesign = resolveVideoDesign(glass);
+  const sample = validateGeminiFrames({ duration: 30, frames, previousDesign,
+    designPrompt: "Make names bigger and remove border" }, 1, 3);
+  let request;
+  const result = await requestGeminiDesign(sample, "test-key", async (_url, options) => {
+    request = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [
+      { text: JSON.stringify({ nameSize: 10.5, borderWidth: 0 }) }
+    ] } }] }) };
+  }, "gemini-3.5-flash");
+  assert.deepEqual(result, { ...previousDesign, nameSize: 10.5, borderWidth: 0 });
+  assert.ok(request.contents[0].parts[0].text.includes(JSON.stringify(previousDesign)));
+  assert.throws(() => validateGeminiFrames({ duration: 30, frames, previousDesign: { html: "bad" } }, 1, 3), /Invalid previous/);
 });

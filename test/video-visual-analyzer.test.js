@@ -274,3 +274,26 @@ test("Successful design survives scene timeout and is reused when scenes are ret
   assert.deepEqual(second.design, first.design);
   assert.equal(calls.filter(([url, method]) => method === "POST" && url.endsWith("/video-design")).length, 1);
 });
+
+test("Explicit follow-up sends the actual prior design even if the prompt matches cached text", async t => {
+  const localPlan = deriveVisualPlan(makeFrames(twoWindows), 30);
+  const prior = { surface: "glass", blur: 12, nameSize: 8.5, borderWidth: .18 };
+  const session = { localPlan, decoded: makeFrames(twoWindows), scenePlan: localPlan,
+    images: [{ time: 5, jpeg: "mock" }, { time: 18, jpeg: "mock" }],
+    design: prior, designPrompt: "bigger names" };
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (!options.method) return Response.json({ enabled: true });
+    assert.ok(url.endsWith("/video-design"));
+    calls.push(JSON.parse(options.body));
+    return Response.json({ design: { nameSize: 10 } });
+  });
+  const result = await runVideoAiStages(session, { ai: { apiRoot: "http://localhost", adminKey: "test" },
+    designPrompt: "bigger names", previousDesign: prior, refineDesign: true });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].previousDesign.blur, 12);
+  assert.equal(result.design.nameSize, 10);
+  assert.equal(result.design.surface, "glass");
+  assert.equal(result.design.blur, 12);
+  assert.deepEqual(result.safeWindows, localPlan.safeWindows);
+});
