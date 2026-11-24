@@ -512,6 +512,7 @@ function initVideoHtmlTab() {
   const titleInput = document.querySelector("#video-html-title");
   const promptInput = document.querySelector("#video-html-design-prompt");
   const createButton = document.querySelector("#video-html-create");
+  const retryButton = document.querySelector("#video-html-retry-ai");
   const uploadLoader = document.querySelector("#video-html-upload-loader");
   const uploadProgress = document.querySelector("#video-html-upload-progress");
   const uploadLabel = document.querySelector("#video-html-upload-label");
@@ -563,6 +564,16 @@ function initVideoHtmlTab() {
   void checkStorage();
 
   let pendingVideoReplacement = false;
+  let retrySession = null;
+  let retryVideoId = null;
+  function showAiStage(message) {
+    uploadProgress.removeAttribute("value");
+    uploadLabel.textContent = message;
+    status.textContent = message;
+  }
+  function setRetryAvailable(available) {
+    if (retryButton) retryButton.hidden = !available;
+  }
   function analyzeVideoHtml() {
     if (pendingVideoReplacement) {
       status.textContent = "A different MP4 is selected. Upload and generate new HTML before analyzing or exporting it.";
@@ -576,6 +587,7 @@ function initVideoHtmlTab() {
     }
     assetLink.href = background.url;
     assetLink.hidden = false;
+    setRetryAvailable(true);
     codeInput.value = videoHtmlCode.value;
     codeInput.dispatchEvent(new Event("input", { bubbles: true }));
     analyzeButton.click();
@@ -584,6 +596,7 @@ function initVideoHtmlTab() {
 
   analyzeVideoButton.addEventListener("click", analyzeVideoHtml);
   videoHtmlCode.addEventListener("input", () => {
+    setRetryAvailable(false);
     visualReport.hidden = true;
     assetLink.hidden = true;
     // Invalidate prepared previews when the Video + HTML source is edited.
@@ -604,6 +617,9 @@ function initVideoHtmlTab() {
   }
 
   fileInput.addEventListener("change", () => {
+    retrySession = null;
+    retryVideoId = null;
+    setRetryAvailable(false);
     visualReport.hidden = true;
     assetLink.hidden = true;
     pendingVideoReplacement = Boolean(fileInput.files?.length && videoHtmlCode.value.trim());
@@ -611,6 +627,102 @@ function initVideoHtmlTab() {
       // Preserve the source, but invalidate its prepared preview and MP4 export.
       codeInput.dispatchEvent(new Event("input", { bubbles: true }));
       status.textContent = "New MP4 selected. Upload and regenerate before previewing or exporting; previous HTML is preserved.";
+    }
+  });
+
+  function showGeneratedInvitation(result, visualAnalysis, designPrompt) {
+    const url = API_ROOT + "/api/video-backgrounds/" + result.id;
+    const source = buildVideoInvitationSource({
+      id: result.id,
+      url,
+      title: titleInput.value.trim() || "Video Wedding Invitation",
+      visualAnalysis
+    });
+    if (new TextEncoder().encode(source).length > 1024 * 1024) {
+      throw new Error("Generated HTML unexpectedly exceeds the 1 MB source limit.");
+    }
+    // This is an accessible, stable local video URL even if Cloudinary is used.
+    assetLink.href = url;
+    assetLink.hidden = false;
+    if (result.provider) storageStatus.textContent = result.provider === "cloudinary"
+      ? "Uploaded to Cloudinary. The video is accessible through the website renderer URL below."
+      : "Uploaded to MongoDB GridFS. The video is accessible through the website renderer URL below.";
+    // Reuse the existing analyzer and editor, but keep the HTML visible here.
+    videoHtmlCode.value = source;
+    pendingVideoReplacement = false;
+    analyzeVideoHtml();
+    visualReport.hidden = false;
+    visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
+      " confidence. Video duration: " + visualAnalysis.duration.toFixed(1) +
+      "s. " + describeVideoTiming(visualAnalysis) + " " +
+      (visualAnalysis.motionRefined && visualAnalysis.safeWindows?.length
+        ? "Stable display windows: " + visualAnalysis.safeWindows.length + ". "
+        : visualAnalysis.scenes?.length
+          ? "Detected scenes: " + visualAnalysis.scenes.length + ". " : "") +
+      (designPrompt ? (visualAnalysis.design ? "Custom Gemini design applied. " : "Custom design not available; standard style used. ") : "") +
+      (visualAnalysis.aiStageStatus ? "Gemini scene: " + visualAnalysis.aiStageStatus.scene +
+        "; design: " + visualAnalysis.aiStageStatus.design + ". " : "") +
+      "Video reference: " + result.id + ". " +
+      (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
+        "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");
+    status.textContent = "Video + HTML generated from the analyzed MP4. Edit customer details and preview before export.";
+  }
+
+  // The stored background reference remains unchanged. Successful AI evidence
+  // is cached for this workspace session; after refresh the stored video can
+  // be decoded again without creating another upload.
+  retryButton?.addEventListener("click", async () => {
+    if (createButton.disabled || pendingVideoReplacement) return;
+    const background = findVideoBackground(videoHtmlCode.value);
+    if (!background || background.origin !== new URL(API_ROOT).origin) {
+      status.textContent = "Analyze a valid stored Video + HTML invitation first.";
+      return;
+    }
+    const key = keyInput.value.trim();
+    if (!key) {
+      status.textContent = "Enter the Admin access key before retrying Gemini.";
+      keyInput.focus();
+      return;
+    }
+    let designPrompt;
+    try { designPrompt = normalizeDesignPrompt(promptInput?.value); }
+    catch (error) { status.textContent = error.message; return; }
+    if (!window.confirm("Retry AI using the existing video? Successful regeneration replaces the current HTML and resets preview sample values. Save a draft first if needed.")) return;
+    const originalVideoCode = videoHtmlCode.value, originalCode = codeInput.value;
+    const session = retryVideoId === background.id && retrySession ? retrySession : {};
+    const source = session.source || background.url;
+    createButton.disabled = retryButton.disabled = fileInput.disabled = true;
+    if (promptInput) promptInput.disabled = true;
+    uploadLoader.hidden = false;
+    showAiStage("Retrying AI without uploading the video again…");
+    try {
+      const previousScene = session.scenePlan, previousDesign = session.design;
+      const visualAnalysis = await analyzeVideoVisual(source, percent => {
+        uploadProgress.value = percent;
+        status.textContent = uploadLabel.textContent = "Reading saved video: " + percent + "%";
+      }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage });
+      retrySession = session;
+      retryVideoId = background.id;
+      if (videoHtmlCode.value !== originalVideoCode || codeInput.value !== originalCode) {
+        status.textContent = "Source changed during retry. Existing HTML preserved; retry again to apply the retained analysis.";
+        return;
+      }
+      const stages = visualAnalysis.aiStageStatus;
+      const improved = session.scenePlan !== previousScene || session.design !== previousDesign;
+      if (!stages || (stages.scene !== "ready" && stages.design !== "ready") ||
+          (designPrompt && stages.design !== "ready" && (!improved || previousDesign))) {
+        status.textContent = "AI retry did not produce the requested result. Existing HTML preserved. " + visualAnalysis.warnings.join(" ");
+        return;
+      }
+      // Preserve a previously generated design if its replacement failed.
+      showGeneratedInvitation({ id: background.id }, visualAnalysis, designPrompt);
+      status.textContent = "AI retry finished using the existing video. Review the updated HTML and preview.";
+    } catch (error) {
+      status.textContent = (error instanceof Error ? error.message : "AI retry failed.") + " Existing HTML preserved.";
+    } finally {
+      uploadLoader.hidden = true;
+      createButton.disabled = retryButton.disabled = fileInput.disabled = false;
+      if (promptInput) promptInput.disabled = false;
     }
   });
 
@@ -636,6 +748,7 @@ function initVideoHtmlTab() {
     catch (error) { status.textContent = error.message; return; }
     createButton.disabled = true;
     fileInput.disabled = true;
+    if (retryButton) retryButton.disabled = true;
     if (promptInput) promptInput.disabled = true;
     status.textContent = "Checking the video format and duration…";
     try {
@@ -646,11 +759,12 @@ function initVideoHtmlTab() {
       uploadProgress.value = 0;
       uploadLabel.textContent = "Analyzing video frames: 0%";
       // Analyze BEFORE upload so a failure cannot create another stored MP4.
+      const session = {};
       const visualAnalysis = await analyzeVideoVisual(file, percent => {
         status.textContent = "Analyzing video frames and readable area: " + percent + "%";
         uploadProgress.value = percent;
         uploadLabel.textContent = "Analyzing video frames: " + percent + "%";
-      }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt });
+      }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage });
       status.textContent = "Video analyzed. Uploading the background securely…";
       uploadProgress.value = 0;
       uploadLabel.textContent = "Uploading MP4: 0% transferred";
@@ -667,39 +781,9 @@ function initVideoHtmlTab() {
       });
       uploadProgress.value = 100;
       uploadLabel.textContent = "Upload saved successfully.";
-      const url = API_ROOT + "/api/video-backgrounds/" + result.id;
-      const source = buildVideoInvitationSource({
-        id: result.id,
-        url,
-        title: titleInput.value.trim() || "Video Wedding Invitation",
-        visualAnalysis
-      });
-      if (new TextEncoder().encode(source).length > 1024 * 1024) {
-        throw new Error("Generated HTML unexpectedly exceeds the 1 MB source limit.");
-      }
-      // This is an accessible, stable local video URL even if Cloudinary is used.
-      assetLink.href = url;
-      assetLink.hidden = false;
-      storageStatus.textContent = result.provider === "cloudinary"
-        ? "Uploaded to Cloudinary. The video is accessible through the website renderer URL below."
-        : "Uploaded to MongoDB GridFS. The video is accessible through the website renderer URL below.";
-      // Reuse the existing analyzer and editor, but keep the HTML visible here.
-      videoHtmlCode.value = source;
-      pendingVideoReplacement = false;
-      analyzeVideoHtml();
-      visualReport.hidden = false;
-      visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
-        " confidence. Video duration: " + visualAnalysis.duration.toFixed(1) +
-        "s. " + describeVideoTiming(visualAnalysis) + " " +
-        (visualAnalysis.motionRefined && visualAnalysis.safeWindows?.length
-          ? "Stable display windows: " + visualAnalysis.safeWindows.length + ". "
-          : visualAnalysis.scenes?.length
-            ? "Detected scenes: " + visualAnalysis.scenes.length + ". " : "") +
-        (designPrompt ? (visualAnalysis.design ? "Custom Gemini design applied. " : "Custom design not available; standard style used. ") : "") +
-        "Video reference: " + result.id + ". " +
-        (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
-          "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");
-      status.textContent = "Video + HTML generated from the analyzed MP4. Edit customer details and preview before export.";
+      retrySession = session;
+      retryVideoId = result.id;
+      showGeneratedInvitation(result, visualAnalysis, designPrompt);
       // Stay on Video + HTML; existing editable fields appear below this panel.
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to create video template.";
@@ -707,6 +791,7 @@ function initVideoHtmlTab() {
       uploadLoader.hidden = true;
       createButton.disabled = false;
       fileInput.disabled = false;
+      if (retryButton) retryButton.disabled = false;
       if (promptInput) promptInput.disabled = false;
     }
   });
