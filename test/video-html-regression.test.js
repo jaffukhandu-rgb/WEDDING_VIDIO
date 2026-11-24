@@ -195,6 +195,9 @@ test("Personalized reading slots and event pages remain inside decoded windows o
   assert.equal(sawAddress, true);
   assert.deepEqual([...readEvents], events.map(event => event.name));
   assert.equal(root.dataset.timelineReadability, "ok");
+  const reported = JSON.parse(root.dataset.playbackTimeline);
+  assert.equal(reported[0].start, 3);
+  assert.ok(reported.every(panel => safeWindows.some(window => panel.start >= window.start && panel.end <= window.end)));
   playAt(4, "seeked");
   assert.equal(root.style.opacity, "1");
   assert.equal(root.querySelector(".message").hidden, false);

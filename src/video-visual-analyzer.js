@@ -1,4 +1,5 @@
 import { isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
+import { normalizeDesignPrompt, validateVideoDesign } from "./video-invitation-design.js";
 import { sceneSampleTimes, validateSceneTimeline, motionIntervals, refineScenePlan,
   validateReadableWindows, validateTextArea, planReadableWindows } from "./video-scene-timeline.js";
 
@@ -236,6 +237,7 @@ function seek(video, time) {
   });
 }
 export async function analyzeVideoVisual(source, onProgress = () => {}, options = {}) {
+  const designPrompt = normalizeDesignPrompt(options.designPrompt);
   const local = source instanceof Blob;
   if (!local && typeof source !== "string") throw TypeError("Video URL or file required.");
   const url = local ? URL.createObjectURL(source) : source;
@@ -353,7 +355,8 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
         response = await fetch(endpoint, {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ duration, frames: images }),
+          body: JSON.stringify({ duration, frames: images, localWindows: localPlan.safeWindows,
+            ...(designPrompt ? { designPrompt } : {}) }),
           signal: controller.signal
         });
       } finally { clearTimeout(timeout); }
@@ -415,9 +418,11 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
           "Gemini supplied no locally verified text window. Review the local analysis."
         ] };
       }
-      return { ...plan, ...refined, shadow: textShadow(refined.ink),
+      const design = designPrompt ? validateVideoDesign(plan.design) : null;
+      return { ...plan, ...refined, design, shadow: textShadow(refined.ink),
         warnings: [
           ...plan.warnings,
+          ...(designPrompt && !design ? ["Custom design was not returned or was invalid; used the standard invitation style."] : []),
           "Locally refined " + refined.safeWindows.length + " readable window(s); verify motion and pacing.",
           "Gemini-assisted layout: review the full video before publishing."
         ]

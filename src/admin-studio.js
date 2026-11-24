@@ -29,6 +29,21 @@ let sourceRevision=0;
 let staticValidation=[],runtimeValidation=null,previewValidationError='',validationDirty=false;
 let delivery=null;
 function renderValidation(){
+  const playbackReport=document.querySelector('#video-html-playback-report');
+  if(playbackReport){
+    const panels=!validationDirty&&findVideoBackground(source)?runtimeValidation?.playbackTimeline:null;
+    const valid=Array.isArray(panels)&&panels.length<=100&&panels.every(panel=>
+      panel&&['intro','details','events','all'].includes(panel.kind)&&
+      Number.isFinite(panel.start)&&Number.isFinite(panel.end)&&panel.start>=0&&panel.end>panel.start&&panel.end<=120&&
+      (panel.pageIndex===undefined||(Number.isInteger(panel.pageIndex)&&panel.pageIndex>=0&&panel.pageIndex<100)));
+    playbackReport.hidden=!valid;
+    playbackReport.textContent=valid
+      ? panels.length?'Personalized preview schedule (video time; includes 0.35s fades): '+panels.map(panel=>
+        (panel.kind==='events'?'Programme '+((panel.pageIndex??0)+1):panel.kind==='all'?'All details':panel.kind)+
+        ' '+panel.start.toFixed(2)+'–'+panel.end.toFixed(2)+'s').join(' · ')
+        : 'Personalized preview schedule: no verified display windows.'
+      : '';
+  }
   validationResults.replaceChildren();
   if(!lastAnalysis){
     validationRun.disabled=true;

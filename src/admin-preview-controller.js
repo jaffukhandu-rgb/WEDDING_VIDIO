@@ -203,6 +203,11 @@ const BRIDGE = String.raw`
         })(),
         smartTextOverflow:document.querySelector('[data-scene-timeline]')?.dataset.timelineTextOverflow === "true",
         timelineReadability:document.querySelector('[data-scene-timeline]')?.dataset.timelineReadability || null,
+        playbackTimeline:(() => {
+          const raw=document.querySelector('[data-scene-timeline]')?.dataset.playbackTimeline;
+          if(typeof raw!=="string"||raw.length>20000)return null;
+          try { return JSON.parse(raw); } catch { return null; }
+        })(),
         smartTextFitRequired:(() => {
           const root=document.querySelector('[data-video-auto-layout="v1"]');
           if (!root) return null;

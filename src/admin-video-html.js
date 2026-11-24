@@ -1,5 +1,6 @@
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
+import { buildVideoDesignCss, normalizeDesignPrompt } from "./video-invitation-design.js";
 import { validateSceneTimeline, validateReadableWindows, allocateReadablePanels } from "./video-scene-timeline.js";
 
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
@@ -138,17 +139,18 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       ".copy .event-title{font-weight:700;font-size:4cqw}",
       ".copy .event-info{font-size:3.1cqw;line-height:1.24;overflow-wrap:anywhere}",
       ".copy[data-scene-timeline]{overflow:hidden}",
-      ".copy[data-scene-timeline] .copy-inner{font-size:1cqw;gap:1em}",
+      ".copy[data-scene-timeline] .copy-inner{font-size:1cqw;gap:.7em}",
       ".copy[data-scene-timeline] .names{font-size:8.5em}",
       ".copy[data-scene-timeline] .ceremony{font-size:3.35em}",
-      ".copy[data-scene-timeline] .message{font-size:3.2em}",
-      ".copy[data-scene-timeline] .date-time{font-size:3.9em}",
+      ".copy[data-scene-timeline] .message{font-size:3.6em}",
+      ".copy[data-scene-timeline] .date-time{font-size:4.2em}",
       ".copy[data-scene-timeline] .venue{font-size:4.5em}",
-      ".copy[data-scene-timeline] .address,.copy[data-scene-timeline] .blessing{font-size:3.05em}",
+      ".copy[data-scene-timeline] .address,.copy[data-scene-timeline] .blessing{font-size:3.4em}",
       ".copy[data-scene-timeline] .event-title{font-size:4em}",
       ".copy[data-scene-timeline] .event-info{font-size:3.1em}"
     ].join("\n");
   }
+  if (isTimeline) styles += "\n" + buildVideoDesignCss(visualAnalysis.design);
   const timelineScript = isTimeline ? [
     "  const panelTimeline = " + JSON.stringify(timelinePanels || []) + ";",
     "  const backgroundVideo = document.querySelector('video[data-wedding-background]');",
@@ -228,6 +230,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
       "    panel.end - panel.start + .01 < schedules[i].reduce((a,b) => a+b, 0));",
     ]),
     "  root.dataset.timelineReadability = timingShort ? 'short' : 'ok';",
+    "  root.dataset.playbackTimeline = JSON.stringify(panelTimeline.map(({kind,start,end,pageIndex}) => ({kind,start,end,pageIndex})));",
     "  let activePanel = -1, activePage = -1;",
     "  const showPanel = (panel, pageIndex) => {",
     ...(useSafeWindows ? [
@@ -253,6 +256,7 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     "    root.style.width = panel.textArea.width + '%';",
     "    root.style.height = panel.textArea.height + '%';",
     "    root.style.color = panel.ink || '';",
+    "    root.dataset.designInk = panel.ink === '#24160e' ? 'dark' : 'light';",
     "    root.style.textShadow = !panel.ink ? '' : panel.ink === '#24160e'",
     "      ? '0 2px 6px rgba(255,245,224,.4)' : '0 2px 6px rgba(12,6,2,.7)';",
     "    return fit();",
@@ -506,6 +510,7 @@ function initVideoHtmlTab() {
   const videoPanel = document.querySelector("#video-html-panel");
   const fileInput = document.querySelector("#video-html-file");
   const titleInput = document.querySelector("#video-html-title");
+  const promptInput = document.querySelector("#video-html-design-prompt");
   const createButton = document.querySelector("#video-html-create");
   const uploadLoader = document.querySelector("#video-html-upload-loader");
   const uploadProgress = document.querySelector("#video-html-upload-progress");
@@ -626,8 +631,12 @@ function initVideoHtmlTab() {
         !window.confirm("Generate new HTML from this MP4? This will replace the current invitation code in the editor.")) {
       return;
     }
+    let designPrompt;
+    try { designPrompt = normalizeDesignPrompt(promptInput?.value); }
+    catch (error) { status.textContent = error.message; return; }
     createButton.disabled = true;
     fileInput.disabled = true;
+    if (promptInput) promptInput.disabled = true;
     status.textContent = "Checking the video format and duration…";
     try {
       await inspectVideo(file);
@@ -641,7 +650,7 @@ function initVideoHtmlTab() {
         status.textContent = "Analyzing video frames and readable area: " + percent + "%";
         uploadProgress.value = percent;
         uploadLabel.textContent = "Analyzing video frames: " + percent + "%";
-      }, { ai: { adminKey: key, apiRoot: API_ROOT } });
+      }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt });
       status.textContent = "Video analyzed. Uploading the background securely…";
       uploadProgress.value = 0;
       uploadLabel.textContent = "Uploading MP4: 0% transferred";
@@ -686,6 +695,7 @@ function initVideoHtmlTab() {
           ? "Stable display windows: " + visualAnalysis.safeWindows.length + ". "
           : visualAnalysis.scenes?.length
             ? "Detected scenes: " + visualAnalysis.scenes.length + ". " : "") +
+        (designPrompt ? (visualAnalysis.design ? "Custom Gemini design applied. " : "Custom design not available; standard style used. ") : "") +
         "Video reference: " + result.id + ". " +
         (visualAnalysis.warnings.length ? "Review needed: " + visualAnalysis.warnings.join(" ") :
           "Text timing, contrast and layout estimated automatically. Confirm the full preview before publishing.");
@@ -697,6 +707,7 @@ function initVideoHtmlTab() {
       uploadLoader.hidden = true;
       createButton.disabled = false;
       fileInput.disabled = false;
+      if (promptInput) promptInput.disabled = false;
     }
   });
 }
