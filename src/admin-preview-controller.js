@@ -201,6 +201,7 @@ const BRIDGE = String.raw`
           const fit=Number(root.dataset.textFit);
           return Number.isFinite(fit) ? fit : null;
         })(),
+        timelineReadability:document.querySelector('[data-scene-timeline]')?.dataset.timelineReadability || null,
         smartTextFitRequired:(() => {
           const root=document.querySelector('[data-video-auto-layout="v1"]');
           if (!root) return null;

@@ -1,5 +1,5 @@
 import { isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
-import { sceneSampleTimes, validateSceneTimeline } from "./video-scene-timeline.js";
+import { sceneSampleTimes, validateSceneTimeline, motionIntervals, refineScenePlan } from "./video-scene-timeline.js";
 
 // Visual heuristics only: decoded pixels cannot semantically identify a plaque.
 const W = 96, H = 170;
@@ -204,9 +204,36 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       const sampleContext = sampleCanvas.getContext("2d");
       if (!sampleContext) return localPlan;
       const images = [];
-      // Coarse overview spans the whole MP4; local cuts add keyframes
-      // near the final invitation surface without streaming full footage.
-      const times = sceneSampleTimes(duration, localPlan.revealAt, localPlan.candidateCuts);
+      // Decode a bounded low-resolution scan over the entire MP4 locally.
+      // Reuse the existing tail frames instead of seeking them again.
+      aiFailure = "local scene sampling failed";
+      const measured = new Map(frames.map(frame => [frame.time, frame]));
+      const sampleMotion = async time => {
+        if (measured.has(time)) return;
+        await seek(video, time);
+        ctx.drawImage(video, 0, 0, W, H);
+        measured.set(time, { time, luma: lumaFromRgba(ctx.getImageData(0, 0, W, H).data) });
+      };
+      const step = duration <= 45 ? .5 : 1;
+      for (let t = 0; t < duration - .2; t += step) {
+        await sampleMotion(Number(Math.max(.2, t).toFixed(2)));
+      }
+      await sampleMotion(Number((duration - .2).toFixed(2)));
+      const ordered = () => [...measured.values()].sort((a,b) => a.time - b.time);
+      const coarseMotion = motionIntervals(ordered(), duration);
+      // Refine at most eight boundary regions with quarter-second samples.
+      const edges = coarseMotion.flatMap(gap => [gap.start, gap.end])
+        .filter(time => time > .4 && time < duration - .4);
+      const selectedEdges = edges.length <= 8 ? edges : Array.from({ length: 8 },
+        (_, i) => edges[Math.round(i * (edges.length - 1) / 7)]);
+      for (const edge of selectedEdges) {
+        for (const offset of [-.25, 0, .25]) {
+          await sampleMotion(Number(Math.max(.2, Math.min(duration - .2, edge + offset)).toFixed(2)));
+        }
+      }
+      const decoded = ordered();
+      const times = sceneSampleTimes(duration, localPlan.revealAt, selectedEdges);
+      aiFailure = "AI frame sampling failed";
       for (const time of times) {
         await seek(video, time);
         sampleContext.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
@@ -214,6 +241,7 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
         if (!jpeg || jpeg.length > 180000) throw Error("Frame sample too large.");
         images.push({ time, jpeg });
       }
+      aiFailure = "AI request failed";
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 42000);
       let response;
@@ -247,7 +275,7 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       // Reject malformed responses even if the server was compromised.
       const area = plan?.textArea;
       if (plan?.version !== 1 || plan.duration !== duration ||
-          !Number.isFinite(plan.revealAt) || plan.revealAt < Math.max(0, duration - 20) ||
+          !Number.isFinite(plan.revealAt) || plan.revealAt < 0 ||
           plan.revealAt > duration - 1.5 || !area ||
           ![area.left, area.top, area.width, area.height].every(Number.isFinite) ||
           area.left < 8 || area.left > 55 || area.top < 12 || area.top > 69 ||
@@ -261,12 +289,22 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       }
       // Shared strict scene/timeline validator is also used by the backend.
       // Never let untrusted model-provided timing or selectors reach the HTML.
+      aiFailure = "invalid AI scene timeline";
       const timeline = (plan.scenes !== undefined || plan.panels !== undefined)
         ? validateSceneTimeline(plan, duration) : null;
-      return { ...localPlan, ...plan,
-        ...(timeline ? { scenes: timeline.scenes, panels: timeline.panels } : {}),
+      const refined = timeline ? refineScenePlan({ ...plan, ...timeline }, decoded, duration) : null;
+      if (timeline && !refined) {
+        return { ...localPlan, warnings: [
+          ...localPlan.warnings, ...plan.warnings,
+          "Gemini found no locally verified readable window; used original single-overlay fallback."
+        ] };
+      }
+      return { ...localPlan, ...plan, ...(refined || {}),
+        ...(refined ? { shadow: refined.ink === "#24160e" ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)" } : {}),
         warnings: [
           ...localPlan.warnings, ...plan.warnings,
+          ...(refined ? ["Locally refined " + refined.safeWindows.length +
+            " readable window(s) across the full video; verify motion and pacing."] : []),
           "Gemini-assisted layout: review the full video before publishing."
         ]
       };

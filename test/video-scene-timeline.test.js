@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sceneSampleTimes, validateSceneTimeline } from "../src/video-scene-timeline.js";
+import { sceneSampleTimes, validateSceneTimeline, motionIntervals, readableWindows, allocateReadablePanels, refineScenePlan } from "../src/video-scene-timeline.js";
 import { validateGeminiPlan } from "../server/gemini-video-analysis.js";
 import { buildVideoInvitationSource } from "../src/admin-video-html.js";
 import { analyzeTemplate, prepareTemplate } from "../src/admin-engine.js";
@@ -144,12 +144,12 @@ test("Video playhead displays intro, details and five editable events without sk
   const seek = time => { video.currentTime = time; listeners.seeked(); };
   assert.equal(root.style.opacity, "0");
 
-  seek(24);
+  seek(23.6);
   assert.equal(fields[".names"].textContent, "Taha & Munira");
   assert.equal(fields[".names"].hidden, false);
   assert.equal(fields[".date-time"].hidden, true);
 
-  seek(28);
+  seek(29.5);
   assert.equal(fields[".date-time"].hidden, false);
   assert.equal(fields[".message"].hidden, true);
   assert.equal(eventHost.hidden, true);
@@ -162,11 +162,54 @@ test("Video playhead displays intro, details and five editable events without sk
   assert.deepEqual(eventHost.children.map(node => node.hidden), [true, false, true]);
   seek(37.1);
   assert.deepEqual(eventHost.children.map(node => node.hidden), [true, true, false]);
-  assert.equal(root.dataset.timelineReadability, "ok");
+  // Five detailed events may exceed the available reading time. Keep them
+  // editable and visible, but explicitly flag the pacing instead of claiming success.
+  assert.equal(root.dataset.timelineReadability, "short");
 
   seek(38.8);
   assert.equal(root.style.opacity, "0");
   seek(24);
   assert.equal(fields[".names"].hidden, false);
   assert.equal(eventHost.hidden, true);
+});
+
+
+test("Full-video planning accepts early boards and excludes detected motion", () => {
+  const rect = { left: 18, top: 24, width: 64, height: 49 };
+  const early = { ...plan, duration: 30, revealAt: 8.5, textArea: rect,
+    scenes: [
+      { start: 0, end: 8.5, kind: "people", note: "Opening" },
+      { start: 8.5, end: 20, kind: "invitation_surface", note: "First board", textArea: rect },
+      { start: 20, end: 23.2, kind: "transition", note: "Camera moves" },
+      { start: 23.2, end: 30, kind: "invitation_surface", note: "Second board", textArea: rect }
+    ], panels: [] };
+  assert.equal(validateGeminiPlan(early, 30).revealAt, 8.5);
+  const frames = Array.from({ length: 60 }, (_, i) => {
+    const time = i / 2;
+    const moving = time < 9 || (time >= 20 && time < 23.5);
+    return { time, luma: new Float32Array(96).fill(moving ? .2 + i % 2 * .2 : .3) };
+  });
+  const motion = motionIntervals(frames, 30);
+  const windows = readableWindows(early, motion, 30);
+  assert.equal(windows.length, 2);
+  const refined = refineScenePlan(early, frames, 30);
+  assert.ok(refined.revealAt < 11);
+  assert.equal(refined.panels.length, 3);
+  assert.ok(refined.panels.every(panel =>
+    !motion.some(gap => panel.start < gap.end - .001 && panel.end > gap.start + .001)));
+  assert.ok(refined.panels.every(panel => panel.end - panel.start >= 3.99));
+  const html = buildVideoInvitationSource({ id, url, title: "Early board", visualAnalysis: refined });
+  assert.ok(html.includes("panelTimeline"));
+  assert.ok(html.includes("timingShort"));
+});
+
+test("No allocation crosses gaps or forces groups into too-short windows", () => {
+  const windows = [{ start: 4, end: 8, textArea: area }, { start: 10, end: 14, textArea: area }];
+  assert.deepEqual(allocateReadablePanels(windows, [
+    { kind: "intro", seconds: 5 }, { kind: "details", seconds: 5 }
+  ]), []);
+  const panels = allocateReadablePanels(windows, [
+    { kind: "intro", seconds: 3 }, { kind: "details", seconds: 3 }
+  ]);
+  assert.deepEqual(panels.map(panel => [panel.start, panel.end]), [[4,8],[10,14]]);
 });

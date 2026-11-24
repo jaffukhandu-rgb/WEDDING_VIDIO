@@ -59,7 +59,7 @@ export function validateGeminiPlan(value, duration) {
   }
   const area = value.textArea;
   if (!isRecord(area) ||
-      !finiteBetween(value.revealAt, Math.max(0, duration - 20), duration - 1.5) ||
+      !finiteBetween(value.revealAt, 0, duration - 1.5) ||
       !finiteBetween(area.left, 8, 55) ||
       !finiteBetween(area.top, 12, 69) ||
       !finiteBetween(area.width, 35, 85) ||
@@ -144,7 +144,14 @@ const SCHEMA = {
           kind: { type: "string", enum: [
             "people", "invitation_surface", "decor", "transition", "other"
           ] },
-          note: { type: "string" }
+          note: { type: "string" },
+          textArea: {
+            type: "object", properties: {
+              left: { type: "number" }, top: { type: "number" },
+              width: { type: "number" }, height: { type: "number" }
+            }, required: ["left", "top", "width", "height"]
+          },
+          ink: { type: "string", enum: ["#24160e", "#fff1d2"] }
         },
         required: ["start", "end", "kind", "note"]
       }
@@ -195,20 +202,20 @@ async function requestGeminiPlanForModel(sample, apiKey, fetcher, model) {
       "start/end seconds, kind (people, invitation_surface, decor, transition, other), " +
       "and a short factual note. Distinguish people, camera motion, boards, floral " +
       "decoration, smoke, and scene transitions based only on visible evidence. " +
-      "Find the earliest safely readable decorated invitation surface toward the end. " +
-      "Propose a brief JSON-only invitation plan with revealAt, textArea, ink, " +
-      "confidence and up to three warnings. Where at least 6 seconds of clear " +
-      "surface remain in the last 20 seconds, ALSO provide 2-3 non-overlapping " +
-      "panels, each at least 2.5 seconds and ending before the video ends: " +
-      "intro (names/message) then details (date/venue/address), optionally events " +
-      "(programme) if enough time remains. Each panel has kind, start, end, textArea. " +
-      "Set revealAt equal to the intro start. Panels must fit inside the safe " +
-      "visible surface and avoid people, smoke and ornate borders. If there is no " +
-      "safe multi-panel interval, omit panels entirely and keep a single overlay. " +
+      "Identify EVERY safely readable invitation surface or decoration across the entire clip, " +
+      "including early and middle scenes, not only the ending. For EACH suitable scene " +
+      "include its largest safe textArea and ink. Omit textArea for faces, moving cameras, " +
+      "transitions and unsuitable decoration. Separate different board views and motion into scenes. " +
+      "Propose a brief JSON-only plan with revealAt, textArea, ink, confidence and up to three " +
+      "warnings. Where multiple safe windows exist, distribute names/message (intro), date/venue " +
+      "(details) and optional programme (events) across them; leave gaps during movement. " +
+      "Provide 2-3 non-overlapping panels only when sufficient reading time exists, each at " +
+      "least 2.5 seconds. Set revealAt equal to the first panel start. If not enough time, " +
+      "omit panels. The browser will refine scene timing using decoded motion samples. " +
       "All textArea values are PERCENT of frame (left 8..55, top 12..69, " +
       "width 35..85, height 23..67, right <=96, bottom <=94). " +
       "Use ink #24160e on light or #fff1d2 on dark regions, confidence medium/low. " +
-      "No generated HTML, no personal details. Last 20 seconds max for reveal. " +
+      "No generated HTML, no personal details. Use all suitable text windows, regardless of timestamp. " +
       "Video duration: " + sample.duration + " seconds."
   }];
   for (const frame of sample.frames) {

@@ -154,6 +154,12 @@ export function validateRuntimeReport(runtime, expectedScenes) {
         '%). Shorten optional copy or choose a wider clear area before export.'
     };
   }
+  if (runtime.timelineReadability === "short") {
+    return {
+      id: 'runtime', status: 'warning', title: 'Invitation reading time',
+      detail: 'The personalized invitation has more text than its safe display windows can comfortably show. Shorten optional copy or use a longer stable video; review every panel before export.'
+    };
+  }
   if (runtime.brokenImages > 0 || runtime.overflowingText > 0) {
     return {
       id: 'runtime', status: 'warning', title: 'Browser preview smoke test',
