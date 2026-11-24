@@ -93,6 +93,47 @@ function percentArea(area) {
   };
 }
 
+// Gemini identifies what a scene contains, while decoded frames are more
+// precise about when a continuous shot becomes still. Extend a model-approved
+// surface to the full overlapping local quiet interval, but never through a
+// scene that Gemini identified as people or a transition.
+export function reconcileReadableWindows(refined, localPlan, scenes, duration) {
+  if (!refined?.safeWindows?.length || !localPlan?.safeWindows?.length) return refined;
+  const blocked = scenes.filter(scene =>
+    scene.kind === "people" || scene.kind === "transition");
+  const expanded = [];
+  for (const local of localPlan.safeWindows) {
+    let segments = [{ start: local.start, end: local.end }];
+    for (const scene of blocked) {
+      segments = segments.flatMap(segment => {
+        if (scene.end <= segment.start || scene.start >= segment.end) return [segment];
+        return [
+          ...(scene.start - segment.start >= 2.49
+            ? [{ start: segment.start, end: scene.start }] : []),
+          ...(segment.end - scene.end >= 2.49
+            ? [{ start: scene.end, end: segment.end }] : [])
+        ];
+      });
+    }
+    for (const segment of segments) {
+      if (!refined.safeWindows.some(window =>
+        window.start < segment.end && window.end > segment.start)) continue;
+      expanded.push({ ...local, start: segment.start, end: segment.end });
+    }
+  }
+  for (const window of refined.safeWindows) {
+    if (!expanded.some(item => item.start <= window.start && item.end >= window.end)) {
+      expanded.push(window);
+    }
+  }
+  const safeWindows = validateReadableWindows(
+    expanded.sort((a, b) => a.start - b.start), duration);
+  const schedule = planReadableWindows(safeWindows);
+  if (!schedule) return refined;
+  const timeline = validateSceneTimeline({ scenes, panels: schedule.panels }, duration);
+  return { ...refined, ...schedule, ...timeline, safeWindows };
+}
+
 export function deriveVisualPlan(frames, duration = 30, excludedScenes = []) {
   if (!isSupportedVideoDuration(duration)) throw Error("Unsupported video duration.");
   const ordered = sortedFrames(frames);
@@ -319,7 +360,10 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       aiFailure = "invalid AI scene timeline";
       const timeline = (plan.scenes !== undefined || plan.panels !== undefined)
         ? validateSceneTimeline(plan, duration) : null;
-      const refined = timeline ? refineScenePlan({ ...plan, textArea, ...timeline }, decoded, duration) : null;
+      const scenePlan = timeline ? refineScenePlan(
+        { ...plan, textArea, ...timeline }, decoded, duration) : null;
+      const refined = scenePlan ? reconcileReadableWindows(
+        scenePlan, localPlan, timeline.scenes, duration) : null;
       if (!refined) {
         const excludedScenes = timeline?.scenes.filter(scene =>
           scene.kind === "people" || scene.kind === "transition");

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeVideoVisual, deriveVisualPlan } from "../src/video-visual-analyzer.js";
+import { analyzeVideoVisual, deriveVisualPlan, reconcileReadableWindows } from "../src/video-visual-analyzer.js";
 import { buildVideoInvitationSource } from "../src/admin-video-html.js";
 import { analyzeTemplate, prepareTemplate } from "../src/admin-engine.js";
 import { findVideoBackground } from "../src/video-html-contract.js";
@@ -156,4 +156,40 @@ test("Scene-only Gemini fallback avoids verified people and transition scenes", 
   assert.ok(plan.safeWindows.length > 0);
   assert.ok(plan.safeWindows.every(window => window.start >= 17));
   assert.ok(plan.warnings.some(warning => warning.includes("no locally verified text window")));
+});
+
+test("Local quiet timing expands a late Gemini surface without crossing semantic blockers", () => {
+  const area = { left: 20, top: 24, width: 56, height: 50 };
+  const ink = "#fff1d2";
+  const localPlan = { safeWindows: [
+    { start: 9.2, end: 19.8, textArea: area, ink },
+    { start: 23.5, end: 29.8, textArea: area, ink }
+  ] };
+  const scenes = [
+    { start: 0, end: 9, kind: "people", note: "Bride" },
+    { start: 9, end: 16, kind: "other", note: "Board settles" },
+    { start: 16, end: 20, kind: "invitation_surface", note: "Board", textArea: area, ink },
+    { start: 20, end: 23.4, kind: "transition", note: "Camera pans" },
+    { start: 23.4, end: 30, kind: "invitation_surface", note: "Board", textArea: area, ink }
+  ];
+  const refined = {
+    scenes, safeWindows: [
+      { start: 16, end: 19.8, textArea: area, ink },
+      { start: 23.5, end: 29.8, textArea: area, ink }
+    ],
+    panels: [], revealAt: 16, textArea: area, ink, motionRefined: true
+  };
+  const result = reconcileReadableWindows(refined, localPlan, scenes, 30);
+  assert.equal(result.revealAt, 9.2);
+  assert.deepEqual(result.safeWindows.map(window => [window.start, window.end]),
+    [[9.2, 19.8], [23.5, 29.8]]);
+
+  const blockedScenes = [
+    { start: 0, end: 16, kind: "people", note: "People in front of board" },
+    ...scenes.slice(2)
+  ];
+  const blocked = reconcileReadableWindows(
+    { ...refined, scenes: blockedScenes }, localPlan, blockedScenes, 30);
+  assert.equal(blocked.safeWindows[0].start, 16);
+  assert.ok(blocked.safeWindows.every(window => window.start >= 16));
 });
