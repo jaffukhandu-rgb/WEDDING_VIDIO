@@ -1,6 +1,6 @@
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
-import { validateSceneTimeline } from "./video-scene-timeline.js";
+import { validateSceneTimeline, validateReadableWindows, allocateReadablePanels } from "./video-scene-timeline.js";
 
 // Independent Video + HTML admin workflow. The existing Via Code analyzer/editor
 // stays the source of truth for editable customer fields and export/publishing.
@@ -81,6 +81,11 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     } catch { /* Invalid AI plan keeps the original single-panel invitation. */ }
   }
   const isTimeline = Boolean(timelinePanels?.length);
+  let safeWindows = [];
+  if (isTimeline && visualAnalysis.motionRefined === true) {
+    try { safeWindows = validateReadableWindows(visualAnalysis.safeWindows, visualAnalysis.duration); }
+    catch { /* Keep the existing validated panel schedule. */ }
+  }
   if (isSmart) {
     const rect = visualAnalysis.textArea;
     const percent = (value, low, high) =>
@@ -160,16 +165,29 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     "    }",
     "    eventHost.appendChild(page); eventPages.push(page);",
     "  }",
-    "  const hasEventSlot = panelTimeline.some(panel => panel.kind === 'events');",
     "  const words = text => String(text || '').trim().split(/\\s+/).filter(Boolean).length;",
     "  const fieldWords = kind => (groups[kind] || []).reduce((sum, selector) =>",
     "    sum + words(root.querySelector(selector).textContent), 0);",
     "  const eventWords = page => page.children.length ? Array.from(page.children).reduce((sum, entry) =>",
     "    sum + Array.from(entry.children).reduce((n, node) => n + words(node.textContent), 0), 0) : 0;",
     "  const need = count => Math.max(2.5, .65 + count / 2.8);",
+    "  const safeWindows = " + JSON.stringify(safeWindows) + ";",
+    ...(safeWindows.length ? [
+      "  const allocate = " + allocateReadablePanels.toString() + ";",
+      "  const introNeed = need(fieldWords('intro')), detailsNeed = need(fieldWords('details'));",
+      "  const programmeNeed = eventPages.reduce((sum, page) => sum + need(eventWords(page)), 0);",
+      "  const preferred = [{kind:'intro',seconds:introNeed},{kind:'details',seconds:detailsNeed}];",
+      "  const wantsProgramme = allEvents.length > 1 || panelTimeline.some(panel => panel.kind === 'events');",
+      "  let reallocated = wantsProgramme && programmeNeed > 0",
+      "    ? allocate(safeWindows, [...preferred, {kind:'events',seconds:programmeNeed}]) : [];",
+      "  if (!reallocated.length) reallocated = allocate(safeWindows, [preferred[0],",
+      "    {...preferred[1],seconds:detailsNeed + (allEvents.length > 1 ? programmeNeed : 0)}]);",
+      "  if (reallocated.length) panelTimeline.splice(0, panelTimeline.length, ...reallocated);",
+    ] : []),
+    "  const hasEventSlot = panelTimeline.some(panel => panel.kind === 'events');",
     "  const schedules = panelTimeline.map(panel => {",
     "    const pages = panel.kind === 'events' ? eventPages.map(page => need(eventWords(page)))",
-    "      : (panel.kind === 'details' || panel.kind === 'all') && !hasEventSlot && eventPages.length > 1",
+    "      : (panel.kind === 'details' || panel.kind === 'all') && !hasEventSlot && allEvents.length > 1",
     "        ? [need(fieldWords(panel.kind)), ...eventPages.map(page => need(eventWords(page)))]",
     "        : [need(fieldWords(panel.kind))];",
     "    return pages.length ? pages : [2.5];",
@@ -181,7 +199,10 @@ export function buildVideoInvitationSource({ id, url, title, visualAnalysis = nu
     "    let last = first;",
     "    while (last + 1 < panelTimeline.length &&",
     "      Math.abs(panelTimeline[last].end - panelTimeline[last + 1].start) <= .011 &&",
-    "      sameArea(panelTimeline[first], panelTimeline[last + 1])) last++;",
+    "      sameArea(panelTimeline[first], panelTimeline[last + 1]) &&",
+    "      panelTimeline[first].ink === panelTimeline[last + 1].ink &&",
+    "      (!safeWindows.length || safeWindows.some(w =>",
+    "        w.start <= panelTimeline[first].start && w.end >= panelTimeline[last + 1].end))) last++;",
     "    if (last > first) {",
     "      const start = panelTimeline[first].start, end = panelTimeline[last].end;",
     "      const weights = schedules.slice(first, last + 1).map(list => list.reduce((a,b) => a+b, 0));",

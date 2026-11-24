@@ -208,8 +208,10 @@ export async function analyzeVideoVisual(source, onProgress = () => {}, options 
       // Reuse the existing tail frames instead of seeking them again.
       aiFailure = "local scene sampling failed";
       const measured = new Map(frames.map(frame => [frame.time, frame]));
+      const scanDeadline = Date.now() + 45000;
       const sampleMotion = async time => {
         if (measured.has(time)) return;
+        if (Date.now() > scanDeadline) throw Error("Local scene scan timed out.");
         await seek(video, time);
         ctx.drawImage(video, 0, 0, W, H);
         measured.set(time, { time, luma: lumaFromRgba(ctx.getImageData(0, 0, W, H).data) });

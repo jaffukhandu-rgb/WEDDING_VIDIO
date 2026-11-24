@@ -198,9 +198,13 @@ test("Full-video planning accepts early boards and excludes detected motion", ()
   assert.ok(refined.panels.every(panel =>
     !motion.some(gap => panel.start < gap.end - .001 && panel.end > gap.start + .001)));
   assert.ok(refined.panels.every(panel => panel.end - panel.start >= 3.99));
-  const html = buildVideoInvitationSource({ id, url, title: "Early board", visualAnalysis: refined });
+  const html = buildVideoInvitationSource({
+    id, url, title: "Early board", visualAnalysis: { ...early, ...refined }
+  });
   assert.ok(html.includes("panelTimeline"));
   assert.ok(html.includes("timingShort"));
+  assert.ok(html.includes("const allocate = "));
+  assert.doesNotThrow(() => new Function(html.match(/<script>([\s\S]*?)<\/script>/)?.[1]));
 });
 
 test("No allocation crosses gaps or forces groups into too-short windows", () => {

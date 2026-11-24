@@ -136,28 +136,56 @@ export function motionIntervals(frames, duration) {
 export function readableWindows(timeline, motion, duration, coverage = { start: .2, end: duration - .2 }) {
   const windows = [];
   const validated = validateSceneTimeline(timeline, duration);
-  for (const scene of validated.scenes) {
+  for (let index = 0; index < validated.scenes.length; index++) {
+    const scene = validated.scenes[index];
     if (!["invitation_surface", "decor"].includes(scene.kind)) continue;
     const supportingPanel = validated.panels.find(panel =>
       panel.start < scene.end && panel.end > scene.start);
     const area = scene.textArea || supportingPanel?.textArea;
     if (!area) continue;
     const ink = scene.ink || supportingPanel?.ink || timeline.ink;
-    const start = Math.max(scene.start, coverage.start, .15);
-    const end = Math.min(scene.end, coverage.end, duration - .1);
-    if (end <= start) continue;
-    let cursor = start;
+    // Tolerate approximate model scene boundaries, but never let a text
+    // window overlap an adjacent scene or extrapolate past decoded evidence.
+    const start = Math.max(scene.start, coverage.start, .15,
+      validated.scenes[index - 1]?.end ?? 0);
+    const end = Math.min(scene.end, coverage.end, duration - .1,
+      validated.scenes[index + 1]?.start ?? duration);
+    // Without a scene-level region, use only the interval explicitly supported
+    // by the model's original panel.
+    const supportedStart = scene.textArea ? start : Math.max(start, supportingPanel.start);
+    const supportedEnd = scene.textArea ? end : Math.min(end, supportingPanel.end);
+    if (supportedEnd <= supportedStart) continue;
+    let cursor = supportedStart;
     for (const gap of motion) {
-      if (gap.end <= cursor || gap.start >= end) continue;
+      if (gap.end <= cursor || gap.start >= supportedEnd) continue;
       if (gap.start - cursor >= 2.5) windows.push({
-        start: round(cursor), end: round(Math.min(end, gap.start)), textArea: area, ink
+        start: round(cursor), end: round(Math.min(supportedEnd, gap.start)), textArea: area, ink
       });
       cursor = Math.max(cursor, gap.end);
-      if (cursor >= end) break;
+      if (cursor >= supportedEnd) break;
     }
-    if (end - cursor >= 2.5) windows.push({ start: round(cursor), end: round(end), textArea: area, ink });
+    if (supportedEnd - cursor >= 2.5) windows.push({
+      start: round(cursor), end: round(supportedEnd), textArea: area, ink
+    });
   }
   return windows;
+}
+
+export function validateReadableWindows(windows, duration) {
+  if (!Array.isArray(windows) || windows.length > 48 || !within(duration, 5, 120)) {
+    throw new Error("Invalid readable windows.");
+  }
+  let previousEnd = 0;
+  return windows.map(window => {
+    if (!isObject(window) || !within(window.start, previousEnd, duration) ||
+        !within(window.end, window.start, duration) || window.end - window.start < 2.49 ||
+        !["#24160e", "#fff1d2"].includes(window.ink)) {
+      throw new Error("Invalid or overlapping readable windows.");
+    }
+    previousEnd = window.end;
+    return { start: round(window.start), end: round(window.end),
+      textArea: validateArea(window.textArea), ink: window.ink };
+  });
 }
 
 // At most three logical content groups. Search the small ordered set of
@@ -215,8 +243,8 @@ export function allocateReadablePanels(windows, requirements) {
 export function refineScenePlan(timeline, frames, duration) {
   if (frames.length < 2) return null;
   const motion = motionIntervals(frames, duration);
-  const windows = readableWindows(timeline, motion, duration,
-    { start: frames[0].time, end: frames.at(-1).time });
+  const windows = validateReadableWindows(readableWindows(timeline, motion, duration,
+    { start: frames[0].time, end: frames.at(-1).time }), duration);
   const requirements = [
     { kind: "intro", seconds: 4.5 }, { kind: "details", seconds: 5 },
     { kind: "events", seconds: 4 }
