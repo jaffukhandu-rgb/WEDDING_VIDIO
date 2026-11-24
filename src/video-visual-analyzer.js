@@ -374,12 +374,13 @@ export async function runVideoAiStages(session, options = {}) {
   // Explicit edits use the style from the actual editor, not a stale cache.
   const previousDesign = resolveVideoDesign(options.previousDesign);
   const refineDesign = Boolean(options.refineDesign && designPrompt && previousDesign);
-  let design = !refineDesign && designPrompt && session.designPrompt === designPrompt
-    ? session.design : null;
+  const retainDesign = Boolean(options.retainDesign && previousDesign && !designPrompt);
+  let design = retainDesign ? previousDesign :
+    !refineDesign && designPrompt && session.designPrompt === designPrompt ? session.design : null;
   const warnings = [];
   const finish = () => ({ ...scene, design: design || null, aiStageStatus: {
     scene: session.scenePlan ? "ready" : "fallback",
-    design: !designPrompt ? "not_requested" : design ? "ready" : "fallback"
+    design: design ? "ready" : !designPrompt ? "not_requested" : "fallback"
   }, warnings: [...scene.warnings, ...warnings] });
   if (!refineDesign && session.scenePlan && (!designPrompt || design)) return finish();
   if (!options.ai?.adminKey || !options.ai?.apiRoot || !images?.length) {

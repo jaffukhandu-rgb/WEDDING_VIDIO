@@ -1,6 +1,6 @@
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
-import { buildVideoDesignBlock, readVideoDesignBlock, replaceVideoDesignBlock, normalizeDesignPrompt } from "./video-invitation-design.js";
+import { buildVideoDesignBlock, buildVideoDesignCss, readVideoDesignBlock, replaceVideoDesignBlock, normalizeDesignPrompt } from "./video-invitation-design.js";
 import { createVideoGenerationProgress } from "./video-generation-progress.js";
 import { analyzeTemplate } from "./admin-engine.js";
 import { validateSceneTimeline, validateReadableWindows, allocateReadablePanels } from "./video-scene-timeline.js";
@@ -704,13 +704,18 @@ function initVideoHtmlTab() {
     const originalVideoCode = videoHtmlCode.value, originalCode = codeInput.value;
     const currentStyle = readVideoDesignBlock(originalVideoCode);
     const refineDesign = Boolean(currentStyle?.design && designPrompt);
-    if (currentStyle?.design && !designPrompt) {
+    const session = retryVideoId === background.id && retrySession ? retrySession : {};
+    const retrySceneOnly = Boolean(currentStyle?.design && !designPrompt && !session.scenePlan);
+    if (currentStyle?.design && !designPrompt && !retrySceneOnly) {
       status.textContent = "Enter a follow-up design instruction to refine the current style.";
       promptInput?.focus();
       return;
     }
-    if (!refineDesign && !window.confirm("Retry AI using the existing video? Successful regeneration replaces the current HTML and resets preview sample values. Save a draft first if needed.")) return;
-    const session = retryVideoId === background.id && retrySession ? retrySession : {};
+    // Older/custom source without verified style metadata cannot be edited
+    // incrementally. Retain the established regeneration option with consent.
+    if (!refineDesign && !window.confirm(currentStyle
+      ? "Retry AI using the existing video? Successful regeneration replaces the current HTML and resets preview sample values. Save a draft first if needed."
+      : "This source does not contain managed design settings. Regenerate it once using the saved video and a full design prompt to enable follow-up edits? Save a draft first if needed.")) return;
     const source = session.source || background.url;
     createButton.disabled = retryButton.disabled = fileInput.disabled = true;
     if (promptInput) promptInput.disabled = true;
@@ -722,7 +727,8 @@ function initVideoHtmlTab() {
       const visualAnalysis = await analyzeVideoVisual(source, percent => {
         generationProgress.set("frames", "Reading saved video frames", percent / 100);
       }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage,
-        ...(refineDesign ? { refineDesign: true, previousDesign: currentStyle.design } : {}) });
+        ...(refineDesign ? { refineDesign: true, previousDesign: currentStyle.design }
+          : retrySceneOnly ? { retainDesign: true, previousDesign: currentStyle.design } : {}) });
       retrySession = session;
       retryVideoId = background.id;
       if (videoHtmlCode.value !== originalVideoCode || codeInput.value !== originalCode) {
@@ -739,7 +745,8 @@ function initVideoHtmlTab() {
         }
         generationProgress.set("generate", "Validating the updated design");
         const updated = replaceVideoDesignBlock(originalVideoCode, visualAnalysis.design);
-        if (updated === originalVideoCode) {
+        if (updated === originalVideoCode ||
+            buildVideoDesignCss(visualAnalysis.design) === buildVideoDesignCss(currentStyle.design)) {
           status.textContent = "Gemini returned no design changes. Try a more specific instruction.";
           generationProgress.fail("No design change returned");
           return;
@@ -756,6 +763,11 @@ function initVideoHtmlTab() {
         status.textContent = "Design updated. Preview the revised invitation.";
         if (promptInput) promptInput.value = "";
         generationProgress.complete("Updated invitation HTML ready");
+        return;
+      }
+      if (retrySceneOnly && stages?.scene !== "ready") {
+        status.textContent = "Scene retry unavailable. Current design and HTML preserved. " + visualAnalysis.warnings.join(" ");
+        generationProgress.fail("Scene retry unavailable — current invitation preserved");
         return;
       }
       const improved = session.scenePlan !== previousScene || session.design !== previousDesign;

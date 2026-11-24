@@ -297,3 +297,23 @@ test("Explicit follow-up sends the actual prior design even if the prompt matche
   assert.equal(result.design.blur, 12);
   assert.deepEqual(result.safeWindows, localPlan.safeWindows);
 });
+
+test("Retrying a scene without a new brief retains the current design", async t => {
+  const decoded = makeFrames(twoWindows);
+  const localPlan = deriveVisualPlan(decoded, 30);
+  const prior = { surface: "glass", blur: 10 };
+  const session = { localPlan, decoded, images: [{ time: 5, jpeg: "mock" }] };
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (!options.method) return Response.json({ enabled: true });
+    calls.push(url);
+    return Response.json({ reason: "timeout" }, { status: 502 });
+  });
+  const result = await runVideoAiStages(session, { ai: { apiRoot: "http://localhost", adminKey: "test" },
+    previousDesign: prior, retainDesign: true });
+  assert.equal(result.design.surface, "glass");
+  assert.equal(result.design.blur, 10);
+  assert.deepEqual(result.aiStageStatus, { scene: "fallback", design: "ready" });
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].endsWith("/video-analysis"));
+});
