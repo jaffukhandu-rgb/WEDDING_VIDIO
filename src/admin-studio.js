@@ -1,3 +1,4 @@
+import { isSupportedHtmlFile } from './admin-engine.js';
 import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
 import {findVideoBackground} from './video-html-contract.js';
 import {readVideoDesignBlock,replaceVideoDesignBlock} from './video-invitation-design.js';
@@ -96,9 +97,9 @@ function resetValidation(){
   staticValidation=[];runtimeValidation=null;previewValidationError='';validationDirty=false;
   validationManual.checked=false;delivery?.invalidate();renderValidation();
 }
-function invalidatePreviewValidation(){
+function invalidatePreviewValidation(message='Sample details changed. Generate the updated MP4 after preparing the preview.'){
   runtimeValidation=null;previewValidationError='';validationDirty=true;
-  validationManual.checked=false;delivery?.invalidate('Sample details changed. Generate the updated MP4 after preparing the preview.');renderValidation();
+  validationManual.checked=false;delivery?.invalidate(message);renderValidation();
 }
 validationRun.addEventListener('click',()=>{
   if(!lastAnalysis)return;
@@ -457,7 +458,7 @@ clearButton.addEventListener('click',()=>{
 });
 fileInput.addEventListener('change',async()=>{
   const file=fileInput.files?.[0];if(!file)return;
-  if(file.size>1024*1024||!/\\.html?$/i.test(file.name)){
+  if(!isSupportedHtmlFile(file)){
     setStatus('Select an HTML file no larger than 1 MB.','error');return;
   }
   try{
@@ -505,7 +506,7 @@ editor.addEventListener('submit',async event=>{
   try{
     const values=await collectPreviewValues();
     prepared=prepareTemplate(source,values);
-    invalidatePreviewValidation();
+    invalidatePreviewValidation('Preview prepared. Generate an MP4 for this preview.');
     previewController.mount(prepared);
     validationDirty=false;
     renderValidation();
@@ -515,6 +516,7 @@ editor.addEventListener('submit',async event=>{
     setStatus('Sample preview prepared. Customer details are not saved.','good');
   }catch(error){
     prepared='';save.disabled=true;
+    invalidatePreviewValidation('Prepare a valid preview before exporting.');
     previewValidationError=error instanceof Error?error.message:'Preview preparation failed.';
     renderValidation();
     closePreviewModal();expandPreview.disabled=true;

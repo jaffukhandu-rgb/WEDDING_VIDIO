@@ -37,3 +37,10 @@ test('runtime validation fails on JavaScript errors', () => {
   const result = validateRuntimeReport({sceneCount:2,stageWidth:540,stageHeight:960,started:true,errors:['Uncaught Error']},2);
   assert.equal(result.status,'fail');
 });
+
+test("Uploaded HTML filenames and the inclusive size limit", async () => {
+  const { isSupportedHtmlFile } = await import("../src/admin-engine.js");
+  for (const name of ["a.htm","a.HTML","a.HtM"]) assert.ok(isSupportedHtmlFile({name,size:1048576}));
+  for (const name of ["a.html.exe","a.txt"]) assert.equal(isSupportedHtmlFile({name,size:1}),false);
+  assert.equal(isSupportedHtmlFile({name:"a.html",size:1048577}),false);
+});

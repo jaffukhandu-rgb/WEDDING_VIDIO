@@ -332,3 +332,6 @@ export function prepareTemplate(html,values){
   return withInitials.replace(/<head\b[^>]*>/i,m=>m+csp);
 }
 export const supportedFields=FIELD_TYPES;
+export function isSupportedHtmlFile(file) {
+  return file.size <= 1024 * 1024 && /\.html?$/i.test(file.name);
+}

@@ -717,7 +717,7 @@ export function initVideoHtmlTab() {
   // is cached for this workspace session; after refresh the stored video can
   // be decoded again without creating another upload.
   retryButton?.addEventListener("click", async () => {
-    if (!aiEnabled() || createButton.disabled || pendingVideoReplacement) return;
+    if (!aiEnabled() || !retryAvailable || createButton.disabled || pendingVideoReplacement) return;
     const background = findVideoBackground(videoHtmlCode.value);
     if (!background || background.origin !== new URL(API_ROOT).origin) {
       status.textContent = "Analyze a valid stored Video + HTML invitation first.";
@@ -747,6 +747,7 @@ export function initVideoHtmlTab() {
     if (!refineDesign && !window.confirm(currentStyle
       ? "Retry AI using the existing video? Successful regeneration replaces the current HTML and resets preview sample values. Save a draft first if needed."
       : "This source does not contain managed design settings. Regenerate it once using the saved video and a full design prompt to enable follow-up edits? Save a draft first if needed.")) return;
+    visualReport.hidden = true;
     const source = session.source || background.url;
     createButton.disabled = fileInput.disabled = true;
     syncAiControls();
@@ -862,13 +863,13 @@ export function initVideoHtmlTab() {
     createButton.disabled = true;
     fileInput.disabled = true;
     syncAiControls();
+    visualReport.hidden = true;
     generationProgress.start("Preparing invitation");
     generationProgress.set("validate", "Checking video format and duration");
     status.textContent = "Generating your invitation…";
     try {
       await inspectVideo(file);
       generationProgress.set("frames", "Analyzing video frames");
-      visualReport.hidden = true;
       // Analyze BEFORE upload so a failure cannot create another stored MP4.
       const session = {};
       const visualAnalysis = await analyzeVideoVisual(file, percent => {

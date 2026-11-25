@@ -60,12 +60,13 @@ export async function uploadCloudinaryBackground(data, id) {
   return { publicId, bytes: data.length, duration: result.duration ?? null };
 }
 
-export async function fetchCloudinaryBackground(id, rangeHeader) {
+export async function fetchCloudinaryBackground(id, rangeHeader, signal) {
   const headers = {};
   if (rangeHeader) headers.Range = rangeHeader;
+  const timeout = AbortSignal.timeout(60000);
   const response = await fetch(cloudinaryDeliveryUrl(id), {
     headers,
-    signal: AbortSignal.timeout(60000)
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout
   });
   if (![200, 206, 416].includes(response.status)) {
     throw new Error("Cloudinary video delivery failed (HTTP " + response.status + ").");

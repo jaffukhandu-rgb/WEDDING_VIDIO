@@ -148,14 +148,19 @@ export function createAdminDelivery({ getState }) {
     exportStatus.textContent = "Rendering at 540 × 960. Duration follows the source video. Keep this tab open.";
     updateButtons();
     let progressTimer;
+    let polling = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new Error("MP4 export timed out. Retry the export.")), 22 * 60 * 1000);
     try {
       const audio = await readMusicAsBase64(musicInput.files?.[0]);
       const jobId = crypto.randomUUID();
       const pollProgress = async () => {
+        if (polling) return;
+        polling = true;
         try {
           const progressResponse = await fetch(API_ROOT + "/api/render/progress/" + jobId, {
             headers: { "X-Admin-Key": keyValue() },
-            cache: "no-store"
+            cache: "no-store", signal: controller.signal
           });
           if (!progressResponse.ok) return;
           const progress = await progressResponse.json();
@@ -168,11 +173,11 @@ export function createAdminDelivery({ getState }) {
           showRenderProgress(percent, detail);
         } catch {
           // Temporary progress-poll errors must not interrupt video export.
-        }
+        } finally { polling = false; }
       };
       progressTimer = setInterval(() => { void pollProgress(); }, 900);
       const response = await fetch(API_ROOT + "/api/render", {
-        method: "POST",
+        method: "POST", signal: controller.signal,
         headers: { "Content-Type": "application/json", "X-Admin-Key": keyValue(), "X-Render-Job": jobId },
         body: JSON.stringify({ html: state.html, ...audio })
       });
@@ -224,6 +229,8 @@ export function createAdminDelivery({ getState }) {
       exportStatus.textContent = error instanceof Error ? error.message : "Could not connect to the MP4 renderer.";
     } finally {
       clearInterval(progressTimer);
+      clearTimeout(timeout);
+      controller.abort();
       loader.classList.add("hide");
       rendering = false;
       updateButtons();

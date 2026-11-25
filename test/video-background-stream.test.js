@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
-import { streamCloudinaryBody } from "../server/video-backgrounds.js";
+import { boundedBackgroundBuffer, streamCloudinaryBody } from "../server/video-backgrounds.js";
 
 test("Cloudinary stream forwards complete video bytes", async () => {
   const bytes = [1, 2, 3, 4];
@@ -82,4 +82,48 @@ test("Active Cloudinary read failure rejects for normal HTTP error handling", as
   });
   const response = new PassThrough();
   await assert.rejects(streamCloudinaryBody(body, response), /upstream failed/);
+});
+
+test("Ignored range skips preceding bytes and cancels after the requested end", async () => {
+  let cancelled = false;
+  const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(Uint8Array.of(1, 2, 3));
+        controller.enqueue(Uint8Array.of(4, 5, 6));
+      },
+      cancel() { cancelled = true; }
+  });
+  const response = new PassThrough();
+  const received = [];
+  response.on("data", chunk => received.push(...chunk));
+  await streamCloudinaryBody(body, response, { start: 2, end: 4 });
+  assert.deepEqual(received, [3, 4, 5]);
+  assert.equal(cancelled, true);
+});
+
+test("Truncated full response cannot fulfill a range beyond its last byte", async () => {
+  const response = new PassThrough();
+  response.resume();
+  const body = new ReadableStream({ start(controller) {
+    controller.enqueue(Uint8Array.of(1));
+    controller.close();
+  } });
+  await assert.rejects(streamCloudinaryBody(body, response, { start: 0, end: 1 }), /Incomplete/);
+});
+
+test("Unknown-length fallback cancels pending and already-disconnected reads", async () => {
+  for (const alreadyClosed of [false, true]) {
+    const response = new PassThrough();
+    let cancelled = 0;
+    const body = new ReadableStream({
+      start(controller) { controller.enqueue(Uint8Array.of(1)); },
+      cancel() { cancelled++; }
+    });
+    if (alreadyClosed) response.destroy();
+    const result = boundedBackgroundBuffer({ body }, response);
+    if (!alreadyClosed) setImmediate(() => response.destroy());
+    await assert.rejects(result, { name: "AbortError" });
+    assert.equal(cancelled, 1);
+    assert.equal(response.listenerCount("close"), 0);
+  }
 });

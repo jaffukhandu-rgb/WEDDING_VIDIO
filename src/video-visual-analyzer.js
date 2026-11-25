@@ -9,6 +9,7 @@ const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const roundTime = time => Math.round(time * 100) / 100;
 const darkInk = "#24160e";
 const lightInk = "#fff1d2";
+const contrastWarning = "Mixed background brightness may reduce text contrast. Check the preview.";
 const textShadow = ink => ink === darkInk ? "rgba(255,245,224,.4)" : "rgba(12,6,2,.7)";
 
 function lumaFromRgba(rgba) {
@@ -52,6 +53,35 @@ function measureArea(frames, left, top, width, height) {
     motion: motion / Math.max(1, frames.length - 1), peakMotion,
     brightnessDrift: maxBrightness - minBrightness
   };
+}
+
+// The decoded plane is gamma-encoded luma. Estimate contrast at the dark and
+// bright tails of the selected rectangle without retaining additional frames.
+function selectInk(frames, area) {
+  const histogram = new Uint32Array(64);
+  let count = 0;
+  for (const { luma } of frames) {
+    for (let y = Math.round(area.top * H); y < Math.round((area.top + area.height) * H); y += 2) {
+      for (let x = Math.round(area.left * W); x < Math.round((area.left + area.width) * W); x += 2) {
+        histogram[Math.round(luma[y * W + x] * 63)]++;
+        count++;
+      }
+    }
+  }
+  function percentile(fraction) {
+    let sum = 0;
+    for (let i = 0; i < histogram.length; i++) {
+      sum += histogram[i];
+      if (sum >= count * fraction) {
+        const v = i / 63;
+        return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+      }
+    }
+  }
+  // Relative luminance of #24160e and #fff1d2, respectively.
+  const dark = (percentile(.1) + .05) / (.010 + .05);
+  const light = (.887 + .05) / (percentile(.9) + .05);
+  return { ink: dark >= light ? darkInk : lightInk, contrast: Math.max(dark, light) };
 }
 
 function isReadableArea(area) {
@@ -109,6 +139,7 @@ export function reconcileReadableWindows(refined, localPlan, scenes, duration, f
   const blocked = semanticScenes.filter(scene =>
     scene.kind === "people" || scene.kind === "transition");
   const original = validateReadableWindows(refined.safeWindows, duration);
+  let lowContrast = false;
   const expanded = original.map(window => ({ ...window }));
   for (const local of localPlan.safeWindows) {
     let segments = [{ start: local.start, end: local.end }];
@@ -155,7 +186,9 @@ export function reconcileReadableWindows(refined, localPlan, scenes, duration, f
             area.width / 100, area.height / 100);
           if (!isReadableArea(measured)) continue;
           textArea = area;
-          ink = measured.average > .48 ? darkInk : lightInk;
+          const selection = selectInk(sample, measured);
+          ink = selection.ink;
+          if (selection.contrast < 4.5) lowContrast = true;
           verified = true;
           break;
         }
@@ -170,7 +203,8 @@ export function reconcileReadableWindows(refined, localPlan, scenes, duration, f
   if (!schedule) return refined;
   try {
     const timeline = validateSceneTimeline({ scenes: semanticScenes, panels: schedule.panels }, duration);
-    return { ...refined, ...schedule, ...timeline, safeWindows };
+    return { ...refined, ...schedule, ...timeline, safeWindows,
+      warnings: [...new Set([...(refined.warnings || []), ...(lowContrast ? [contrastWarning] : [])])] };
   } catch {
     // A borderline rounded panel must not discard the verified AI plan.
     return refined;
@@ -183,6 +217,7 @@ export function deriveVisualPlan(frames, duration = 30, excludedScenes = []) {
   const last = ordered.at(-1);
   const coverageEnd = Math.min(last.time, duration - .1);
   const windows = [];
+  let lowContrast = false;
   let start = Math.max(ordered[0].time, .15);
   const gaps = [...motionIntervals(ordered, duration), ...excludedScenes,
     { start: coverageEnd, end: coverageEnd }].sort((a, b) => a.start - b.start);
@@ -195,8 +230,11 @@ export function deriveVisualPlan(frames, duration = 30, excludedScenes = []) {
         const sampled = quiet.length <= 18 ? quiet : Array.from({ length: 18 }, (_, index) =>
           quiet[Math.round(index * (quiet.length - 1) / 17)]);
         const area = findArea(sampled);
-        if (area) windows.push({ start, end,
-          textArea: percentArea(area), ink: area.average > .48 ? darkInk : lightInk });
+        if (area) {
+          const { ink, contrast } = selectInk(sampled, area);
+          if (contrast < 4.5) lowContrast = true;
+          windows.push({ start, end, textArea: percentArea(area), ink });
+        }
       }
     }
     start = Math.max(start, gap.end);
@@ -213,6 +251,7 @@ export function deriveVisualPlan(frames, duration = 30, excludedScenes = []) {
     confidence: readableSeconds >= 6 ? "medium" : "low",
     warnings: !safeWindows.length ? ["No stable, readable text window detected. Review the footage before publishing."]
       : ["Locally estimated text placement. Check that the text fits the background throughout the preview.",
+        ...(lowContrast ? [contrastWarning] : []),
         ...(readableSeconds < 6 ? ["There is little stable footage for the invitation text. Review reading time."] : [])]
   };
 }
@@ -364,7 +403,7 @@ function refineAiScene(plan, localPlan, decoded, duration) {
     ] };
   }
   return { ...plan, ...refined, design: null, shadow: textShadow(refined.ink),
-    warnings: [...plan.warnings,
+    warnings: [...new Set([...plan.warnings, ...(refined.warnings || [])]),
       "Locally refined " + refined.safeWindows.length + " readable window(s); verify motion and pacing.",
       "Gemini-assisted layout: review the full video before publishing."] };
 }
@@ -447,7 +486,7 @@ export async function runVideoAiStages(session, options = {}) {
 }
 
 export async function analyzeVideoVisual(source, onProgress = () => {}, options = {}) {
-  normalizeDesignPrompt(options.designPrompt);
+  if (options.ai?.adminKey && options.ai?.apiRoot) normalizeDesignPrompt(options.designPrompt);
   if (options.session?.source === source && options.session.localPlan && options.session.images?.length) {
     // A retained AI session must not opt the user into AI on a later local-only run.
     if (!options.ai?.adminKey || !options.ai?.apiRoot) return options.session.localPlan;

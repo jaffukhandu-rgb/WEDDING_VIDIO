@@ -150,7 +150,7 @@ test("A cached successful AI session does not enable AI in a later local-only ca
   const localPlan = { duration: 30, warnings: [] };
   const session = { source: SOURCE, localPlan, images: [{ time: 1, jpeg: "mock" }],
     scenePlan: { ...localPlan, aiAssisted: true }, design: { surface: "glass" } };
-  assert.equal(await analyzeVideoVisual(SOURCE, () => {}, { session }), localPlan);
+  assert.equal(await analyzeVideoVisual(SOURCE, () => {}, { session, designPrompt: "x".repeat(1500) }), localPlan);
   assert.equal(await runVideoAiStages(session, {}), localPlan);
   assert.equal(session.design.surface, "glass");
 });
@@ -164,4 +164,25 @@ test("HTML and library handoff enforce default-off behavior", () => {
   const handoff = readFileSync(new URL("../src/admin-workspace-state.js", import.meta.url), "utf8");
   assert.match(handoff, /analyzeVideoVisual\(url, percent => \{[\s\S]*?\}\); \/\/ Library handoff/);
   assert.ok(!handoff.includes("ai: {"));
+});
+
+test("Declined create and retry preserve the current invitation and report", async t => {
+  const ui = mockAdmin(t), el = ui.element;
+  await el("#video-html-create").click();
+  const report = el("#video-html-visual-report");
+  const code = el("#video-html-code").value, message = report.textContent;
+  const toggle = el("#video-html-enable-ai");
+  toggle.checked = true;
+  toggle.change();
+  let confirmations = 0;
+  window.confirm = () => { confirmations++; return false; };
+  for (const action of ["#video-html-create", "#video-html-retry-ai"]) {
+    await el(action).click();
+    assert.equal(report.hidden, false);
+    assert.equal(report.textContent, message);
+    assert.equal(el("#video-html-code").value, code);
+  }
+  assert.equal(confirmations, 2);
+  assert.equal(ui.uploads, 1);
+  assert.equal(ui.calls.length, 1);
 });

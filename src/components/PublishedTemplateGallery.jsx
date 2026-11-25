@@ -94,9 +94,10 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
     }
     let cancelled = false;
     fetchPublished(template.id).then(published => {
+      if (cancelled) return;
       const analysis = analyzeTemplate(published.html);
       const result = prepareDisplayHtml(published.html, analysis);
-      if (!cancelled) setThumbnail({
+      setThumbnail({
         motion: result.html,
         still: stillFrameHtml(result.html, analysis.photoSlots.length ? 15500 : 1500),
         photo: result.photo

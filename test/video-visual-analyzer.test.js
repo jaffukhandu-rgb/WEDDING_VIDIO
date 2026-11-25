@@ -317,3 +317,30 @@ test("Retrying a scene without a new brief retains the current design", async t 
   assert.equal(calls.length, 1);
   assert.ok(calls[0].endsWith("/video-analysis"));
 });
+
+test("Mixed brightness on an otherwise stable surface requests a contrast review", () => {
+  const frames = makeFrames(() => true, .48, 6);
+  for (const { luma } of frames) {
+    for (let i = 0; i < luma.length; i++) luma[i] = Math.floor(i / W / 5) % 2 ? .37 : .61;
+  }
+  const plan = deriveVisualPlan(frames, 6);
+  assert.ok(plan.safeWindows.length);
+  assert.ok(plan.warnings.some(text => text.includes("contrast")));
+});
+
+test("Expanded AI window retains a single mixed-brightness warning", () => {
+  const frames = makeFrames(() => true, .48, 6);
+  for (const { luma } of frames) {
+    for (let i = 0; i < luma.length; i++) luma[i] = Math.floor(i / W / 5) % 2 ? .37 : .61;
+  }
+  const local = deriveVisualPlan(frames, 6);
+  const area = local.safeWindows[0];
+  const scenes = [{ ...area, start: 0, end: 6, kind: "invitation_surface", note: "Board" }];
+  const original = { scenes, safeWindows: [{ ...area, start: 2 }] };
+  const warning = local.warnings.find(message => message.includes("contrast"));
+  for (const warnings of [[], [warning]]) {
+    const result = reconcileReadableWindows({ ...original, warnings }, local, scenes, 6, frames);
+    assert.equal(result.safeWindows[0].start, area.start);
+    assert.deepEqual(result.warnings, [warning]);
+  }
+});

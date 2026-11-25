@@ -2,7 +2,7 @@
 import express from "express";
 import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { finished, pipeline } from "node:stream/promises";
 import dns from "node:dns";
 import { GridFSBucket, MongoClient } from "mongodb";
 import { requireAdmin } from "./admin-access.js";
@@ -52,15 +52,16 @@ async function assetMetadata() {
   return client.db(DATABASE).collection("invitation_video_asset_metadata");
 }
 
-async function findAsset(id) {
+async function findAsset(id, signal) {
   if (!UUID.test(id)) return null;
+  signal?.throwIfAborted();
   const normalized = id.toLowerCase();
   const metadata = await assetMetadata();
-  const cloudFile = await metadata.findOne({ id: normalized, provider: "cloudinary" });
+  const cloudFile = await metadata.findOne({ id: normalized, provider: "cloudinary" }, { signal });
   if (cloudFile) return { provider: "cloudinary", file: cloudFile };
   // Preserve every video uploaded before Cloudinary was introduced.
   const bucket = await videoBucket();
-  const results = await bucket.find({ filename: normalized }).limit(1).toArray();
+  const results = await bucket.find({ filename: normalized }, { signal }).limit(1).toArray();
   return results.length ? { provider: "gridfs", bucket, file: results[0] } : null;
 }
 
@@ -89,14 +90,41 @@ export async function deleteVideoBackgroundAsset(id) {
   return { deleted: true, provider: record.provider };
 }
 
-export async function loadBackgroundBytes(id) {
-  const record = await findAsset(id);
+// Rendering and legacy metadata without a length need the complete object.
+export async function boundedBackgroundBuffer(upstream, res) {
+  const chunks = [];
+  let length = 0;
+  const controller = new AbortController();
+  const disconnect = () => controller.abort();
+  res?.once("close", disconnect);
+  if (res?.destroyed) disconnect();
+  try {
+    const stream = Readable.fromWeb(upstream.body, { signal: controller.signal });
+    for await (const chunk of stream) {
+      length += chunk.byteLength;
+      if (length > MAX_BACKGROUND_BYTES) throw new Error("Background exceeds the supported size.");
+      chunks.push(chunk);
+    }
+    controller.signal.throwIfAborted();
+    if (!length) throw new Error("Empty background.");
+    return Buffer.concat(chunks, length);
+  } finally {
+    res?.off("close", disconnect);
+  }
+}
+
+export async function loadBackgroundBytes(id, signal) {
+  const record = await findAsset(id, signal);
+  signal?.throwIfAborted();
   if (!record) return null;
   if (record.provider === "cloudinary") {
     if (record.file.status === "uploading" || record.file.status === "deleting") return null;
-    const upstream = await fetchCloudinaryBackground(id);
-    if (upstream.status !== 200) throw new Error("Could not download the Cloudinary background.");
-    const buffer = Buffer.from(await upstream.arrayBuffer());
+    const upstream = await fetchCloudinaryBackground(id, undefined, signal);
+    if (upstream.status !== 200) {
+      await upstream.body?.cancel();
+      throw new Error("Could not download the Cloudinary background.");
+    }
+    const buffer = await boundedBackgroundBuffer(upstream);
     if (buffer.length < 1024 || buffer.length > MAX_BACKGROUND_BYTES ||
         buffer.toString("ascii", 4, 8) !== "ftyp") {
       throw new Error("The Cloudinary MP4 is incomplete or invalid.");
@@ -107,8 +135,16 @@ export async function loadBackgroundBytes(id) {
     throw new Error("Background asset exceeds the supported size.");
   }
   const chunks = [];
-  for await (const chunk of record.bucket.openDownloadStream(record.file._id)) {
-    chunks.push(chunk);
+  const download = record.bucket.openDownloadStream(record.file._id);
+  let cleanup;
+  const cancel = () => { cleanup = download.abort().catch(() => {}); };
+  signal?.addEventListener("abort", cancel, { once: true });
+  try {
+    for await (const chunk of download) chunks.push(chunk);
+    signal?.throwIfAborted();
+  } finally {
+    signal?.removeEventListener("abort", cancel);
+    if (cleanup) await cleanup;
   }
   const buffer = Buffer.concat(chunks);
   if (buffer.length !== record.file.length) throw new Error("Incomplete MP4 background asset.");
@@ -155,7 +191,7 @@ export function backgroundResponseHeaders(total, range) {
 // Stream Cloudinary directly without a Node Readable wrapper. Browsers often
 // cancel range requests during video seeks; a late upstream timeout must not
 // become an unhandled 'error' event that terminates the renderer process.
-export async function streamCloudinaryBody(body, res) {
+export async function streamCloudinaryBody(body, res, range = null) {
   if (res.destroyed) {
     await body.cancel().catch(() => {});
     return;
@@ -179,11 +215,23 @@ export async function streamCloudinaryBody(body, res) {
   res.on("close", onClose);
   res.on("error", onError);
   try {
+    let offset = 0;
     while (!disconnected && !res.destroyed) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done) {
+        if (range && offset <= range.end) throw new Error("Incomplete Cloudinary range.");
+        break;
+      }
       if (disconnected || res.destroyed) break;
-      if (!res.write(value)) {
+      let chunk = value;
+      if (range) {
+        const start = Math.max(0, range.start - offset);
+        const end = Math.min(value.length, range.end + 1 - offset);
+        offset += value.length;
+        if (start >= end) continue;
+        chunk = value.subarray(start, end);
+      }
+      if (!res.write(chunk)) {
         // Wait for backpressure or disconnection; do not leave dangling
         // promises/listeners when the browser abandons a range request.
         await new Promise(resolve => {
@@ -198,8 +246,13 @@ export async function streamCloudinaryBody(body, res) {
           res.once("error", ready);
         });
       }
+      if (range && offset > range.end) { cancel(); break; }
     }
-    if (!disconnected && !res.destroyed) res.end();
+    if (!disconnected && !res.destroyed) {
+      const completion = finished(res, { readable: false, cleanup: true });
+      res.end();
+      await completion;
+    }
   } catch (error) {
     if (!disconnected && !res.destroyed) throw error;
   } finally {
@@ -300,91 +353,116 @@ export function videoBackgroundRouter() {
   });
 
   // Admin-only upload; a public asset can subsequently be played via an opaque UUID.
-  router.post("/admin/video-backgrounds", requireAdmin,
-    express.raw({ type: "video/mp4", limit: "33mb" }), async (req, res) => {
-      const data = req.body;
-      if (!Buffer.isBuffer(data)) {
-        return res.status(415).json({ error: "Choose an MP4 video (video/mp4)." });
-      }
-      if (data.length < 1024 || data.length > MAX_BACKGROUND_BYTES ||
-          data.toString("ascii", 4, 8) !== "ftyp") {
-        return res.status(400).json({
-          error: "Select a valid MP4 file smaller than 32 MB. Use H.264 for browser compatibility."
-        });
-      }
+  let activeUploads = 0;
+  const parseUpload = express.raw({ type: "video/mp4", limit: MAX_BACKGROUND_BYTES });
+  router.post("/admin/video-backgrounds", requireAdmin, (req, res, next) => {
+    if (activeUploads >= 2) {
+      return res.status(429).set("Retry-After", "2").json({ error: "Uploads busy. Please retry shortly." });
+    }
+    activeUploads++;
+    parseUpload(req, res, async error => {
       try {
-        const bucket = await videoBucket();
-        // Reuse identical footage: repeated admin attempts should not fill storage.
-        const sha256 = createHash("sha256").update(data).digest("hex");
-        if (isCloudinaryConfigured()) {
-          const metadata = await assetMetadata();
-          const previous = await metadata.findOne({ provider: "cloudinary", sha256,
-            status: { $nin: ["uploading", "deleting"] } });
-          if (previous) {
-            res.set("Cache-Control", "no-store");
-            return res.status(200).json({
-              id: previous.id, bytes: data.length, reused: true, provider: "cloudinary"
-            });
-          }
-          const id = randomUUID();
-          // Reserve the MongoDB metadata record FIRST so the library can recover
-          // an upload even if the final MongoDB update fails.
-          await metadata.insertOne({
-            id, provider: "cloudinary", sha256, length: data.length,
-            status: "uploading", createdAt: new Date()
-          });
-          let uploaded = false;
-          try {
-            await uploadCloudinaryBackground(data, id);
-            uploaded = true;
-            await metadata.updateOne({ id, provider: "cloudinary" }, {
-              $set: { status: "ready", completedAt: new Date() }
-            });
-          } catch (error) {
-            if (!uploaded) {
-              await metadata.deleteOne({ id, provider: "cloudinary",
-                status: "uploading" }).catch(() => {});
-            }
-            // If Cloudinary accepted the file, preserve the pending record
-            // for explicit reconciliation rather than deleting a user's media.
-            throw error;
-          }
-          res.set("Cache-Control", "no-store");
-          return res.status(201).json({ id, bytes: data.length, provider: "cloudinary" });
+        if (error?.type === "entity.too.large") {
+          return res.status(413).json({ error: "MP4 files must be 32 MiB or smaller." });
         }
-        const previous = await bucket.find({ "metadata.sha256": sha256 }).limit(1).toArray();
-        if (previous.length) {
-          res.set("Cache-Control", "no-store");
-          return res.status(200).json({ id: previous[0].filename, bytes: data.length, reused: true });
-        }
-        const id = randomUUID();
-        const upload = bucket.openUploadStream(id, {
-          metadata: { type: "video/mp4", sha256, uploadedAt: new Date() }
-        });
-        await pipeline(Readable.from([data]), upload);
-        res.set("Cache-Control", "no-store");
-        return res.status(201).json({ id, bytes: data.length, provider: "mongodb" });
-      } catch (error) {
-        console.error("Background upload failed:", error);
-        return res.status(503).json({ error: "Video storage unavailable. Verify MongoDB and Cloudinary server configuration." });
+        if (error) return next(error);
+        await storeUpload(req, res);
+      } catch (failure) {
+        next(failure);
+      } finally {
+        activeUploads--;
       }
     });
+  });
+
+  async function storeUpload(req, res) {
+    const data = req.body;
+    if (!Buffer.isBuffer(data)) {
+      return res.status(415).json({ error: "Choose an MP4 video (video/mp4)." });
+    }
+    if (data.length < 1024 || data.length > MAX_BACKGROUND_BYTES ||
+        data.toString("ascii", 4, 8) !== "ftyp") {
+      return res.status(400).json({
+        error: "Select a valid MP4 file smaller than 32 MB. Use H.264 for browser compatibility."
+      });
+    }
+    try {
+      const bucket = await videoBucket();
+      // Reuse identical footage: repeated admin attempts should not fill storage.
+      const sha256 = createHash("sha256").update(data).digest("hex");
+      if (isCloudinaryConfigured()) {
+        const metadata = await assetMetadata();
+        const previous = await metadata.findOne({ provider: "cloudinary", sha256,
+          status: { $nin: ["uploading", "deleting"] } });
+        if (previous) {
+          res.set("Cache-Control", "no-store");
+          return res.status(200).json({
+            id: previous.id, bytes: data.length, reused: true, provider: "cloudinary"
+          });
+        }
+        const id = randomUUID();
+        // Reserve the MongoDB metadata record FIRST so the library can recover
+        // an upload even if the final MongoDB update fails.
+        await metadata.insertOne({
+          id, provider: "cloudinary", sha256, length: data.length,
+          status: "uploading", createdAt: new Date()
+        });
+        let uploaded = false;
+        try {
+          await uploadCloudinaryBackground(data, id);
+          uploaded = true;
+          await metadata.updateOne({ id, provider: "cloudinary" }, {
+            $set: { status: "ready", completedAt: new Date() }
+          });
+        } catch (error) {
+          if (!uploaded) {
+            await metadata.deleteOne({ id, provider: "cloudinary",
+              status: "uploading" }).catch(() => {});
+          }
+          // If Cloudinary accepted the file, preserve the pending record
+          // for explicit reconciliation rather than deleting a user's media.
+          throw error;
+        }
+        res.set("Cache-Control", "no-store");
+        return res.status(201).json({ id, bytes: data.length, provider: "cloudinary" });
+      }
+      const previous = await bucket.find({ "metadata.sha256": sha256 }).limit(1).toArray();
+      if (previous.length) {
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({ id: previous[0].filename, bytes: data.length, reused: true });
+      }
+      const id = randomUUID();
+      const upload = bucket.openUploadStream(id, {
+        metadata: { type: "video/mp4", sha256, uploadedAt: new Date() }
+      });
+      await pipeline(Readable.from([data]), upload);
+      res.set("Cache-Control", "no-store");
+      return res.status(201).json({ id, bytes: data.length, provider: "mongodb" });
+    } catch (error) {
+      console.error("Background upload failed:", error);
+      return res.status(503).json({ error: "Video storage unavailable. Verify MongoDB and Cloudinary server configuration." });
+    }
+  }
 
   // Video playback needs byte ranges for seeking. The UUID is unguessable,
   // but published invitation backgrounds are intentionally public assets.
   router.get("/video-backgrounds/:id", async (req, res) => {
     const id = String(req.params.id || "").toLowerCase();
     if (!UUID.test(id)) return res.status(404).end();
+    const playback = new AbortController();
+    const disconnect = () => { if (!res.writableFinished) playback.abort(); };
+    res.once("close", disconnect);
     try {
-      const record = await findAsset(id);
+      const record = await findAsset(id, playback.signal);
       if (!record) return res.status(404).end();
       if (record.provider === "cloudinary") {
         if (record.file.status === "deleting" || record.file.status === "uploading") {
           return res.status(404).end();
         }
         const rangeHeader = req.get("Range");
-        const upstream = await fetchCloudinaryBackground(id, rangeHeader);
+        const upstream = await fetchCloudinaryBackground(id, rangeHeader, playback.signal);
         if (upstream.status === 416) {
+          await upstream.body?.cancel();
           const contentRange = upstream.headers.get("content-range");
           if (contentRange) res.set("Content-Range", contentRange);
           return res.status(416).end();
@@ -399,7 +477,18 @@ export function videoBackgroundRouter() {
         };
         if (rangeHeader && upstream.status === 200) {
           // Some CDN configurations ignore Range; still satisfy the browser's seek.
-          const buffer = Buffer.from(await upstream.arrayBuffer());
+          const total = Number(upstream.headers.get("content-length")) || record.file.length;
+          if (Number.isSafeInteger(total) && total > 0 && total <= MAX_BACKGROUND_BYTES) {
+            const range = backgroundByteRange(total, rangeHeader);
+            if (!range) {
+              await upstream.body.cancel();
+              return res.status(416).set("Content-Range", "bytes */" + total).end();
+            }
+            res.status(206).set(backgroundResponseHeaders(total, range));
+            await streamCloudinaryBody(upstream.body, res, range);
+            return;
+          }
+          const buffer = await boundedBackgroundBuffer(upstream, res);
           if (buffer.length < 1 || buffer.length > MAX_BACKGROUND_BYTES) {
             throw new Error("Cloudinary returned an invalid background size.");
           }
@@ -438,11 +527,14 @@ export function videoBackgroundRouter() {
       });
       stream.pipe(res);
     } catch (error) {
+      if (playback.signal.aborted) return;
       console.error("Background retrieval failed:", error);
       if (!res.destroyed) {
         if (!res.headersSent) res.status(503).end();
         else res.destroy();
       }
+    } finally {
+      res.off("close", disconnect);
     }
   });
 

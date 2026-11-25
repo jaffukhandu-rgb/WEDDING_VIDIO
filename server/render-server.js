@@ -64,14 +64,9 @@ app.use((req, res, next) => {
   next();
 });
 // Reject unauthorized large render/publish uploads before JSON body parsing.
-app.use((req, res, next) => {
-  if (req.method === "POST" &&
-      (req.path === "/api/render" || req.path === "/api/admin/templates" ||
-        req.path === "/api/admin/video-analysis")) {
-    return requireAdmin(req, res, next);
-  }
-  next();
-});
+app.use("/api/admin", requireAdmin);
+app.post("/api/render", requireAdmin);
+app.get("/api/render/progress/:id", requireAdmin);
 app.use(express.json({ limit: "40mb", strict: true }));
 app.use("/api", templateRouter());
 app.use("/api", videoBackgroundRouter());
@@ -144,13 +139,18 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   let browser;
   let workDir;
   let ffmpeg;
+  let ffmpegClosed;
+  const encoderStopped = new AbortController();
   let renderTimeout;
   let renderDuration = DURATION_SECONDS;
   let totalFrames = TOTAL_FRAMES;
 
   try {
     // A single in-memory MP4 is intercepted locally. No renderer network access is enabled.
-    const backgroundBytes = videoBackground ? await loadBackgroundBytes(videoBackground.id) : null;
+    const initBudgetMs = 90_000;
+    const deadline = Date.now() + initBudgetMs;
+    const initSignal = AbortSignal.timeout(initBudgetMs);
+    const backgroundBytes = videoBackground ? await loadBackgroundBytes(videoBackground.id, initSignal) : null;
     if (videoBackground && !backgroundBytes) {
       throw new Error("Video + HTML background asset not found. Upload it again.");
     }
@@ -163,9 +163,12 @@ app.post("/api/render", requireAdmin, async (req, res) => {
         return res.status(413).json({ error: "Music files must be between 1 byte and 8 MB." });
       }
       audioPath = join(workDir, "invitation-music." + AUDIO_EXTENSIONS[audioMimeType]);
-      await writeFile(audioPath, audioBuffer);
+      await writeFile(audioPath, audioBuffer, { signal: initSignal });
     }
-    browser = await chromium.launch({ headless: true });
+    initSignal.throwIfAborted();
+    // Playwright owns launch cancellation and process cleanup on its native timeout.
+    browser = await chromium.launch({ headless: true, timeout: Math.max(1, Math.min(30_000, deadline - Date.now())) });
+    initSignal.throwIfAborted();
     const stopLongRender = () => {
       if (browser) browser.close().catch(() => {});
       if (ffmpeg) ffmpeg.kill("SIGKILL");
@@ -196,8 +199,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
           body: backgroundBytes.subarray(range.start, range.end + 1)
         });
       }
-      const protocol = new URL(url).protocol;
-      if (["data:", "blob:", "about:"].includes(protocol)) return route.continue();
+      if (/^(?:data|blob|about):/i.test(url)) return route.continue();
       return route.abort("blockedbyclient");
     });
     await page.setContent(html, { waitUntil: "load", timeout: 20000 });
@@ -258,7 +260,17 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     );
     ffmpeg = spawn(ffmpegPath, ffmpegArgs, { stdio: ["pipe", "ignore", "pipe"] });
 
+    ffmpegClosed = new Promise(resolve => ffmpeg.once("close", code => {
+      encoderStopped.abort();
+      resolve(code);
+    }));
     let ffmpegError = "";
+    const encoderError = error => {
+      ffmpegError = error.message;
+      encoderStopped.abort(error);
+    };
+    ffmpeg.once("error", encoderError);
+    ffmpeg.stdin.on("error", encoderError);
     ffmpeg.stderr.setEncoding("utf8");
     ffmpeg.stderr.on("data", (chunk) => { ffmpegError += chunk; });
 
@@ -301,12 +313,13 @@ app.post("/api/render", requireAdmin, async (req, res) => {
         }, virtualMs);
       }
       const jpeg = await page.screenshot({ type: "jpeg", quality: 86, animations: "allow" });
-      if (!ffmpeg.stdin.write(jpeg)) await once(ffmpeg.stdin, "drain");
+      encoderStopped.signal.throwIfAborted();
+      if (!ffmpeg.stdin.write(jpeg)) await once(ffmpeg.stdin, "drain", { signal: encoderStopped.signal });
       activeRenderProgress.frame = frame + 1;
     }
     activeRenderProgress.phase = "encoding";
     ffmpeg.stdin.end();
-    const [exitCode] = await once(ffmpeg, "close");
+    const exitCode = await ffmpegClosed;
     ffmpeg = null;
     if (exitCode !== 0) throw new Error(ffmpegError || "FFmpeg could not encode the video.");
 
@@ -329,6 +342,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     if (ffmpeg) {
       ffmpeg.stdin.destroy();
       ffmpeg.kill("SIGKILL");
+      await ffmpegClosed;
     }
     console.error("Wedding video render failed:", error);
     if (!res.headersSent) {
@@ -345,6 +359,6 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   }
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Wedding render service listening on http://${HOST}:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`Wedding render service listening on http://${HOST}:${server.address().port}`);
 });

@@ -30,7 +30,10 @@ function showMessage(message) {
 
 function loadSource(source, kind) {
   if (!source || !source.trim()) throw new Error("Empty invitation source.");
-  if (codeInput.value.trim() && !window.confirm("Replace the current invitation code in this workspace?")) return;
+  if (codeInput.value.trim() && !window.confirm("Replace the current invitation code in this workspace?")) {
+    showMessage("Current invitation kept.");
+    return false;
+  }
   if (kind === "video") {
     const background = findVideoBackground(source);
     if (background && background.origin !== new URL(API_ROOT).origin) {
@@ -40,7 +43,7 @@ function loadSource(source, kind) {
       codeInput.value = source;
       analyzeCode.click();
       showMessage("Original video host differs from the current renderer. Source loaded unchanged in Via Code; check preview before updating.");
-      return;
+      return true;
     }
     videoTab.click();
     videoCode.value = source;
@@ -51,6 +54,7 @@ function loadSource(source, kind) {
     codeInput.value = source;
     analyzeCode.click();
   }
+  return true;
 }
 
 saveButton?.addEventListener("click", () => {
@@ -76,8 +80,7 @@ if (draftId) {
   const draft = getDraft(draftId);
   if (!draft) showMessage("This draft is not available in this browser.");
   else {
-    loadSource(draft.html, draft.kind);
-    showMessage('Loaded local draft "' + draft.title + '". It has not been published.');
+    if (loadSource(draft.html, draft.kind)) showMessage('Loaded local draft "' + draft.title + '". It has not been published.');
   }
 }
 
@@ -93,7 +96,7 @@ if (UUID.test(videoId || "")) {
       const source = buildVideoInvitationSource({
         id: videoId, url, title: titleInput.value || "Video Invitation", visualAnalysis
       });
-      loadSource(source, "video");
+      if (!loadSource(source, "video")) return;
       showMessage("Saved video analyzed. " + describeVideoTiming(visualAnalysis) +
         " Analysis confidence: " + visualAnalysis.confidence + ". " +
         (visualAnalysis.warnings.join(" ") || "Review the full invitation before publishing."));
@@ -124,7 +127,7 @@ if (OBJECT_ID.test(editId || "")) {
       const template = result.template;
       const kind = /<video\b[^>]*data-wedding-background\s*=/i.test(template.html)
         ? "video" : "html";
-      loadSource(template.html, kind);
+      if (!loadSource(template.html, kind)) return;
       document.documentElement.dataset.editTemplateId = editId;
       document.documentElement.dataset.editTemplateCategory = template.category;
       mainAdminKey.value = key;
