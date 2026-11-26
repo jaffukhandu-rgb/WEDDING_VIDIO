@@ -166,6 +166,8 @@ export function PublishedTemplateGallery({ category, categoryName }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [catalogueError, setCatalogueError] = useState("");
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [preview, setPreview] = useState(null);
   const [photoStep, setPhotoStep] = useState(null);
   const [photoError, setPhotoError] = useState("");
@@ -198,6 +200,7 @@ export function PublishedTemplateGallery({ category, categoryName }) {
     setLoading(true);
     setTemplates([]);
     setError("");
+    setCatalogueError("");
     setPreview(null);
     setPhotoStep(null);
 
@@ -210,14 +213,21 @@ export function PublishedTemplateGallery({ category, categoryName }) {
         const data = await response.json();
         if (!controller.signal.aborted) setTemplates(Array.isArray(data.templates) ? data.templates : []);
       } catch (loadError) {
-        if (!controller.signal.aborted) setError(loadError.message || "Unable to load templates.");
+        if (!controller.signal.aborted) setCatalogueError(loadError.message || "Unable to load templates.");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
     }
     void load();
     return () => controller.abort();
-  }, [category]);
+  }, [category, retryAttempt]);
+
+  const retryCatalogue = () => {
+    if (loading || !catalogueError) return;
+    setLoading(true);
+    setCatalogueError("");
+    setRetryAttempt(retryAttempt + 1);
+  };
 
   const modalOpen = Boolean(preview || photoStep);
   useEffect(() => {
@@ -316,8 +326,14 @@ export function PublishedTemplateGallery({ category, categoryName }) {
       </div>
 
       {loading && <p className="published-message" role="status">Loading published templates…</p>}
+      {!loading && catalogueError && (
+        <div className="published-message published-error">
+          <p role="alert">{catalogueError}</p>
+          <button className="published-retry" type="button" onClick={retryCatalogue}>Retry</button>
+        </div>
+      )}
       {error && <p className="published-message published-error" role="alert">{error}</p>}
-      {!loading && !error && templates.length === 0 && (
+      {!loading && !error && !catalogueError && templates.length === 0 && (
         <div className="empty-gallery" role="status">
           <strong>No templates available yet</strong>
           <span>New {categoryName.toLowerCase()} invitations will appear here after publication.</span>

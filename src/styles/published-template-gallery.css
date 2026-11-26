@@ -1,6 +1,8 @@
 .published-gallery{margin:0 auto;max-width:1300px;padding:40px 24px 72px}
 .published-message{padding:24px 0;color:#e8d7b6}
 .published-error{color:#ffb0aa}
+.published-retry{margin-top:12px;min-height:44px;border:1px solid #d2b277;border-radius:8px;background:#b99255;color:#160e15;padding:10px 20px;font:600 14px system-ui,sans-serif;cursor:pointer}
+.published-retry:focus-visible{outline:2px solid #f1ca89;outline-offset:3px}
 .published-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:22px;margin-top:26px}
 .published-card{overflow:hidden;border:1px solid rgba(212,175,117,.22);border-radius:16px;background:#160f1e;box-shadow:0 12px 35px #0003}
 .published-card-art{min-height:210px;padding:24px;background:radial-gradient(circle at 30% 10%,#604151,#190f1c 70%);display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;gap:10px;color:#f6e6c2}
