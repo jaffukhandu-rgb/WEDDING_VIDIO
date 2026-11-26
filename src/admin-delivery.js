@@ -79,7 +79,6 @@ export function createAdminDelivery({ getState }) {
   const musicInput = document.querySelector("#music-upload");
 
   let mp4Url = null;
-  let mp4For = null;
   let revision = 0;
   let rendering = false;
   let publishing = false;
@@ -96,9 +95,8 @@ export function createAdminDelivery({ getState }) {
   function updateButtons() {
     const state = getState();
     const prepared = Boolean(state.html && !state.dirty);
-    const hasVideo = Boolean(prepared && mp4For && mp4For === state.html);
     exportButton.disabled = rendering || publishing || !prepared;
-    publishButton.disabled = rendering || publishing || !hasVideo ||
+    publishButton.disabled = rendering || publishing || !prepared ||
       !state.manualReviewed || !state.runtimePassed;
   }
 
@@ -106,14 +104,13 @@ export function createAdminDelivery({ getState }) {
     revision++;
     if (mp4Url) URL.revokeObjectURL(mp4Url);
     mp4Url = null;
-    mp4For = null;
     exportVideo.pause();
     exportVideo.removeAttribute("src");
     exportVideo.load();
     exportResult.classList.add("hide");
     exportDownload.removeAttribute("href");
     exportStatus.textContent = message;
-    publishStatus.textContent = "Complete validation, review all scenes and generate an MP4 first.";
+    publishStatus.textContent = "Complete validation and review all scenes before publishing.";
     updateButtons();
   }
 
@@ -219,7 +216,6 @@ export function createAdminDelivery({ getState }) {
       }
       showRenderProgress(100, "MP4 ready.");
       mp4Url = candidateUrl;
-      mp4For = state.html;
       exportDownload.href = mp4Url;
       exportDownload.download = "wedding-invitation.mp4";
       exportResult.classList.remove("hide");

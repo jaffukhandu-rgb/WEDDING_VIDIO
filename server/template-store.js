@@ -67,10 +67,10 @@ export async function listPublishedTemplates(category) {
   return records.map(serializeListItem);
 }
 
-export async function getPublishedTemplate(id) {
+export async function getPublishedTemplate(id, options = {}) {
   if (!ObjectId.isValid(id) || String(new ObjectId(id)) !== id.toLowerCase()) return null;
   const coll = await collection();
-  return coll.findOne({ _id: new ObjectId(id), status: "published" });
+  return coll.findOne({ _id: new ObjectId(id), status: "published" }, options);
 }
 
 export async function publishTemplate(template) {

@@ -78,7 +78,7 @@ function renderValidation(){
     const detail=document.createElement('p');detail.textContent=item.detail;
     li.append(state,title,detail);validationResults.append(li);
   }
-  validationManual.disabled=previewCheck.status!=='pass';
+  validationManual.disabled=previewCheck.status!=='pass'||staticValidation.some(check=>check.status==='fail');
   if(validationManual.disabled)validationManual.checked=false;
   const failures=items.filter(item=>item.status==='fail').length;
   const warnings=items.filter(item=>item.status==='warning').length;

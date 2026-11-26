@@ -63,6 +63,7 @@ export function templateRouter() {
           category: document.category,
           title: document.title,
           html: document.html,
+          revision: document.sourceHash || createHash("sha256").update(document.html).digest("hex"),
           fields: document.fields,
           config: document.config,
           photoSlots: document.photoSlots,
@@ -195,7 +196,7 @@ export function templateRouter() {
     if (!ALLOWED_CATEGORY.has(category)) {
       return res.status(400).json({ error: "Select a valid category before publishing." });
     }
-    if (!visualReviewConfirmed) {
+    if (visualReviewConfirmed !== true) {
       return res.status(400).json({ error: "Review the complete invitation before publishing." });
     }
     if (typeof html !== "string" || Buffer.byteLength(html, "utf8") > MAX_SOURCE_BYTES) {

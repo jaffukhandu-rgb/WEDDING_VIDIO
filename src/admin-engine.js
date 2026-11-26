@@ -281,8 +281,8 @@ export function analyzeTemplate(html){
   const eventFieldCount=eventData?eventData.events.reduce((count,event)=>count+Object.keys(event).length,0):0;
   return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount,layoutType,fields:uniqueFields,config,warnings,artworkBindingIssues,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
 }
-export function prepareTemplate(html,values){
-  const report=analyzeTemplate(html),config={...report.config};
+export function prepareTemplate(html,values,{preserveConfig=false,analysis}={}){
+  const report=analysis??analyzeTemplate(html),config={...report.config};
   for(const key of Object.keys(FIELD_TYPES)){
     if(!(key in values))continue;
     const value=values[key];
@@ -315,8 +315,12 @@ export function prepareTemplate(html,values){
     });
   }
   if('date' in config&&!validDate(config.date))throw new Error('Invalid wedding date.');
-  const replacement=JSON.stringify(config).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
-  const prepared=html.slice(0,report.range.start)+replacement+html.slice(report.range.end+1);
+  const overrides=preserveConfig?Object.fromEntries(Object.keys(values).map(key=>[key,config[key]])):config;
+  const replacement=JSON.stringify(overrides).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
+  const literal=preserveConfig
+    ? '{...'+html.slice(report.range.start,report.range.end+1)+',...'+replacement+'}'
+    : replacement;
+  const prepared=html.slice(0,report.range.start)+literal+html.slice(report.range.end+1);
   // Stamp the expected initials into prepared output only; do not change source HTML.
   const firstInitial=value=>Array.from(String(value||'').trim())[0]?.toLocaleUpperCase()||'';
   const initials=firstInitial(config.partner1)+firstInitial(config.partner2);
@@ -324,12 +328,14 @@ export function prepareTemplate(html,values){
     .replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const withInitials=prepared.replace(
     /(data-bind-initials\s*=\s*(["'])partner1,partner2\2)/gi,
-    '$1 data-expected-initials="'+escapedInitials+'"'
+    match=>match+' data-expected-initials="'+escapedInitials+'"'
   );
   const videoBackground=findVideoBackground(html);
   const mediaSources=videoBackground?'data: blob: '+videoBackground.origin:'data: blob:';
   const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src ${mediaSources}; connect-src 'none'; form-action 'none'; base-uri 'none'">`;
-  return withInitials.replace(/<head\b[^>]*>/i,m=>m+csp);
+  const headContent=csp+(preserveConfig?'<style>:where(body){overflow-wrap:break-word}</style>':'');
+  if(!/<head\b[^>]*>/i.test(withInitials))return withInitials.replace(/<!doctype\s+html[^>]*>/i,m=>m+'<head>'+headContent+'</head>');
+  return withInitials.replace(/<head\b[^>]*>/i,m=>m+headContent);
 }
 export const supportedFields=FIELD_TYPES;
 export function isSupportedHtmlFile(file) {

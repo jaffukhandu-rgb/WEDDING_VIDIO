@@ -199,3 +199,12 @@
 @media(hover:none),(prefers-reduced-motion:reduce){
   .published-card:hover{transform:none}
 }
+
+.customer-dialog{margin:auto;color-scheme:dark;box-sizing:border-box;max-width:calc(100vw - 24px)}
+.customer-dialog::backdrop{background:rgba(10,7,16,.85)}
+.customer-dialog fieldset{min-width:0;border:0;padding:0;margin:14px 0}
+.customer-dialog fieldset legend{padding:0 0 8px;font-weight:600}
+.customer-dialog input,.customer-dialog textarea{box-sizing:border-box;width:100%;max-width:100%;padding:7px;font:inherit}
+.customer-dialog audio{max-width:100%}
+.customer-dialog a[download]{padding:10px 14px;color:#ffe3ab;text-decoration:underline}
+.customer-dialog [hidden]{display:none}

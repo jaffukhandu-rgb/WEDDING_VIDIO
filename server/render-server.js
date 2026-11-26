@@ -1,4 +1,7 @@
 import express from "express";
+import { createHash } from "node:crypto";
+import { analyzeTemplate } from "../src/admin-engine.js";
+import { prepareCustomerInvitation } from "../src/customer-invitation.js";
 import { chromium } from "playwright";
 import ffmpegPath from "ffmpeg-static";
 import { spawn } from "node:child_process";
@@ -11,7 +14,7 @@ import { templateRouter } from "./template-api.js";
 import { findVideoBackground, isVideoBackgroundMarkerPresent, isSupportedVideoDuration,
   videoFrameCount, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "../src/video-html-contract.js";
 import { videoBackgroundRouter, loadBackgroundBytes, backgroundByteRange, backgroundResponseHeaders } from "./video-backgrounds.js";
-import { isDatabaseConfigured } from "./template-store.js";
+import { getPublishedTemplate, isDatabaseConfigured } from "./template-store.js";
 import { geminiVideoAnalysisRouter } from "./gemini-video-analysis.js";
 
 const app = express();
@@ -34,6 +37,20 @@ const AUDIO_EXTENSIONS = {
   "audio/ogg": "ogg",
   "audio/webm": "webm",
 };
+const audioDemuxers = { m4a: "mov", webm: "matroska", mp3: "mp3", wav: "wav", ogg: "ogg", aac: "aac" };
+function matchesSoundtrackType(type, base64) {
+  const bytes = Buffer.from(base64.slice(0, 24), "base64");
+  const header = bytes.toString("latin1");
+  switch (AUDIO_EXTENSIONS[type]) {
+    case "wav": return header.startsWith("RIFF") && header.slice(8,12) === "WAVE";
+    case "mp3": return header.startsWith("ID3") || (bytes[0] === 255 && (bytes[1] & 224) === 224);
+    case "ogg": return header.startsWith("OggS");
+    case "aac": return header.startsWith("ADIF") || (bytes[0] === 255 && (bytes[1] & 246) === 240);
+    case "webm": return bytes.length >= 4 && bytes.readUInt32BE(0) === 0x1a45dfa3;
+    case "m4a": return header.slice(4,8) === "ftyp";
+    default: return false;
+  }
+}
 let rendering = false;
 let activeRenderProgress = null;
 const TOTAL_FRAMES = DURATION_SECONDS * FPS;
@@ -67,6 +84,88 @@ app.use((req, res, next) => {
 app.use("/api/admin", requireAdmin);
 app.post("/api/render", requireAdmin);
 app.get("/api/render/progress/:id", requireAdmin);
+// Admit one public request before buffering its photos or querying MongoDB.
+let customerPreparing = false;
+const customerStarts = new Map();
+const customerParser = express.json({ limit: "36mb", strict: true, inflate: false });
+app.post("/api/customer/render", (req, res) => {
+  if (!req.is("application/json")) return res.status(415).json({ error: "Send invitation details as JSON." });
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(req.get("X-Render-Job") || "")) {
+    return res.status(400).json({ error: "A private render job ID is required." });
+  }
+  if (customerPreparing || rendering) return res.status(429).json({ error: "Renderer busy. Try again shortly." });
+  const now = Date.now();
+  for (const [ip, entry] of customerStarts) if (entry.until <= now) customerStarts.delete(ip);
+  const key = req.socket.remoteAddress;
+  const entry = customerStarts.get(key) || { until: now + 60000, count: 0 };
+  if (entry.count >= 6 || (!customerStarts.has(key) && customerStarts.size >= 1024)) {
+    return res.status(429).json({ error: "Too many requests. Try again in a minute." });
+  }
+  entry.count++;
+  customerStarts.set(key, entry);
+  customerPreparing = true;
+  let ownsPreparation = true;
+  const lookup = new AbortController();
+  const releasePreparation = () => {
+    if (!ownsPreparation) return;
+    ownsPreparation = false;
+    customerPreparing = false;
+  };
+  // Bound total upload time even when the client keeps sending small chunks.
+  const uploadDeadline = setTimeout(() => req.destroy(), 120_000);
+  const onClose = () => {
+    clearTimeout(uploadDeadline);
+    lookup.abort();
+    releasePreparation();
+  };
+  res.once("close", onClose);
+  customerParser(req, res, async error => {
+    clearTimeout(uploadDeadline);
+    try {
+      if (res.destroyed || !ownsPreparation) return;
+      if (error) return res.status(error.status || 400).json({ error: "Invalid or oversized invitation request." });
+      const body = req.body;
+      if (!body || Object.keys(body).some(k => !["templateId","revision","details","photos","audioBase64","audioMimeType"].includes(k)) ||
+          typeof body.templateId !== "string" || !/^[a-f0-9]{24}$/i.test(body.templateId) ||
+          typeof body.revision !== "string" || !/^[a-f0-9]{64}$/.test(body.revision)) {
+        return res.status(400).json({ error: "Select a published invitation and enter its supported fields." });
+      }
+      const template = await getPublishedTemplate(body.templateId, { timeoutMS: 8000, signal: lookup.signal });
+      if (res.destroyed || !ownsPreparation) return;
+      if (!template) return res.status(404).json({ error: "This invitation is no longer published." });
+      const revision = template.sourceHash || createHash("sha256").update(template.html).digest("hex");
+      if (revision !== body.revision) return res.status(409).json({ error: "The invitation has changed. Reload the gallery before exporting." });
+      let html;
+      let audio = { audioBase64: body.audioBase64, audioMimeType: body.audioMimeType };
+      try {
+        const analysis = analyzeTemplate(template.html);
+        html = prepareCustomerInvitation(template.html, body.details, body.photos, analysis, audio.audioBase64 !== undefined);
+        // Legacy masters can bind an embedded soundtrack through CONFIG.music.
+        if (audio.audioBase64 === undefined && typeof analysis.config.music === "string") {
+          const embedded = /^data:(audio\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/]+=*)$/i.exec(analysis.config.music);
+          if (embedded && Object.hasOwn(AUDIO_EXTENSIONS, embedded[1])) {
+            audio = { audioMimeType: embedded[1], audioBase64: embedded[2] };
+          }
+        }
+      }
+      catch (validation) { return res.status(400).json({ error: validation.message }); }
+      // renderInvitation acquires its own slot synchronously before its first await.
+      releasePreparation();
+      if (!res.destroyed) await renderInvitation(req, res, html, true, audio);
+    } catch {
+      if (!res.headersSent && !res.destroyed) res.status(503).json({ error: "Invitation service unavailable. Please retry." });
+    } finally {
+      res.off("close", onClose);
+      releasePreparation();
+    }
+  });
+});
+app.get("/api/customer/render/progress", (req, res) => {
+  if (!activeRenderProgress?.customer || activeRenderProgress.id !== req.get("X-Render-Job")) {
+    return res.status(404).set("Cache-Control", "no-store").end();
+  }
+  return sendProgress(res);
+});
 app.use(express.json({ limit: "40mb", strict: true }));
 app.use("/api", templateRouter());
 app.use("/api", videoBackgroundRouter());
@@ -78,13 +177,18 @@ app.get("/api/render/progress/:id", requireAdmin, (req, res) => {
   if (!rendering || !activeRenderProgress || activeRenderProgress.id !== req.params.id) {
     return res.status(404).json({ error: "Render progress is unavailable." });
   }
+  return sendProgress(res);
+});
+
+function sendProgress(res) {
+  res.set("Cache-Control", "no-store");
   const { frame, phase, framesStartedAt, totalFrames } = activeRenderProgress;
   const elapsed = framesStartedAt ? (Date.now() - framesStartedAt) / 1000 : 0;
   const remainingSeconds = phase === "rendering" && frame >= 10
     ? Math.ceil((elapsed / frame) * (totalFrames - frame))
     : null;
   return res.json({ frame, totalFrames, phase, remainingSeconds });
-});
+}
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, durationSeconds: DURATION_SECONDS, fps: FPS,
@@ -92,8 +196,9 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Raw HTML rendering is privileged: never expose arbitrary browser code execution publicly.
-app.post("/api/render", requireAdmin, async (req, res) => {
-  const html = req.body?.html;
+app.post("/api/render", requireAdmin, (req, res) => renderInvitation(req, res, req.body?.html, false));
+
+async function renderInvitation(req, res, html, customer, audio = req.body) {
   if (typeof html !== "string" || !html.trim()) {
     return res.status(400).json({ error: "A non-empty HTML document is required." });
   }
@@ -104,20 +209,23 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   if (isVideoBackgroundMarkerPresent(html) && !videoBackground) {
     return res.status(400).json({ error: "Invalid Video + HTML background reference." });
   }
-  const audioBase64 = req.body?.audioBase64;
-  const audioMimeType = req.body?.audioMimeType;
+  const audioBase64 = audio?.audioBase64;
+  const audioMimeType = audio?.audioMimeType;
+  if (customer && audioMimeType !== undefined && audioBase64 === undefined) return res.status(400).json({ error: "Soundtrack data is missing." });
   if (audioBase64 !== undefined) {
     if (
       typeof audioBase64 !== "string" ||
       typeof audioMimeType !== "string" ||
-      !AUDIO_EXTENSIONS[audioMimeType] ||
+      !Object.hasOwn(AUDIO_EXTENSIONS, audioMimeType) ||
       !/^[A-Za-z0-9+/]*={0,2}$/.test(audioBase64)
     ) {
       return res.status(400).json({ error: "The selected music file format is not supported." });
     }
+    if (customer && (!audioBase64.length || audioBase64.length % 4)) return res.status(400).json({ error: "Invalid audio encoding." });
     if (audioBase64.length > Math.ceil(MAX_AUDIO_BYTES * 4 / 3) + 8) {
       return res.status(413).json({ error: "Music files must be 8 MB or smaller." });
     }
+    if (customer && !matchesSoundtrackType(audioMimeType, audioBase64)) return res.status(400).json({ error: "Soundtrack contents do not match its format." });
   }
   if (rendering) {
     return res.status(429).json({ error: "A video is already rendering. Please wait and try again." });
@@ -129,6 +237,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   rendering = true;
   const requestedJobId = req.get("X-Render-Job");
   activeRenderProgress = {
+    customer,
     id: typeof requestedJobId === "string" && /^[a-f0-9-]{36}$/i.test(requestedJobId)
       ? requestedJobId : null,
     frame: 0,
@@ -137,6 +246,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     framesStartedAt: null,
   };
   let browser;
+  let browserClosing;
   let workDir;
   let ffmpeg;
   let ffmpegClosed;
@@ -145,11 +255,24 @@ app.post("/api/render", requireAdmin, async (req, res) => {
   let renderDuration = DURATION_SECONDS;
   let totalFrames = TOTAL_FRAMES;
 
+  const disconnected = new AbortController();
+  // A second Playwright close can resolve on disconnect before the first finishes process cleanup.
+  const closeBrowser = () => browserClosing ??= browser.close();
+  const stopLongRender = () => {
+    if (browser) closeBrowser().catch(() => {});
+    if (ffmpeg) ffmpeg.kill("SIGKILL");
+  };
+  const disconnect = () => {
+    if (res.writableFinished) return;
+    disconnected.abort();
+    stopLongRender();
+  };
+  if (customer) res.once("close", disconnect);
   try {
     // A single in-memory MP4 is intercepted locally. No renderer network access is enabled.
     const initBudgetMs = 90_000;
     const deadline = Date.now() + initBudgetMs;
-    const initSignal = AbortSignal.timeout(initBudgetMs);
+    const initSignal = AbortSignal.any([disconnected.signal, AbortSignal.timeout(initBudgetMs)]);
     const backgroundBytes = videoBackground ? await loadBackgroundBytes(videoBackground.id, initSignal) : null;
     if (videoBackground && !backgroundBytes) {
       throw new Error("Video + HTML background asset not found. Upload it again.");
@@ -169,10 +292,6 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     // Playwright owns launch cancellation and process cleanup on its native timeout.
     browser = await chromium.launch({ headless: true, timeout: Math.max(1, Math.min(30_000, deadline - Date.now())) });
     initSignal.throwIfAborted();
-    const stopLongRender = () => {
-      if (browser) browser.close().catch(() => {});
-      if (ffmpeg) ffmpeg.kill("SIGKILL");
-    };
     renderTimeout = setTimeout(stopLongRender, 10 * 60 * 1000);
     const page = await browser.newPage({
       viewport: { width: 540, height: 960 },
@@ -244,6 +363,10 @@ app.post("/api/render", requireAdmin, async (req, res) => {
       "-f", "image2pipe", "-framerate", String(FPS), "-vcodec", "mjpeg", "-i", "pipe:0",
     ];
     if (audioPath) {
+      // Pin the customer input demuxer. A renamed playlist must never initiate network reads.
+      if (customer) {
+        ffmpegArgs.push("-protocol_whitelist", "file", "-f", audioDemuxers[AUDIO_EXTENSIONS[audioMimeType]]);
+      }
       ffmpegArgs.push("-stream_loop", "-1", "-i", audioPath);
       ffmpegArgs.push(
         "-map", "0:v:0", "-map", "1:a:0",
@@ -323,7 +446,7 @@ app.post("/api/render", requireAdmin, async (req, res) => {
     ffmpeg = null;
     if (exitCode !== 0) throw new Error(ffmpegError || "FFmpeg could not encode the video.");
 
-    await browser.close();
+    await closeBrowser();
     browser = null;
     activeRenderProgress.phase = "delivering";
     res.set({
@@ -344,20 +467,21 @@ app.post("/api/render", requireAdmin, async (req, res) => {
       ffmpeg.kill("SIGKILL");
       await ffmpegClosed;
     }
-    console.error("Wedding video render failed:", error);
-    if (!res.headersSent) {
+    if (!customer) console.error("Wedding video render failed:", error);
+    if (!res.headersSent && !res.destroyed) {
       res.status(500).json({
-        error: error instanceof Error ? error.message : "Video rendering failed.",
+        error: customer ? "Could not render the invitation. Check the media and retry." : error instanceof Error ? error.message : "Video rendering failed.",
       });
     }
   } finally {
+    res.off("close", disconnect);
     if (renderTimeout) clearTimeout(renderTimeout);
-    if (browser) await browser.close().catch(() => {});
+    if (browser) await closeBrowser().catch(() => {});
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
     rendering = false;
     activeRenderProgress = null;
   }
-});
+}
 
 const server = app.listen(PORT, HOST, () => {
   console.log(`Wedding render service listening on http://${HOST}:${server.address().port}`);

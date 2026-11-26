@@ -136,7 +136,7 @@ if (OBJECT_ID.test(editId || "")) {
       document.querySelector("#publish-template").textContent = "Review & update template";
       editKey.hidden = true;
       loadEdit.hidden = true;
-      showMessage('Editing "' + template.title + '". Analyze, preview, validate and export before saving the update.');
+      showMessage('Editing "' + template.title + '". Analyze, validate and review the preview before saving the update.');
     } catch (error) {
       showMessage(error instanceof Error ? error.message : "Unable to load published template.");
     } finally { loadEdit.disabled = false; }

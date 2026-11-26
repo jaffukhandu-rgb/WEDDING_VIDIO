@@ -1,58 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { analyzeTemplate, prepareTemplate } from "../admin-engine.js";
+import { CustomerInvitationDialog } from "./CustomerInvitationDialog.jsx";
 import "../styles/published-template-gallery.css";
 
 const API_ROOT = (import.meta.env.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
-const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
-const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-// Used only when the published design has no usable embedded example photo.
-// Do not substitute anyone's private wedding photograph in a public gallery.
-function slotId(slot) {
-  return slot.key === "photos" ? "photos:" + slot.index : slot.key;
-}
-
 // Preserve the image supplied with the published design. Do not invent one.
 function isOriginalPhoto(value) {
   return typeof value === "string" &&
     (/^data:image\/(?:jpeg|png|webp);base64,/i.test(value) ||
      /^https?:\/\/[^\s"'<>]+$/i.test(value)) &&
     !/example\.com|placeholder|YOUR[-_ ]?PHOTO/i.test(value);
-}
-
-function getPhotoValues(analysis, chosen = {}) {
-  const values = {};
-  let photos = null;
-
-  for (const slot of analysis.photoSlots) {
-    const selected = chosen[slotId(slot)];
-    if (!selected) continue;
-    if (slot.key === "photos") {
-      if (!photos) {
-        photos = Array.isArray(analysis.config.photos)
-          ? analysis.config.photos.slice() : [];
-      }
-      while (photos.length <= slot.index) photos.push("");
-      photos[slot.index] = selected;
-    } else {
-      values[slot.key] = selected;
-    }
-  }
-  if (photos) values.photos = photos;
-  return values;
-}
-
-function prepareDisplayHtml(source, analysis, chosen = {}) {
-  const values = getPhotoValues(analysis, chosen);
-  const displayConfig = { ...analysis.config, ...values };
-  const firstSlot = analysis.photoSlots[0];
-  const firstPhoto = !firstSlot ? null
-    : firstSlot.key === "photos" ? displayConfig.photos?.[firstSlot.index]
-    : displayConfig[firstSlot.key];
-  return {
-    html: prepareTemplate(source, values),
-    photo: isOriginalPhoto(firstPhoto) ? firstPhoto : null
-  };
 }
 
 // Seek only the isolated gallery thumbnail to a useful moment. The original
@@ -96,11 +53,13 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
     fetchPublished(template.id).then(published => {
       if (cancelled) return;
       const analysis = analyzeTemplate(published.html);
-      const result = prepareDisplayHtml(published.html, analysis);
+      const html = prepareTemplate(published.html, {}, { preserveConfig: true, analysis });
+      const slot = analysis.photoSlots[0];
+      const photo = slot?.key === "photos" ? analysis.config.photos[slot.index] : analysis.config[slot?.key];
       setThumbnail({
-        motion: result.html,
-        still: stillFrameHtml(result.html, analysis.photoSlots.length ? 15500 : 1500),
-        photo: result.photo
+        motion: html,
+        still: stillFrameHtml(html, analysis.photoSlots.length ? 15500 : 1500),
+        photo: isOriginalPhoto(photo) ? photo : null
       });
     }).catch(() => {
       // The named card and its preview action remain accessible on a failed fetch.
@@ -150,18 +109,6 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
   );
 }
 
-function readPhoto(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("Unable to read this photo."));
-    };
-    reader.onerror = () => reject(new Error("Unable to read this photo."));
-    reader.readAsDataURL(file);
-  });
-}
-
 export function PublishedTemplateGallery({ category, categoryName }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -169,11 +116,9 @@ export function PublishedTemplateGallery({ category, categoryName }) {
   const [catalogueError, setCatalogueError] = useState("");
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [preview, setPreview] = useState(null);
-  const [photoStep, setPhotoStep] = useState(null);
-  const [photoError, setPhotoError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const htmlCache = useRef(new Map());
-  const closeButton = useRef(null);
+  const selection = useRef(0);
 
   const fetchPublished = useCallback(id => {
     const cache = htmlCache.current;
@@ -201,8 +146,8 @@ export function PublishedTemplateGallery({ category, categoryName }) {
     setTemplates([]);
     setError("");
     setCatalogueError("");
-    setPreview(null);
-    setPhotoStep(null);
+    setPreview(null); setPreviewLoading(false);
+    selection.current++;
 
     async function load() {
       try {
@@ -219,7 +164,7 @@ export function PublishedTemplateGallery({ category, categoryName }) {
       }
     }
     void load();
-    return () => controller.abort();
+    return () => { controller.abort(); selection.current++; };
   }, [category, retryAttempt]);
 
   const retryCatalogue = () => {
@@ -229,90 +174,17 @@ export function PublishedTemplateGallery({ category, categoryName }) {
     setRetryAttempt(retryAttempt + 1);
   };
 
-  const modalOpen = Boolean(preview || photoStep);
-  useEffect(() => {
-    if (!modalOpen) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    const previousFocus = document.activeElement;
-    document.body.style.overflow = "hidden";
-    closeButton.current?.focus();
-    const onEscape = event => {
-      if (event.key === "Escape") {
-        setPreview(null);
-        setPhotoStep(null);
-        setPhotoError("");
-      }
-    };
-    window.addEventListener("keydown", onEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onEscape);
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, [modalOpen]);
-
   const openPreview = async template => {
     if (previewLoading) return;
     setPreviewLoading(true);
     setError("");
-    setPhotoError("");
+    const request = ++selection.current;
     try {
       const published = await fetchPublished(template.id);
-      const analysis = analyzeTemplate(published.html);
-      if (analysis.photoSlots.length) {
-        setPhotoStep({
-          id: template.id,
-          title: template.title,
-          html: published.html,
-          analysis,
-          selected: {},
-          filenames: {}
-        });
-      } else {
-        setPreview({ title: template.title, html: prepareTemplate(published.html, {}) });
-      }
-    } catch (previewError) {
-      setError(previewError.message || "Invitation preview failed.");
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  const selectPhoto = async (slot, file) => {
-    if (!file || !photoStep) return;
-    if (!PHOTO_TYPES.has(file.type) || file.size < 1 || file.size > MAX_PHOTO_BYTES) {
-      setPhotoError("Please choose a JPG, PNG or WebP photo under 3 MB.");
-      return;
-    }
-    const expectedId = photoStep.id;
-    try {
-      const dataUrl = await readPhoto(file);
-      setPhotoStep(current => {
-        if (!current || current.id !== expectedId) return current;
-        const id = slotId(slot);
-        return {
-          ...current,
-          selected: { ...current.selected, [id]: dataUrl },
-          filenames: { ...current.filenames, [id]: file.name }
-        };
-      });
-      setPhotoError("");
-    } catch (readError) {
-      setPhotoError(readError.message || "Unable to read this photo.");
-    }
-  };
-
-  const finishPhotoStep = skip => {
-    if (!photoStep) return;
-    try {
-      const values = skip ? {} : photoStep.selected;
-      const result = prepareDisplayHtml(photoStep.html, photoStep.analysis, values);
-      setPreview({ title: photoStep.title, html: result.html });
-      setPhotoStep(null);
-      setPhotoError("");
-    } catch (prepareError) {
-      setPhotoError(prepareError.message || "Unable to prepare this invitation.");
-    }
+      if (selection.current === request) setPreview({ template: published, analysis: analyzeTemplate(published.html) });
+    } catch (err) {
+      if (selection.current === request) setError(err.message || "Invitation preview failed.");
+    } finally { if (selection.current === request) setPreviewLoading(false); }
   };
 
   return (
@@ -348,52 +220,7 @@ export function PublishedTemplateGallery({ category, categoryName }) {
         </div>
       )}
 
-      {photoStep && (
-        <div className="published-preview-backdrop"
-          onMouseDown={event => { if (event.target === event.currentTarget) setPhotoStep(null); }}>
-          <section className="published-photo-dialog" role="dialog" aria-modal="true"
-            aria-label={"Choose photos for " + photoStep.title}>
-            <div className="published-preview-heading">
-              <h3>Preview with your photos</h3>
-              <button ref={closeButton} type="button" onClick={() => setPhotoStep(null)}>Close ×</button>
-            </div>
-            <p>Choose your photos to see them inside the invitation. You can also skip and view the sample design.</p>
-            <div className="published-photo-fields">
-              {photoStep.analysis.photoSlots.map(slot => (
-                <label className="published-photo-field" key={slotId(slot)}>
-                  <span>{slot.label || "Photo"} {photoStep.filenames[slotId(slot)] ? "✓" : ""}</span>
-                  <input type="file" accept="image/jpeg,image/png,image/webp"
-                    onChange={event => { void selectPhoto(slot, event.target.files?.[0]); }} />
-                  {photoStep.filenames[slotId(slot)] && <small>{photoStep.filenames[slotId(slot)]}</small>}
-                </label>
-              ))}
-            </div>
-            {photoError && <p className="published-error" role="alert">{photoError}</p>}
-            <div className="published-photo-actions">
-              <button type="button" onClick={() => finishPhotoStep(true)}>Skip for now</button>
-              <button type="button" disabled={!Object.keys(photoStep.selected).length}
-                onClick={() => finishPhotoStep(false)}>Preview with photos</button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {preview && (
-        <div className="published-preview-backdrop" role="presentation"
-          onMouseDown={event => { if (event.target === event.currentTarget) setPreview(null); }}>
-          <section className="published-preview-dialog" role="dialog" aria-modal="true"
-            aria-label={"Preview " + preview.title}>
-            <div className="published-preview-heading">
-              <h3>{preview.title}</h3>
-              <button ref={closeButton} type="button" onClick={() => setPreview(null)}
-                aria-label="Close invitation preview">Close ×</button>
-            </div>
-            <iframe title={"Invitation " + preview.title} sandbox="allow-scripts"
-              referrerPolicy="no-referrer" srcDoc={preview.html} />
-            <p>Sample invitation preview · Customer personalization will be added next.</p>
-          </section>
-        </div>
-      )}
+      {preview && <CustomerInvitationDialog {...preview} apiRoot={API_ROOT} close={() => setPreview(null)} />}
     </section>
   );
 }
