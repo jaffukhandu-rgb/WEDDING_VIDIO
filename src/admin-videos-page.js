@@ -1,4 +1,5 @@
-import { findDraftsForVideo } from "./admin-draft-store.js";
+import { readInventory } from "./admin-inventory-pages.js";
+import { readDrafts } from "./admin-draft-store.js";
 import { normalizeAssetDisplayName } from "./template-metadata.js";
 
 const API_ROOT = (import.meta.env?.VITE_RENDER_API_URL || "http://127.0.0.1:4174").replace(/\/$/, "");
@@ -54,11 +55,14 @@ function resolveDisplayLabel(item, linkedTemplates, linkedDrafts) {
 }
 
 function enrichedVideos() {
+  let drafts;
+  try { drafts = readDrafts({ strict: true }); } catch { /* Local dependencies are unknown. */ }
   return allVideos.map(item => {
     const linkedTemplates = Array.isArray(item.linkedTemplates) ? item.linkedTemplates : [];
-    const linkedDrafts = findDraftsForVideo(item.id);
+    const linkedDrafts = drafts?.filter(draft => draft.videoBackgroundId === item.id.toLowerCase()) || [];
+    const known = Boolean(drafts && Array.isArray(item.linkedTemplates));
     const label = resolveDisplayLabel(item, linkedTemplates, linkedDrafts);
-    return { ...item, linkedTemplates, linkedDrafts, label };
+    return { ...item, linkedTemplates, linkedDrafts, label, known };
   });
 }
 
@@ -67,7 +71,7 @@ function filteredVideos() {
   return enrichedVideos().filter(item => {
     if (activeFilter === "linked" && item.linkedTemplates.length === 0) return false;
     if (activeFilter === "draft" && item.linkedDrafts.length === 0) return false;
-    if (activeFilter === "unreferenced" && (item.linkedTemplates.length > 0 || item.linkedDrafts.length > 0)) return false;
+    if (activeFilter === "unreferenced" && (!item.known || item.linkedTemplates.length > 0 || item.linkedDrafts.length > 0)) return false;
     if (query) {
       const hay = [
         item.label, item.displayName || "", item.id,
@@ -143,7 +147,7 @@ function renderVideos() {
     if (!item.linkedTemplates.length && !item.linkedDrafts.length) {
       const unrefBadge = document.createElement("span");
       unrefBadge.className = "admin-badge";
-      unrefBadge.textContent = "Unreferenced asset";
+      unrefBadge.textContent = item.known ? "Unreferenced asset" : "Dependency information unavailable";
       badges.append(unrefBadge);
     }
 
@@ -250,18 +254,13 @@ async function loadVideos() {
   load.disabled = true;
   load.setAttribute("aria-busy", "true");
   status.className = "status";
+  allVideos = [];
   status.textContent = "Loading managed video assets…";
   list.replaceChildren();
   paginationBar.hidden = true;
   try {
-    const response = await fetch(API_ROOT + "/api/admin/video-backgrounds", {
-      headers: { "X-Admin-Key": key.value.trim() }, cache: "no-store"
-    });
-    if (!response.ok) throw new Error(await readError(response));
-    const result = await response.json();
-    allVideos = (Array.isArray(result.videos) ? result.videos : []).filter(
-      video => UUID.test(video.id)
-    );
+    const items = await readInventory(API_ROOT + "/api/admin/video-backgrounds", "videos", key.value.trim(), readError);
+    allVideos = items.filter(video => UUID.test(video.id)).sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
     currentPage = 1;
     if (!allVideos.length) {
       status.textContent = "No recorded videos found. Use Recover Cloudinary uploads if an older upload is missing.";

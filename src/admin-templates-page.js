@@ -1,3 +1,4 @@
+import { readInventory } from "./admin-inventory-pages.js";
 import { prepareTemplate } from "./admin-engine.js";
 import { normalizeTemplateTitle } from "./template-metadata.js";
 
@@ -231,16 +232,13 @@ async function loadTemplates() {
   loadButton.disabled = true;
   loadButton.setAttribute("aria-busy", "true");
   status.className = "status";
+  allTemplates = [];
   status.textContent = "Loading all uploaded templates…";
   list.replaceChildren();
   paginationBar.hidden = true;
   try {
-    const response = await fetch(API_ROOT + "/api/admin/templates", {
-      headers: { "X-Admin-Key": key.value.trim() }, cache: "no-store"
-    });
-    if (!response.ok) throw new Error(await readError(response));
-    const data = await response.json();
-    allTemplates = Array.isArray(data.templates) ? data.templates : [];
+    const items = await readInventory(API_ROOT + "/api/admin/templates", "templates", key.value.trim(), readError);
+    allTemplates = items.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
     currentPage = 1;
     if (!allTemplates.length) {
       status.textContent = "No published templates yet.";
@@ -273,10 +271,11 @@ renameForm?.addEventListener("submit", async event => {
     const response = await fetch(API_ROOT + "/api/admin/templates/" + encodeURIComponent(renameTarget.id), {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "X-Admin-Key": key.value.trim() },
-      body: JSON.stringify({ title: nextTitle })
+      body: JSON.stringify({ title: nextTitle, expectedRevision: renameTarget.revision })
     });
     if (!response.ok) throw new Error(await readError(response));
     const data = await response.json();
+    renameTarget.revision = data.template.revision;
     renameTarget.title = data.template?.title || nextTitle;
     renameDialog.close();
     renderList();

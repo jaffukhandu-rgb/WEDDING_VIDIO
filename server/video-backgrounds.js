@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { finished, pipeline } from "node:stream/promises";
 import dns from "node:dns";
-import { GridFSBucket, MongoClient } from "mongodb";
+import { GridFSBucket, MongoClient, ObjectId } from "mongodb";
 import { requireAdmin } from "./admin-access.js";
 import { isCloudinaryConfigured, uploadCloudinaryBackground, fetchCloudinaryBackground, listCloudinaryBackgrounds, destroyCloudinaryBackground } from "./cloudinary-background.js";
 import { countVideoTemplateReferences, listVideoTemplateLinks } from "./template-store.js";
@@ -279,16 +279,23 @@ export function videoBackgroundRouter() {
   });
 
   // Read-only inventory: both published and unpublished uploaded backgrounds.
-  router.get("/admin/video-backgrounds", requireAdmin, async (_req, res) => {
+  router.get("/admin/video-backgrounds", requireAdmin, async (req, res) => {
+    const after = req.query.after;
+    if (after !== undefined && (typeof after !== "string" || !/^(cloud|grid):(?:[a-f0-9]{24})?$/.test(after))) {
+      return res.status(400).json({ error: "Invalid inventory cursor." });
+    }
+    const [provider, cursor] = (after || "cloud:").split(":");
+    const filter = cursor ? { _id: { $gt: new ObjectId(cursor) } } : {};
     try {
-      const metadata = await assetMetadata();
-      const [cloud, bucket, templateLinks] = await Promise.all([
-        metadata.find({ provider: "cloudinary" })
-          .sort({ createdAt: -1 }).limit(300).toArray(),
-        videoBucket(),
-        listVideoTemplateLinks().catch(() => new Map())
-      ]);
-      const gridfs = await bucket.find({}).sort({ uploadDate: -1 }).limit(300).toArray();
+      const cloudPage = provider === "cloud";
+      const records = cloudPage
+        ? await (await assetMetadata()).find({ ...filter, provider: "cloudinary", id: UUID })
+          .project({ id: 1, length: 1, displayName: 1, status: 1, createdAt: 1 }).sort({ _id: 1 }).limit(101).toArray()
+        : await (await videoBucket()).find({ ...filter, filename: UUID }).sort({ _id: 1 }).limit(101).toArray();
+      const page = records.slice(0, 100);
+      const nextCursor = records.length > 100 ? provider + ":" + page.at(-1)._id : cloudPage ? "grid:" : null;
+      const cloud = cloudPage ? page : [], gridfs = cloudPage ? [] : page;
+      const templateLinks = await listVideoTemplateLinks(page.map(item => (cloudPage ? item.id : item.filename).toLowerCase()));
       const videos = [
         ...cloud.filter(item => UUID.test(item.id)).map(item => {
           const linkedTemplates = templateLinks.get(item.id.toLowerCase()) || [];
@@ -308,8 +315,8 @@ export function videoBackgroundRouter() {
             linkedTemplates
           };
         })
-      ].sort((a,b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).slice(0,300);
-      return res.set("Cache-Control", "no-store").json({ videos });
+      ].sort((a,b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+      return res.set("Cache-Control", "no-store").json({ videos, nextCursor });
     } catch (error) {
       console.error("Video inventory failed:", error);
       return res.status(503).json({ error: "Unable to retrieve saved videos. Check MongoDB." });

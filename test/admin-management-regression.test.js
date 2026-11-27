@@ -201,3 +201,81 @@ test("Rename routes enforce admin authentication and input validation", async ()
     else process.env.ADMIN_API_KEY = oldKey;
   }
 });
+
+test("A background checkpoint retains unfinished defaults and publication cannot erase a newer draft", t => {
+  const entries = new Map();
+  const previous = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: key => entries.get(key) ?? null,
+    setItem: (key, value) => entries.set(key, value)
+  };
+  t.after(() => {
+    if (previous === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previous;
+  });
+  const id = "12345678-1234-4234-9234-123456789abc";
+  const checkpoint = saveDraft({
+    title: "Original", html: "", kind: "video", videoBackgroundId: id,
+    videoBackgroundUrl: "https://user:password@example.com/api/video-backgrounds/" + id,
+    templateCategory: "wedding", templateId: "b".repeat(24), templateRevision: "revision"
+  });
+  assert.equal(getDraft(checkpoint.id).videoBackgroundUrl, null);
+  const updated = saveDraft({ ...checkpoint, title: "New title",
+    masterDefaults: { partner1: "New default" }, templateCategory: "engagement" });
+  assert.equal(deleteDraft(checkpoint.id, checkpoint), false);
+  assert.deepEqual(getDraft(checkpoint.id), updated);
+  assert.ok(deleteDraft(updated.id, updated));
+});
+
+test("Inventory follows both provider cursors and rejects an incomplete metadata page", async t => {
+  const { readInventory } = await import("../src/admin-inventory-pages.js");
+  const pages = [
+    { videos: [{ id: "cloud" }], nextCursor: "grid:" },
+    { videos: [{ id: "legacy" }], nextCursor: null }
+  ];
+  const urls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    urls.push(url);
+    assert.equal(options.headers["X-Admin-Key"], "fixture");
+    return Response.json(pages.shift() || {});
+  });
+  assert.deepEqual(await readInventory("/inventory", "videos", "fixture"), [{ id: "cloud" }, { id: "legacy" }]);
+  assert.deepEqual(urls, ["/inventory", "/inventory?after=grid%3A"]);
+  await assert.rejects(readInventory("/inventory", "videos", "fixture"), /Incomplete inventory/);
+});
+
+test("Two writers using one legacy snapshot cannot both update metadata", async t => {
+  const { MongoClient, ObjectId } = await import("mongodb");
+  const { updateAdminTemplate, adminRevision } = await import("../server/template-store.js?revision-regression");
+  const oldUri = process.env.MONGODB_URI;
+  process.env.MONGODB_URI = "mongodb://fixture";
+  t.after(() => {
+    if (oldUri === undefined) delete process.env.MONGODB_URI;
+    else process.env.MONGODB_URI = oldUri;
+  });
+  const legacy = { _id: new ObjectId(), status: "published", sourceHash: "a".repeat(64), title: "Initial" };
+  let record = { ...legacy };
+  const collection = {
+    async createIndex() {},
+    async findOneAndUpdate(filter, update, options) {
+      assert.equal(options.returnDocument, "after");
+      assert.equal(filter.status, "published");
+      assert.ok(filter._id.equals(record._id));
+      assert.equal(filter.sourceHash, legacy.sourceHash);
+      if (filter.editRevision !== (record.editRevision ?? null)) return null;
+      record = { ...record, ...update.$set };
+      return { ...record };
+    }
+  };
+  t.mock.method(MongoClient.prototype, "connect", async function () { return this; });
+  t.mock.method(MongoClient.prototype, "db", () => ({ collection: () => collection }));
+  const id = String(legacy._id);
+  const [first, second] = await Promise.all([
+    updateAdminTemplate(id, { title: "Renamed" }, legacy),
+    updateAdminTemplate(id, { category: "festival" }, legacy)
+  ]);
+  assert.ok(first);
+  assert.equal(second, null);
+  assert.notEqual(adminRevision(first), adminRevision(legacy));
+  assert.equal(record.sourceHash, legacy.sourceHash);
+});

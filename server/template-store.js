@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { MongoClient, ObjectId } from "mongodb";
 import dns from "node:dns";
 import { findVideoBackground } from "../src/video-html-contract.js";
@@ -78,16 +79,14 @@ export async function publishTemplate(template) {
   const coll = await collection();
   const now = new Date();
   const selector = { category: template.category, sourceHash: template.sourceHash };
-  const existing = await coll.findOne(selector, { projection: { status: 1 } });
-  if (existing?.status === "deleting") {
-    throw new Error("This identical template is currently being deleted. Finish the deletion first.");
+  // Re-publishing the same master is idempotent. Metadata edits require its revision.
+  const result = await coll.findOneAndUpdate(selector, {
+    $setOnInsert: { ...template, status: "published", createdAt: now, publishedAt: now, editRevision: randomUUID() }
+  }, { upsert: true, returnDocument: "after" });
+  if (result.status !== "published" || result.title !== template.title) {
+    throw Object.assign(new Error("An identical template already exists. Reload it before editing."), { code: 11000 });
   }
-  await coll.updateOne(selector, {
-    $set: { ...template, status: "published", publishedAt: now },
-    $setOnInsert: { createdAt: now }
-  }, { upsert: true });
-  const result = await coll.findOne(selector);
-  return serializeListItem(result);
+  return { ...serializeListItem(result), revision: adminRevision(result) };
 }
 
 
@@ -97,16 +96,32 @@ function templateId(id) {
 }
 
 // Admin-only metadata. Never send the full HTML in list responses.
-export async function listAdminTemplates() {
+export function adminRevision(doc) {
+  return doc.editRevision || doc.sourceHash || doc._id.toString();
+}
+
+// Older records may lack the UUID index field. Return just their video tags
+// for the same strict URL/marker check used by the renderer.
+const legacyVideoTags = { $cond: [
+  { $eq: [{ $ifNull: ["$videoBackgroundId", null] }, null] },
+  { $map: { input: { $regexFindAll: { input: { $ifNull: ["$html", ""] }, regex: /<video\b[^>]*>/i } },
+    as: "tag", in: "$$tag.match" } }, "$$REMOVE"
+] };
+function inventoryVideoId(doc) {
+  return doc.videoBackgroundId || findVideoBackground(doc.videoTags?.join("") || "")?.id || null;
+}
+
+export async function listAdminTemplates(after) {
   const coll = await collection();
-  const docs = await coll.find({ status: { $in: ["published", "deleting"] } })
-    .project({ title: 1, titleCustomized: 1, category: 1, html: 1, status: 1, publishedAt: 1,
+  const docs = await coll.find({ status: { $in: ["published", "deleting"] }, ...after })
+    .project({ title: 1, titleCustomized: 1, category: 1, editRevision: 1, sourceHash: 1,
+      videoTags: legacyVideoTags, status: 1, publishedAt: 1,
       updatedAt: 1, sceneCount: 1, eventCount: 1, photoCount: 1, videoBackgroundId: 1 })
-    .sort({ publishedAt: -1 }).limit(500).toArray();
+    .sort({ _id: 1 }).limit(101).toArray();
   return docs.map(doc => {
-    const videoId = doc.videoBackgroundId || findVideoBackground(doc.html)?.id || null;
+    const videoId = inventoryVideoId(doc);
     return {
-      id: doc._id.toString(),
+      id: doc._id.toString(), revision: adminRevision(doc),
       title: normalizeTemplateTitle(doc.title, "Wedding invitation"),
       titleCustomized: Boolean(doc.titleCustomized),
       category: doc.category,
@@ -119,14 +134,19 @@ export async function listAdminTemplates() {
   });
 }
 
-export async function listVideoTemplateLinks() {
+export async function listVideoTemplateLinks(ids) {
+  if (!ids.length) return new Map();
   const coll = await collection();
-  const docs = await coll.find({ status: { $in: ["published", "deleting"] } })
-    .project({ title: 1, category: 1, status: 1, html: 1, videoBackgroundId: 1 })
-    .sort({ publishedAt: -1 }).limit(500).toArray();
+  // Only fetch legacy HTML when it might reference an asset on this inventory page.
+  const marker = `data-wedding-background\\s*=\\s*["'](?:${ids.join("|")})["']`;
+  const docs = coll.find({ status: { $in: ["published", "deleting"] }, $or: [
+    { videoBackgroundId: { $in: ids } },
+    { videoBackgroundId: null, html: { $regex: marker, $options: "i" } }
+  ] }).project({ title: 1, category: 1, status: 1, videoBackgroundId: 1,
+    videoTags: legacyVideoTags });
   const links = new Map();
-  for (const doc of docs) {
-    const videoId = (doc.videoBackgroundId || findVideoBackground(doc.html)?.id || "").toLowerCase();
+  for await (const doc of docs) {
+    const videoId = (inventoryVideoId(doc) || "").toLowerCase();
     if (!videoId) continue;
     if (!links.has(videoId)) links.set(videoId, []);
     links.get(videoId).push({
@@ -146,13 +166,13 @@ export async function getAdminTemplate(id) {
   return coll.findOne({ _id, status: { $in: ["published", "deleting"] } });
 }
 
-export async function updateAdminTemplate(id, fields) {
+export async function updateAdminTemplate(id, fields, current) {
   const _id = templateId(id);
   if (!_id) return null;
   const coll = await collection();
-  const result = await coll.updateOne({ _id, status: "published" }, { $set: fields });
-  if (!result.matchedCount) return null;
-  return getAdminTemplate(id);
+  return coll.findOneAndUpdate({ _id, status: "published", editRevision: current.editRevision ?? null,
+    sourceHash: current.sourceHash ?? null }, { $set: { ...fields, editRevision: randomUUID() } },
+    { returnDocument: "after" });
 }
 
 export async function markAdminTemplateDeleting(id) {

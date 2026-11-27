@@ -1,3 +1,4 @@
+import { workspaceVersion, workspaceEdited, allowWorkspaceChange } from "./admin-workspace-version.js";
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
 import { isEquivalentRendererOrigin } from "./template-metadata.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
@@ -627,7 +628,8 @@ export function initVideoHtmlTab() {
     setRetryAvailable(true);
     codeInput.value = videoHtmlCode.value;
     codeInput.dispatchEvent(new Event("input", { bubbles: true }));
-    analyzeButton.click();
+    if (analyzeButton.disabled) codeInput.dispatchEvent(new Event("wedding:analyze-current"));
+    else analyzeButton.click();
     status.textContent = "Analyzing Video + HTML. Customer fields and preview controls appear below.";
   }
 
@@ -654,6 +656,7 @@ export function initVideoHtmlTab() {
   }
 
   fileInput.addEventListener("change", () => {
+    workspaceEdited();
     retrySession = null;
     retryVideoId = null;
     uploadLoader.hidden = true;
@@ -739,6 +742,7 @@ export function initVideoHtmlTab() {
     let designPrompt;
     try { designPrompt = normalizeDesignPrompt(promptInput?.value); }
     catch (error) { status.textContent = error.message; return; }
+    const version = workspaceVersion();
     const originalVideoCode = videoHtmlCode.value, originalCode = codeInput.value;
     const currentStyle = readVideoDesignBlock(originalVideoCode);
     const refineDesign = Boolean(currentStyle?.design && designPrompt);
@@ -773,13 +777,13 @@ export function initVideoHtmlTab() {
       }, { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage,
         ...(refineDesign ? { refineDesign: true, previousDesign: currentStyle.design }
           : retrySceneOnly ? { retainDesign: true, previousDesign: currentStyle.design } : {}) });
-      retrySession = session;
-      retryVideoId = background.id;
-      if (videoHtmlCode.value !== originalVideoCode || codeInput.value !== originalCode) {
+      if (version !== workspaceVersion() || videoHtmlCode.value !== originalVideoCode || codeInput.value !== originalCode) {
         status.textContent = "Source changed during retry. Existing HTML preserved; retry again to apply the retained analysis.";
         generationProgress.fail("Source changed — existing HTML preserved");
         return;
       }
+      retrySession = session;
+      retryVideoId = background.id;
       const stages = visualAnalysis.aiStageStatus;
       if (refineDesign) {
         if (stages?.design !== "ready" || !visualAnalysis.design) {
@@ -831,6 +835,7 @@ export function initVideoHtmlTab() {
         return;
       }
       // Preserve a previously generated design if its replacement failed.
+      if (!allowWorkspaceChange("flush")) { generationProgress.fail("Draft could not be saved"); return; }
       generationProgress.set("generate", "Generating and validating HTML");
       showGeneratedInvitation({ id: background.id }, visualAnalysis, designPrompt, true);
       if (visualAnalysis.design && promptInput) promptInput.value = "";
@@ -867,6 +872,11 @@ export function initVideoHtmlTab() {
     let designPrompt;
     try { designPrompt = assisted ? normalizeDesignPrompt(promptInput?.value) : ""; }
     catch (error) { status.textContent = error.message; return; }
+    if (!allowWorkspaceChange("flush")) return;
+    const version = workspaceVersion();
+    const ensureCurrent = () => {
+      if (version !== workspaceVersion() || fileInput.files?.[0] !== file) throw new Error("Workspace changed. Current invitation kept.");
+    };
     createButton.disabled = true;
     fileInput.disabled = true;
     syncAiControls();
@@ -876,6 +886,7 @@ export function initVideoHtmlTab() {
     status.textContent = "Generating your invitation…";
     try {
       await inspectVideo(file);
+      ensureCurrent();
       generationProgress.set("frames", "Analyzing video frames");
       // Analyze BEFORE upload so a failure cannot create another stored MP4.
       const session = {};
@@ -883,12 +894,17 @@ export function initVideoHtmlTab() {
         generationProgress.set("frames", "Analyzing video frames and readable areas", percent / 100);
       }, assisted ? { ai: { adminKey: key, apiRoot: API_ROOT }, designPrompt, session, onStage: showAiStage }
         : { session });
+      ensureCurrent();
       generationProgress.set("upload", "Uploading background securely");
       const result = await uploadWithProgress(file, key, (percent, transferred) => {
         generationProgress.set("upload", transferred
           ? "Saving uploaded video in storage"
           : "Uploading background securely", percent === null ? 0 : percent / 100);
       });
+      ensureCurrent();
+      if (document.dispatchEvent?.(new CustomEvent("wedding:background-uploaded", {
+        detail: { id: result.id }, cancelable: true
+      })) === false) throw new Error("Could not save the uploaded background draft. Current invitation kept.");
       generationProgress.set("generate", "Generating and validating HTML");
       retrySession = session;
       retryVideoId = result.id;

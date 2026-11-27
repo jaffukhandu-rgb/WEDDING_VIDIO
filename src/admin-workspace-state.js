@@ -1,3 +1,4 @@
+import { workspaceVersion, workspaceEdited, workspaceReplaced } from "./admin-workspace-version.js";
 import { deleteDraft, getDraft, saveDraft } from "./admin-draft-store.js";
 import { buildVideoInvitationSource, describeVideoTiming } from "./admin-video-html.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
@@ -36,6 +37,13 @@ const publishTemplateBtn = document.querySelector("#publish-template");
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
+const resumeButton = document.querySelector("#resume-background");
+const category = document.querySelector("#publish-category");
+const defaultsMode = document.querySelector("#draft-master-mode");
+let pendingDefaults = null;
+let defaultsSource = "";
+let lastSaved = null;
+let publishingDraft = null;
 let activeDraftId = null;
 let workspaceMode = "new"; // "new" | "draft" | "edit" | "video-new"
 let pendingVideoId = null;
@@ -70,6 +78,8 @@ function updateModeUi() {
   const { videoBg } = currentSourceAndKind();
   const editId = document.documentElement.dataset.editTemplateId || "";
   const bgId = videoBg?.id || pendingVideoId || null;
+
+  resumeButton.hidden = !pendingVideoId || Boolean(currentSourceAndKind().html.trim());
 
   if (modePill) {
     modePill.textContent = editId
@@ -126,8 +136,13 @@ function loadSource(source, kind, { force = false, title = "", preserveEdit = fa
       !window.confirm("Replace the current invitation code in this workspace?")) {
     return false;
   }
+  if (!flushAutosave()) return false;
+  workspaceReplaced();
   suppressAutosave = true;
   try {
+    const file = document.querySelector("#video-html-file");
+    file.value = "";
+    file.dispatchEvent(new Event("change"));
     if (!preserveEdit) {
       delete document.documentElement.dataset.editTemplateId;
       delete document.documentElement.dataset.editTemplateCategory;
@@ -135,8 +150,7 @@ function loadSource(source, kind, { force = false, title = "", preserveEdit = fa
     }
     if (title && workspaceTitle) {
       workspaceTitle.value = normalizeTemplateTitle(title, "");
-      if (preserveEdit) workspaceTitle.dataset.userEdited = "1";
-      else delete workspaceTitle.dataset.userEdited;
+      workspaceTitle.dataset.userEdited = "1";
       syncTitles(workspaceTitle);
     }
     const background = findVideoBackground(source);
@@ -148,7 +162,7 @@ function loadSource(source, kind, { force = false, title = "", preserveEdit = fa
         codeTab?.click();
         if (codeInput) codeInput.value = source;
         if (videoCode) videoCode.value = source;
-        analyzeCode?.click();
+        codeInput.dispatchEvent(new Event("wedding:analyze-current"));
         showMessage("Original video host (" + background.origin + ") differs from current renderer (" +
           apiOrigin + "). Source loaded unchanged in Via Code; check preview before updating.");
         return true;
@@ -159,14 +173,15 @@ function loadSource(source, kind, { force = false, title = "", preserveEdit = fa
       if (background && isEquivalentRendererOrigin(background.origin, apiOrigin) && background.origin !== apiOrigin) {
         // Keep Video + HTML analyze button happy when localhost vs 127.0.0.1 is used locally.
         codeInput.dispatchEvent(new Event("input", { bubbles: true }));
-        analyzeCode?.click();
+        codeInput.dispatchEvent(new Event("wedding:analyze-current"));
       } else {
         analyzeVideo?.click();
       }
     } else {
       codeTab?.click();
-      if (codeInput) codeInput.value = source;
-      analyzeCode?.click();
+      videoCode.value = "";
+      if (codeInput) { codeInput.value = source; codeInput.dispatchEvent(new Event("input")); }
+      codeInput.dispatchEvent(new Event("wedding:analyze-current"));
     }
     return true;
   } finally {
@@ -176,15 +191,15 @@ function loadSource(source, kind, { force = false, title = "", preserveEdit = fa
 
 function persistDraft({ manual = false, customTitle = null } = {}) {
   if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
-  const { kind, html } = currentSourceAndKind();
-  const bgId = findVideoBackground(html)?.id || pendingVideoId;
-  const bgUrl = findVideoBackground(html)?.url || pendingVideoUrl;
-  if (!html.trim() && !bgId) {
+  const { kind, html, videoBg } = currentSourceAndKind();
+  const bgId = videoBg?.id || pendingVideoId;
+  const bgUrl = videoBg?.url || pendingVideoUrl;
+  if (!dirtyForAutosave && !activeDraftId && !html.trim() && !bgId) {
     if (manual) showMessage("Enter invitation code or upload a video before saving a draft.");
     return null;
   }
   const resolvedTitle = normalizeTemplateTitle(
-    customTitle ?? (workspaceTitle?.value || titleInput?.value || ""),
+    customTitle ?? (workspaceTitle?.value || (kind === "video" ? titleInput?.value : "")),
     "Untitled invitation"
   );
   setAutosaveText("Saving draft…");
@@ -197,12 +212,15 @@ function persistDraft({ manual = false, customTitle = null } = {}) {
       mode: document.documentElement.dataset.editTemplateId
         ? "edit" : (bgId && !html.trim() ? "video-new" : kind === "video" ? "video-new" : "new"),
       templateId: document.documentElement.dataset.editTemplateId || null,
-      templateCategory: document.documentElement.dataset.editTemplateCategory || null,
+      templateCategory: category.value || document.documentElement.dataset.editTemplateCategory || null,
+      masterDefaults: pendingDefaults,
       templateRevision: document.documentElement.dataset.editTemplateRevision || null,
       videoBackgroundId: bgId,
       videoBackgroundUrl: bgUrl,
+      allowUnfinished: true,
       autoSaved: !manual
     });
+    lastSaved = draft;
     activeDraftId = draft.id;
     dirtyForAutosave = false;
     syncUrlParams();
@@ -213,34 +231,107 @@ function persistDraft({ manual = false, customTitle = null } = {}) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Could not save local draft.";
     setAutosaveText("Draft save failed: " + msg, "error");
-    if (manual) showMessage(msg);
+    showMessage("Workspace kept. " + msg);
     return null;
   }
 }
 
 function scheduleAutosave() {
   if (suppressAutosave) return;
-  const { html } = currentSourceAndKind();
-  if (!html.trim() && !pendingVideoId) return;
+  workspaceEdited();
   dirtyForAutosave = true;
   setAutosaveText("Unsaved local changes…");
   if (autosaveTimer) clearTimeout(autosaveTimer);
+  if (!activeDraftId) { persistDraft(); return; }
   autosaveTimer = setTimeout(() => { persistDraft({ manual: false }); }, 700);
 }
 
 function flushAutosave() {
-  if (autosaveTimer) {
-    clearTimeout(autosaveTimer);
-    autosaveTimer = null;
-    persistDraft({ manual: false });
-  } else if (dirtyForAutosave) {
-    persistDraft({ manual: false });
+  return !dirtyForAutosave || Boolean(persistDraft());
+}
+
+function detachDraft() {
+  activeDraftId = null;
+  lastSaved = null;
+  pendingDefaults = null;
+  defaultsMode.checked = false;
+  pendingVideoId = pendingVideoUrl = null;
+  workspaceReplaced();
+}
+document.addEventListener("wedding:before-workspace-change", event => {
+  if (!flushAutosave()) { event.preventDefault(); return; }
+  if (event.detail === "replace" || event.detail === "clear") { detachDraft(); syncUrlParams(); }
+  if (event.detail === "publish") publishingDraft = lastSaved;
+});
+document.addEventListener("wedding:draft-defaults", event => {
+  pendingDefaults = event.detail;
+  defaultsSource = currentSourceAndKind().html;
+  scheduleAutosave();
+});
+document.addEventListener("wedding:fields-ready", event => {
+  if (activeDraftId && workspaceTitle.value && lastSaved?.title !== workspaceTitle.value) scheduleAutosave();
+  if (!pendingDefaults || defaultsSource !== currentSourceAndKind().html) return;
+  defaultsMode.checked = true;
+  for (const input of event.detail.querySelectorAll("input:not([type=file]), textarea")) {
+    const value = input.dataset.eventKey
+      ? pendingDefaults.events?.[Number(input.dataset.eventIndex)]?.[input.dataset.eventKey]
+      : pendingDefaults[input.name];
+    if (typeof value === "string") input.value = value;
   }
+});
+
+category.addEventListener("change", () => {
+  document.documentElement.dataset.editTemplateCategory = category.value;
+  scheduleAutosave();
+});
+document.querySelector("#publish-title").addEventListener("input", event => {
+  workspaceTitle.value = event.target.value;
+  workspaceTitle.dispatchEvent(new Event("input"));
+});
+const tabDrafts = new Map();
+for (const tab of [codeTab, videoTab]) {
+  tab.addEventListener("click", event => {
+    if (suppressAutosave || (tab === videoTab) === !videoPanel.hidden) return;
+    if (!flushAutosave()) { event.stopImmediatePropagation(); return; }
+    workspaceEdited();
+    const leaving = tab === videoTab ? codeTab : videoTab;
+    const incoming = tab === videoTab ? videoCode : codeInput;
+    if (incoming.value === currentSourceAndKind().html &&
+        (incoming.value.trim() || (!pendingVideoId && !tabDrafts.has(tab)))) return;
+    if (activeDraftId) tabDrafts.set(leaving, activeDraftId);
+    else tabDrafts.delete(leaving);
+    const other = tabDrafts.has(tab) ? getDraft(tabDrafts.get(tab)) : null;
+    detachDraft();
+    const ds = document.documentElement.dataset;
+    delete ds.editTemplateId; delete ds.editTemplateRevision; delete ds.editTemplateCategory;
+    if (other && other.html === incoming.value) {
+      lastSaved = other; activeDraftId = other.id;
+      pendingVideoId = other.videoBackgroundId; pendingVideoUrl = other.videoBackgroundUrl;
+      pendingDefaults = other.masterDefaults; defaultsSource = other.html;
+      if (other.templateId) ds.editTemplateId = other.templateId;
+      if (other.templateRevision) ds.editTemplateRevision = other.templateRevision;
+      ds.editTemplateCategory = other.templateCategory || "";
+    }
+    workspaceTitle.value = lastSaved?.title || "";
+    workspaceTitle.dataset.userEdited = workspaceTitle.value ? "1" : "";
+    syncTitles(workspaceTitle);
+    category.value = ds.editTemplateCategory || "";
+    // Invalidate preview/export prepared for the old document.
+    suppressAutosave = true;
+    try { codeInput.dispatchEvent(new Event("input")); } finally { suppressAutosave = false; }
+    syncUrlParams();
+    queueMicrotask(updateModeUi);
+  }, true);
 }
 
 // Track meaningful edits across code, video source, titles, and permanent master defaults.
 for (const el of [codeInput, videoCode]) {
-  el?.addEventListener("input", scheduleAutosave);
+  el?.addEventListener("input", () => {
+    if (suppressAutosave) return;
+    if (currentSourceAndKind().html !== defaultsSource) { pendingDefaults = null; defaultsMode.checked = false; }
+    scheduleAutosave();
+    updateModeUi();
+  });
 }
 for (const el of [workspaceTitle, titleInput]) {
   el?.addEventListener("input", () => {
@@ -250,12 +341,42 @@ for (const el of [workspaceTitle, titleInput]) {
   });
 }
 codeInput?.addEventListener("wedding:master-defaults-saved", () => {
-  dirtyForAutosave = true;
-  persistDraft({ manual: false });
+  pendingDefaults = null; defaultsMode.checked = false;
+  scheduleAutosave();
+  persistDraft();
 });
 codeInput?.addEventListener("wedding:refine-video-design", () => {
   dirtyForAutosave = true;
   scheduleAutosave();
+});
+document.addEventListener("wedding:background-uploaded", event => {
+  const id = event.detail.id;
+  if (!UUID.test(id) || !flushAutosave()) { event.preventDefault(); return; }
+  // Checkpoint the uploaded asset before generating HTML. Only switch the editor
+  // after storage accepts the checkpoint, keeping the previous draft on failure.
+  const ds = document.documentElement.dataset;
+  try {
+    const draft = saveDraft({
+      id: currentSourceAndKind().html.trim() || pendingVideoId ? null : activeDraftId,
+      html: "", title: workspaceTitle.value || titleInput.value, kind: "video",
+      templateId: ds.editTemplateId, templateRevision: ds.editTemplateRevision,
+      templateCategory: category.value, videoBackgroundId: id,
+      videoBackgroundUrl: API_ROOT + "/api/video-backgrounds/" + id, autoSaved: true
+    });
+    detachDraft();
+    activeDraftId = draft.id;
+    lastSaved = draft;
+    pendingVideoId = id;
+    pendingVideoUrl = draft.videoBackgroundUrl;
+    videoCode.value = codeInput.value = "";
+    suppressAutosave = true;
+    try { codeInput.dispatchEvent(new Event("input")); } finally { suppressAutosave = false; }
+    syncUrlParams();
+    updateModeUi();
+  } catch (error) {
+    showMessage("Uploaded background is in the video library. Workspace kept: " + error.message);
+    event.preventDefault();
+  }
 });
 document.addEventListener("wedding:video-generated", event => {
   const detail = event.detail || {};
@@ -266,23 +387,42 @@ document.addEventListener("wedding:video-generated", event => {
 });
 
 // Flush pending autosave on navigation, tab hide, or page exit.
+window.addEventListener("beforeunload", event => {
+  if (!flushAutosave()) { event.preventDefault(); event.returnValue = ""; }
+});
 window.addEventListener("pagehide", flushAutosave);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") flushAutosave();
 });
 for (const link of document.querySelectorAll(".admin-sidebar nav a")) {
-  link.addEventListener("click", flushAutosave);
+  link.addEventListener("click", event => { if (!flushAutosave()) event.preventDefault(); });
 }
 
 // Clear only the matching draft after a confirmed publish or update.
 document.addEventListener("wedding:template-published", event => {
   const saved = event.detail || {};
+  const snapshot = publishingDraft;
+  publishingDraft = null;
+  if (saved.switched) {
+    if (snapshot) {
+      try { deleteDraft(snapshot.id, snapshot); } catch { showMessage("Published, but the saved draft could not be cleared."); }
+    }
+    return;
+  }
+  if (!saved.unchanged || pendingDefaults) {
+    dirtyForAutosave = true;
+    persistDraft();
+    return;
+  }
+  let cleared = false;
   if (saved.title && workspaceTitle) {
     workspaceTitle.value = saved.title;
     syncTitles(workspaceTitle);
   }
   if (activeDraftId) {
-    try { deleteDraft(activeDraftId); } catch {}
+    try {
+      if (snapshot && activeDraftId === snapshot.id) cleared = deleteDraft(activeDraftId, snapshot);
+    } catch { showMessage("Published, but could not clear the saved draft."); return; }
     activeDraftId = null;
   }
   dirtyForAutosave = false;
@@ -290,7 +430,7 @@ document.addEventListener("wedding:template-published", event => {
   workspaceMode = "edit";
   syncUrlParams();
   updateModeUi();
-  setAutosaveText("Published cleanly · Local draft cleared", "good");
+  setAutosaveText(cleared ? "Published · Matching local draft cleared" : "Published", "good");
 });
 
 saveButton?.addEventListener("click", () => {
@@ -299,7 +439,7 @@ saveButton?.addEventListener("click", () => {
   if (name === null) return;
   if (workspaceTitle) {
     workspaceTitle.value = name.trim() || currentTitle;
-    syncTitles(workspaceTitle);
+    workspaceTitle.dispatchEvent(new Event("input"));
   }
   const draft = persistDraft({ manual: true, customTitle: name });
   if (draft) {
@@ -309,9 +449,14 @@ saveButton?.addEventListener("click", () => {
 
 newButton?.addEventListener("click", () => {
   const { html } = currentSourceAndKind();
-  if ((html.trim() || pendingVideoId) && !window.confirm("Start a brand new invitation? Unsaved workspace edits will be cleared (saved drafts remain in Drafts).")) {
+  if ((html.trim() || pendingVideoId) && !window.confirm("Start a brand new invitation? Current edits will be saved in Drafts first.")) {
     return;
   }
+  if (!flushAutosave()) return;
+  detachDraft();
+  tabDrafts.clear();
+  category.value = "";
+  loadEdit.hidden = retryEdit.hidden = editKey.hidden = true;
   suppressAutosave = true;
   try {
     activeDraftId = null;
@@ -327,8 +472,12 @@ newButton?.addEventListener("click", () => {
       delete workspaceTitle.dataset.userEdited;
     }
     if (titleInput) titleInput.value = "Royal Wedding Film Invitation";
+    codeTab.click();
     if (videoCode) videoCode.value = "";
     clearCode?.click();
+    codeInput.value = ""; codeInput.dispatchEvent(new Event("input"));
+    document.querySelector("#video-html-file").value = "";
+    document.querySelector("#video-html-file").dispatchEvent(new Event("change"));
     if (notice) notice.hidden = true;
     workspaceMode = "new";
     syncUrlParams();
@@ -360,6 +509,11 @@ if (draftId) {
     showMessage("This draft is not available in this browser.");
   } else {
     activeDraftId = draft.id;
+    lastSaved = draft;
+    pendingDefaults = draft.masterDefaults;
+    defaultsSource = draft.html;
+    category.value = draft.templateCategory || "";
+    document.documentElement.dataset.editTemplateCategory = category.value;
     pendingVideoId = draft.videoBackgroundId;
     pendingVideoUrl = draft.videoBackgroundUrl;
     if (draft.templateId) {
@@ -372,10 +526,12 @@ if (draftId) {
     }
     if (draft.html.trim()) {
       loadSource(draft.html, draft.kind, { force: true, title: draft.title, preserveEdit: Boolean(draft.templateId) });
-    } else if (draft.videoBackgroundId) {
-      videoTab?.click();
-      if (workspaceTitle) { workspaceTitle.value = draft.title; syncTitles(workspaceTitle); }
+    } else if (draft.videoBackgroundId || draft.kind === "video") {
+      suppressAutosave = true;
+      try { videoTab?.click(); } finally { suppressAutosave = false; }
     }
+    if (!draft.html.trim() && workspaceTitle) { workspaceTitle.value = draft.title; syncTitles(workspaceTitle); }
+    document.documentElement.dataset.editTemplateCategory = category.value;
     updateModeUi();
     setAutosaveText("Draft restored locally", "good");
     showMessage('Loaded local draft "' + draft.title + '". It stays in this browser until published.');
@@ -388,30 +544,46 @@ if (UUID.test(videoId || "") && !draftId) {
   workspaceMode = "video-new";
   pendingVideoId = videoId.toLowerCase();
   pendingVideoUrl = API_ROOT + "/api/video-backgrounds/" + pendingVideoId;
+  suppressAutosave = true;
+  try { videoTab.click(); } finally { suppressAutosave = false; }
   updateModeUi();
-  void (async () => {
-    const url = pendingVideoUrl;
-    showMessage("Analyzing the previously uploaded video. No re-upload needed…");
-    try {
-      const visualAnalysis = await analyzeVideoVisual(url, percent => {
-        showMessage("Analyzing saved video for readable invitation placement: " + percent + "%");
-      }); // Library handoff starts locally; enable AI and refine explicitly in the workspace.
-      const source = buildVideoInvitationSource({
-        id: pendingVideoId, url, title: workspaceTitle?.value || titleInput?.value || "Video Invitation", visualAnalysis
-      });
-      loadSource(source, "video", { force: true });
-      dirtyForAutosave = true;
-      persistDraft({ manual: false });
-      showMessage("Saved video analyzed. " + describeVideoTiming(visualAnalysis) +
-        " Analysis confidence: " + visualAnalysis.confidence + ". " +
-        (visualAnalysis.warnings.join(" ") || "Review the full invitation before publishing."));
-    } catch (error) {
-      showMessage("Automatic analysis of the saved video failed: " +
-        (error instanceof Error ? error.message : "Video frames unavailable.") +
-        " No source code was replaced. Check that the renderer is running and the stored video plays.");
-    }
-  })();
+  scheduleAutosave();
+  if (flushAutosave()) void resumeGeneration();
 }
+async function resumeGeneration() {
+  if (resumeButton.disabled || currentSourceAndKind().html.trim() || !UUID.test(pendingVideoId || "")) return;
+  const version = workspaceVersion();
+  const canonical = new URL(API_ROOT + "/api/video-backgrounds/" + pendingVideoId);
+  const stored = pendingVideoUrl && new URL(pendingVideoUrl);
+  const url = stored && stored.pathname === canonical.pathname && isEquivalentRendererOrigin(stored.origin, canonical.origin)
+    ? stored.href : canonical.href;
+  resumeButton.disabled = true;
+  showMessage("Analyzing the previously uploaded video. No re-upload needed…");
+  try {
+    const visualAnalysis = await analyzeVideoVisual(url, percent => {
+      if (version === workspaceVersion()) showMessage("Analyzing saved video for readable invitation placement: " + percent + "%");
+    }); // Library handoff starts locally; enable AI and refine explicitly in the workspace.
+    if (version !== workspaceVersion() || currentSourceAndKind().html.trim()) return;
+    const source = buildVideoInvitationSource({
+      id: pendingVideoId, url, title: workspaceTitle?.value || titleInput?.value || "Video Invitation", visualAnalysis
+    });
+    if (!loadSource(source, "video", { preserveEdit: true })) return;
+    dirtyForAutosave = true;
+    if (!persistDraft()) return;
+    showMessage("Saved video analyzed. " + describeVideoTiming(visualAnalysis) +
+      " Analysis confidence: " + visualAnalysis.confidence + ". " +
+      (visualAnalysis.warnings.join(" ") || "Review the full invitation before publishing."));
+  } catch (error) {
+    if (version !== workspaceVersion()) return;
+    showMessage("Automatic analysis of the saved video failed: " +
+      (error instanceof Error ? error.message : "Video frames unavailable.") +
+      " No source code was replaced. Check that the renderer is running and the stored video plays.");
+  } finally {
+    resumeButton.disabled = false;
+    updateModeUi();
+  }
+}
+resumeButton.addEventListener("click", resumeGeneration);
 
 // Load published template for editing (?edit=<24-hex>) when no draft already restored it.
 const editId = params.get("edit");
@@ -421,6 +593,8 @@ if (OBJECT_ID.test(editId || "") && !draftId) {
   if (loadEdit) loadEdit.hidden = false;
 
   const performLoadEdit = async () => {
+    if (loadEdit.disabled) return;
+    const version = workspaceVersion();
     const key = (editKey?.value || mainAdminKey?.value || "").trim();
     if (!key) {
       showMessage("Enter the Admin key before loading this template.");
@@ -436,13 +610,21 @@ if (OBJECT_ID.test(editId || "") && !draftId) {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Could not load template (HTTP " + response.status + ").");
+      if (version !== workspaceVersion()) return;
       const template = result.template;
       const kind = /<video\b[^>]*data-wedding-background\s*=/i.test(template.html) ? "video" : "html";
       const loaded = loadSource(template.html, kind, { title: template.title });
       if (!loaded) {
+        if (dirtyForAutosave) return;
         showMessage("Kept existing workspace code. Click Load template again if you want to load the published template.");
         return;
       }
+      activeDraftId = lastSaved = null;
+      tabDrafts.clear();
+      defaultsMode.checked = false;
+      pendingVideoId = pendingVideoUrl = null;
+      pendingDefaults = null;
+      category.value = template.category;
       document.documentElement.dataset.editTemplateId = editId;
       document.documentElement.dataset.editTemplateCategory = template.category;
       if (template.revision) document.documentElement.dataset.editTemplateRevision = template.revision;
@@ -454,9 +636,11 @@ if (OBJECT_ID.test(editId || "") && !draftId) {
       if (loadEdit) loadEdit.hidden = true;
       if (retryEdit) retryEdit.hidden = true;
       workspaceMode = "edit";
+      syncUrlParams();
       updateModeUi();
       showMessage('Editing "' + template.title + '". Edit HTML or permanent defaults, preview & validate, then save the update.');
     } catch (error) {
+      if (version !== workspaceVersion()) return;
       if (retryEdit) retryEdit.hidden = false;
       showMessage(error instanceof Error ? error.message : "Unable to load published template.");
     } finally {

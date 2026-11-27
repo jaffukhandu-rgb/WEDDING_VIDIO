@@ -186,3 +186,15 @@ test("Declined create and retry preserve the current invitation and report", asy
   assert.equal(ui.uploads, 1);
   assert.equal(ui.calls.length, 1);
 });
+
+test("A workspace change during assisted generation prevents upload and source replacement", async t => {
+  const ui = mockAdmin(t);
+  const { workspaceReplaced } = await import("../src/admin-workspace-version.js");
+  const toggle = ui.element("#video-html-enable-ai");
+  toggle.checked = true; toggle.change();
+  ui.onRequest(() => workspaceReplaced());
+  await ui.element("#video-html-create").click();
+  assert.equal(ui.uploads, 0);
+  assert.equal(ui.element("#video-html-code").value, "");
+  assert.equal(ui.element("#video-html-create").disabled, false);
+});

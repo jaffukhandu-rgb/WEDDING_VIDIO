@@ -1,3 +1,4 @@
+import { workspaceVersion, workspaceEdited, allowWorkspaceChange } from "./admin-workspace-version.js";
 import { isSupportedHtmlFile } from './admin-engine.js';
 import {analyzeTemplate,diagnoseFieldBindings,prepareTemplate,updateTemplateSourceConfig} from './admin-engine.js';
 import {findVideoBackground} from './video-html-contract.js';
@@ -28,7 +29,7 @@ const previewController=createPreviewController({
   }
 });
 let source='',prepared='',lastAnalysis=null,analysisRunning=false,musicObjectUrl=null;
-let sourceRevision=0;
+let sourceRevision=0, latestAnalysisRun=0;
 
 let staticValidation=[],runtimeValidation=null,previewValidationError='',validationDirty=false;
 let delivery=null;
@@ -381,8 +382,8 @@ function resetPrepared(){
   report.textContent='Paste a template to analyze scenes and fields.';
 }
 async function analyzeSource(text){
-  if(analysisRunning)return;
-  const revision=sourceRevision;
+  const revision=++sourceRevision;
+  latestAnalysisRun=revision;
   analysisRunning=true;analyzeButton.disabled=true;fileInput.disabled=true;
   resetPrepared();
   try{
@@ -434,7 +435,9 @@ async function analyzeSource(text){
       workspaceTitle.value=normalizeTemplateTitle(analysis.name,'');
       delete workspaceTitle.dataset.userEdited;
     }
+    sampleBeforeDefaults = null;
     renderDetectedFields(analysis);
+    document.dispatchEvent(new CustomEvent("wedding:fields-ready", { detail: fields }));
     editor.classList.remove('hide');
     staticValidation=validateTemplateSource(text,analysis);
     renderValidation();
@@ -445,7 +448,7 @@ async function analyzeSource(text){
     showProgress(0,'Analysis failed — review the error below');
     setStatus(error instanceof Error?error.message:'Unable to analyze template.','error');
   }finally{
-    analysisRunning=false;analyzeButton.disabled=false;fileInput.disabled=false;
+    if (latestAnalysisRun===revision) { analysisRunning=false;analyzeButton.disabled=false;fileInput.disabled=false; }
   }
 }
 // A managed CSS-only edit can retain the current customer form and music.
@@ -468,9 +471,12 @@ codeInput.addEventListener('wedding:refine-video-design',event=>{
     detail.applied=true;
   }catch{/* The caller retains the normal source-analysis path. */}
 });
+codeInput.addEventListener('wedding:analyze-current',()=>{void analyzeSource(codeInput.value);});
 analyzeButton.addEventListener('click',()=>{void analyzeSource(codeInput.value);});
 clearButton.addEventListener('click',()=>{
-  if(analysisRunning)return;
+  if(!allowWorkspaceChange("clear"))return;
+  sourceRevision++;
+  workspaceEdited();
   codeInput.value='';fileInput.value='';resetPrepared();progress.classList.add('hide');
   if(workspaceTitle&&workspaceTitle.dataset.userEdited!=='1'&&!document.documentElement.dataset.editTemplateId){
     workspaceTitle.value='';
@@ -484,8 +490,12 @@ fileInput.addEventListener('change',async()=>{
     setStatus('Select an HTML file no larger than 1 MB.','error');return;
   }
   try{
+    workspaceEdited();
+    const version=workspaceVersion();
     const text=await file.text();
+    if(version!==workspaceVersion() || !allowWorkspaceChange("replace"))return;
     codeInput.value=text;
+    codeInput.dispatchEvent(new Event("input", { bubbles: true }));
     await analyzeSource(text);
   }catch(error){
     setStatus(error instanceof Error?error.message:'Unable to read file.','error');
@@ -517,6 +527,7 @@ resetSample.addEventListener('click',()=>{
     thumb?.removeAttribute('src');thumb?.classList.add('hide');
   }
   clearMusic();
+  if (defaultsMode.checked) captureDefaultEdits();
   if(prepared)invalidatePreviewValidation();
   setStatus('Sample values reset. Customers will enter their own details.','good');
 });
@@ -536,6 +547,36 @@ function collectMasterDefaultValues(){
   }
   return values;
 }
+const defaultsMode = document.querySelector("#draft-master-mode");
+function captureDefaultEdits() {
+  if (!lastAnalysis) return;
+  document.dispatchEvent(new CustomEvent("wedding:draft-defaults", {
+    detail: defaultsMode.checked ? collectMasterDefaultValues() : null
+  }));
+}
+let sampleBeforeDefaults = null;
+function showTextValues(values) {
+  for (const input of fields.querySelectorAll("input:not([type=file]), textarea")) {
+    const value = input.dataset.eventKey
+      ? values.events?.[Number(input.dataset.eventIndex)]?.[input.dataset.eventKey]
+      : values[input.name];
+    if (typeof value === "string") input.value = value;
+  }
+}
+defaultsMode.addEventListener("change", () => {
+  if (!lastAnalysis) return;
+  if (defaultsMode.checked) {
+    sampleBeforeDefaults = collectMasterDefaultValues();
+    showTextValues(lastAnalysis.config);
+    document.dispatchEvent(new CustomEvent("wedding:fields-ready", { detail: fields }));
+  } else {
+    showTextValues(sampleBeforeDefaults || lastAnalysis.config);
+    sampleBeforeDefaults = null;
+  }
+});
+fields.addEventListener("input", event => {
+  if (defaultsMode.checked && event.target.type !== "file") captureDefaultEdits();
+});
 applyMasterDefaults?.addEventListener('click',async()=>{
   if(!lastAnalysis||!source||analysisRunning)return;
   applyMasterDefaults.disabled=true;
@@ -549,8 +590,9 @@ applyMasterDefaults?.addEventListener('click',async()=>{
       videoCodeInput.value=updatedSource;
     }
     sourceRevision++;
+    codeInput.dispatchEvent(new CustomEvent("wedding:master-defaults-saved"));
     await analyzeSource(updatedSource);
-    codeInput.dispatchEvent(new CustomEvent('wedding:master-defaults-saved',{detail:{source:updatedSource}}));
+    if (codeInput.value !== updatedSource) return;
     setStatus('Permanent CONFIG defaults saved into template source. Click Preview with sample values and validate before publishing/updating.','good');
   }catch(error){
     setStatus(error instanceof Error?error.message:'Unable to update template defaults.','error');
@@ -562,9 +604,11 @@ editor.addEventListener('submit',async event=>{
   event.preventDefault();
   if(!lastAnalysis)return;
   const submit=editor.querySelector('button[type=submit]');
+  const revision=sourceRevision;
   submit.disabled=true;save.disabled=true;
   try{
     const values=await collectPreviewValues();
+    if (revision!==sourceRevision) return;
     prepared=prepareTemplate(source,values);
     invalidatePreviewValidation('Preview prepared. Generate an MP4 for this preview.');
     previewController.mount(prepared);
@@ -575,6 +619,7 @@ editor.addEventListener('submit',async event=>{
     save.disabled=false;
     setStatus('Sample preview prepared. Customer details are not saved.','good');
   }catch(error){
+    if (revision!==sourceRevision) return;
     prepared='';save.disabled=true;
     invalidatePreviewValidation('Prepare a valid preview before exporting.');
     previewValidationError=error instanceof Error?error.message:'Preview preparation failed.';

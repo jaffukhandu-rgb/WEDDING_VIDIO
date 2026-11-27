@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import { createHash } from "node:crypto";
 import express from "express";
 import { analyzeTemplate } from "../src/admin-engine.js";
@@ -11,7 +12,7 @@ import {
   listPublishedTemplates,
   getPublishedTemplate,
   publishTemplate,
-  listAdminTemplates,
+  listAdminTemplates, adminRevision,
   getAdminTemplate,
   updateAdminTemplate,
   markAdminTemplateDeleting,
@@ -25,6 +26,10 @@ export const CATEGORIES = Object.freeze([
 ]);
 const MAX_SOURCE_BYTES = 1024 * 1024;
 const ALLOWED_CATEGORY = new Set(CATEGORIES);
+
+function conflict(res) {
+  return res.status(409).json({ error: "This template changed. Your local edits are preserved. Reload before saving." });
+}
 
 function publicError(res, error) {
   console.error("Template storage error:", error);
@@ -77,10 +82,14 @@ export function templateRouter() {
   });
 
   // All admin template operations require the existing strong server key.
-  router.get("/admin/templates", requireAdmin, async (_req, res) => {
+  router.get("/admin/templates", requireAdmin, async (req, res) => {
+    const after = req.query.after;
+    if (after !== undefined && (typeof after !== "string" || !/^[a-f0-9]{24}$/i.test(after))) return res.status(400).json({ error: "Invalid inventory cursor." });
     try {
-      const templates = await listAdminTemplates();
-      return res.set("Cache-Control", "no-store").json({ templates });
+      const page = await listAdminTemplates(after ? { _id: { $gt: new ObjectId(after) } } : {});
+      const templates = page.slice(0, 100);
+      const nextCursor = page.length > 100 ? templates.at(-1).id : null;
+      return res.set("Cache-Control", "no-store").json({ templates, nextCursor });
     } catch (error) {
       return publicError(res, error);
     }
@@ -97,7 +106,7 @@ export function templateRouter() {
           titleCustomized: Boolean(template.titleCustomized),
           category: template.category, status: template.status,
           html: template.html,
-          revision: template.sourceHash || createHash("sha256").update(template.html).digest("hex"),
+          revision: adminRevision(template),
           videoBackgroundId: template.videoBackgroundId || findVideoBackground(template.html)?.id || null
         }
       });
@@ -117,17 +126,20 @@ export function templateRouter() {
     }
     const normalizedTitle = normalizeTemplateTitle(title);
     try {
+      const current = await getAdminTemplate(req.params.id);
+      if (!current) return res.status(404).json({ error: "Template not found." });
+      if (req.body.expectedRevision !== adminRevision(current)) return conflict(res);
       const updated = await updateAdminTemplate(req.params.id, {
         title: normalizedTitle,
         titleCustomized: true,
         updatedAt: new Date()
-      });
-      if (!updated) return res.status(404).json({ error: "Published template not found or is being deleted." });
+      }, current);
+      if (!updated) return conflict(res);
       return res.set("Cache-Control", "no-store").json({
         template: {
           id: updated._id.toString(),
           title: normalizeTemplateTitle(updated.title, normalizedTitle),
-          category: updated.category
+          category: updated.category, revision: adminRevision(updated)
         }
       });
     } catch (error) {
@@ -164,12 +176,9 @@ export function templateRouter() {
       if (!current || current.status !== "published") {
         return res.status(404).json({ error: "Published template not found or is being deleted." });
       }
-      if (typeof expectedRevision === "string" && expectedRevision.trim()) {
-        const currentRevision = current.sourceHash || createHash("sha256").update(current.html).digest("hex");
-        if (currentRevision !== expectedRevision.trim()) {
-          return res.status(409).json({ error: "This template was updated elsewhere. Reload it before saving." });
-        }
-      }
+      const legacyMatch = !current.editRevision && !current.sourceHash &&
+        expectedRevision === createHash("sha256").update(current.html).digest("hex");
+      if (!legacyMatch && expectedRevision !== adminRevision(current)) return conflict(res);
       if (background && !await backgroundExists(background.id)) {
         return res.status(400).json({ error: "The selected video background was not found." });
       }
@@ -196,13 +205,13 @@ export function templateRouter() {
         photoCount: analysis.photoSlots.length,
         videoBackgroundId: background?.id || null,
         updatedAt: new Date()
-      });
-      if (!updated) return res.status(404).json({ error: "Template was not found." });
+      }, current);
+      if (!updated) return conflict(res);
       return res.set("Cache-Control", "no-store").json({
         template: {
           id: updated._id.toString(), category: updated.category,
           title: normalizeTemplateTitle(updated.title, nextTitle),
-          revision: sourceHash
+          revision: adminRevision(updated)
         }
       });
     } catch (error) {
@@ -305,6 +314,7 @@ export function templateRouter() {
       res.set("Cache-Control", "no-store");
       return res.status(201).json({ template: published });
     } catch (error) {
+      if (error?.code === 11000) return conflict(res);
       return publicError(res, error);
     }
   });

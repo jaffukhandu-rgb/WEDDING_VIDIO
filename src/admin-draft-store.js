@@ -17,9 +17,16 @@ function normalizeDraft(item) {
   const videoBackgroundId = typeof item.videoBackgroundId === "string" && UUID.test(item.videoBackgroundId)
     ? item.videoBackgroundId.toLowerCase()
     : detectedBg?.id || null;
-  const videoBackgroundUrl = typeof item.videoBackgroundUrl === "string"
-    ? item.videoBackgroundUrl
-    : detectedBg?.url || null;
+  let videoBackgroundUrl = detectedBg?.url || null;
+  if (videoBackgroundId && typeof item.videoBackgroundUrl === "string") {
+    try {
+      const url = new URL(item.videoBackgroundUrl);
+      if (["http:", "https:"].includes(url.protocol) && !url.username && !url.password &&
+          !url.search && !url.hash && url.pathname === "/api/video-backgrounds/" + videoBackgroundId) {
+        videoBackgroundUrl = url.href;
+      }
+    } catch { /* Older drafts can recover from the UUID alone. */ }
+  }
   const templateId = typeof item.templateId === "string" && OBJECT_ID.test(item.templateId)
     ? item.templateId.toLowerCase() : null;
   const mode = ["new", "edit", "video-new"].includes(item.mode)
@@ -32,6 +39,7 @@ function normalizeDraft(item) {
     kind: item.kind,
     mode,
     templateId,
+    masterDefaults: item.masterDefaults ?? null,
     templateCategory: typeof item.templateCategory === "string" ? item.templateCategory : null,
     templateRevision: typeof item.templateRevision === "string" ? item.templateRevision : null,
     videoBackgroundId,
@@ -41,14 +49,16 @@ function normalizeDraft(item) {
   };
 }
 
-export function readDrafts() {
-  try {
-    const list = JSON.parse(localStorage.getItem(KEY) || "[]");
-    if (!Array.isArray(list)) return [];
-    return list.map(normalizeDraft).filter(Boolean).slice(0, MAX_DRAFTS);
-  } catch {
-    return [];
-  }
+function storedDrafts() {
+  const list = JSON.parse(localStorage.getItem(KEY) || "[]");
+  if (!Array.isArray(list)) throw new Error("The existing draft library could not be read.");
+  const drafts = list.map(normalizeDraft);
+  if (drafts.some(item => !item)) throw new Error("An existing draft is unreadable. The draft library was kept.");
+  return drafts;
+}
+export function readDrafts({ strict = false } = {}) {
+  if (strict) return storedDrafts();
+  try { return storedDrafts(); } catch { return []; }
 }
 
 export function getDraft(id) {
@@ -72,20 +82,22 @@ export function saveDraft({
   templateId = null,
   templateCategory = null,
   templateRevision = null,
+  masterDefaults = null,
   videoBackgroundId = null,
   videoBackgroundUrl = null,
+  allowUnfinished = false,
   autoSaved = false
 }) {
   const cleanHtml = typeof html === "string" ? html : "";
   const hasVideoRef = typeof videoBackgroundId === "string" && UUID.test(videoBackgroundId);
-  if (!hasVideoRef && !cleanHtml.trim()) {
+  if (!allowUnfinished && !hasVideoRef && !cleanHtml.trim()) {
     throw new Error("Enter invitation code before saving a draft.");
   }
   if (new TextEncoder().encode(cleanHtml).length > MAX_SOURCE_BYTES) {
     throw new Error("Draft HTML cannot exceed 1 MB.");
   }
   if (!["video", "html"].includes(kind)) throw new Error("Invalid draft type.");
-  const existing = readDrafts();
+  const existing = storedDrafts();
   const targetId = typeof id === "string" && id.trim() ? id.trim() : null;
   const matchedIndex = targetId ? existing.findIndex(item => item.id === targetId) : -1;
   if (matchedIndex < 0 && existing.length >= MAX_DRAFTS) {
@@ -101,7 +113,7 @@ export function saveDraft({
     mode: mode || (templateId ? "edit" : kind === "video" ? "video-new" : "new"),
     templateId,
     templateCategory,
-    templateRevision,
+    templateRevision, masterDefaults,
     videoBackgroundId: hasVideoRef ? videoBackgroundId.toLowerCase() : detectedBg?.id || null,
     videoBackgroundUrl: videoBackgroundUrl || detectedBg?.url || null,
     autoSaved: Boolean(autoSaved),
@@ -116,9 +128,9 @@ export function saveDraft({
   return draft;
 }
 
-export function deleteDraft(id) {
-  const existing = readDrafts();
-  const found = existing.some(item => item.id === id);
+export function deleteDraft(id, expected = null) {
+  const existing = storedDrafts();
+  const found = existing.some(item => item.id === id && (!expected || JSON.stringify(item) === JSON.stringify(expected)));
   if (found) localStorage.setItem(KEY, JSON.stringify(existing.filter(item => item.id !== id)));
   return found;
 }

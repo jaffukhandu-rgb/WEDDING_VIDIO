@@ -1,3 +1,4 @@
+import { workspaceVersion, workspaceDocument, allowWorkspaceChange } from "./admin-workspace-version.js";
 import { findVideoBackground } from "./video-html-contract.js";
 
 // Admin delivery: MP4 generation and publication. No key or customer media is persisted.
@@ -264,6 +265,8 @@ export function createAdminDelivery({ getState }) {
       dialog.close();
       return;
     }
+    if (!allowWorkspaceChange("publish")) { dialog.close(); return; }
+    const version = workspaceVersion(), doc = workspaceDocument();
     publishing = true;
     publishConfirm.disabled = true;
     publishStatus.textContent = "Saving reviewed template to MongoDB…";
@@ -287,10 +290,16 @@ export function createAdminDelivery({ getState }) {
       const json = await response.json();
       dialog.close();
       const saved = json.template || {};
+      if (doc !== workspaceDocument()) {
+        document.dispatchEvent(new CustomEvent("wedding:template-published", { detail: { ...saved, switched: true } }));
+        publishStatus.textContent = "The previous invitation was saved. Current workspace kept.";
+        return;
+      }
+      const unchanged = version === workspaceVersion();
       document.documentElement.dataset.editTemplateId = saved.id || editTemplateId || "";
-      document.documentElement.dataset.editTemplateCategory = saved.category || category.value;
+      if (unchanged) document.documentElement.dataset.editTemplateCategory = saved.category || category.value;
       if (saved.revision) document.documentElement.dataset.editTemplateRevision = saved.revision;
-      document.dispatchEvent(new CustomEvent("wedding:template-published", { detail: saved }));
+      document.dispatchEvent(new CustomEvent("wedding:template-published", { detail: { ...saved, unchanged } }));
       publishStatus.textContent = (editTemplateId ? "Updated existing template in " : "Published in ") +
         saved.category + " (template ID: " + saved.id + "). " +
         (editTemplateId ? "The template ID was preserved." : "Customers can now find it in this category.");
