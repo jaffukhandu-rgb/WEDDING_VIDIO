@@ -21,6 +21,34 @@ function Detail({ name, value, change, event }) {
   </label>;
 }
 
+function DownloadAction({ url }) {
+  const [done, setDone] = useState(false);
+  return <div className="published-download-control">
+    <a className={"published-download-action" + (done ? " is-done" : "")}
+      href={url} download="personalized-invitation.mp4"
+      aria-label={done ? "Done — download MP4 again" : "Download MP4"}
+      onClick={() => setDone(true)}>
+      <span className="published-download-window" aria-hidden="true">
+        <span className="published-download-roll">
+          <span className="published-download-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+              <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" />
+            </svg>
+            Download MP4
+          </span>
+          <span className="published-download-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+              <circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" />
+            </svg>
+            Done
+          </span>
+        </span>
+      </span>
+    </a>
+    <span className="published-download-feedback" role="status">{done ? "Check your browser downloads." : ""}</span>
+  </div>;
+}
+
 export function CustomerInvitationDialog({ template, analysis, apiRoot, close }) {
   const [details, setDetails] = useState(() => Object.fromEntries(analysis.fields.filter(key => key !== "photos")
     .map(key => [key, key === "events" ? analysis.config.events.map(event =>
@@ -164,9 +192,9 @@ export function CustomerInvitationDialog({ template, analysis, apiRoot, close })
     {preview && <><iframe title={"Invitation " + template.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview.html} />
       {preview.audio && <audio controls autoPlay loop src={preview.audio} aria-label="Selected soundtrack" />}
       <p>Check that every name and event fits before generating your MP4.</p>
-      <div className="published-photo-actions">
+      <div className={"published-photo-actions" + (download ? " published-download-actions" : "")}>
         <button type="button" disabled={busy} onClick={() => { setPreview(null); setDownload(""); setError(""); }}>Edit details</button>
-        {download ? <a href={download} download="personalized-invitation.mp4">Download MP4</a> :
+        {download ? <DownloadAction key={download} url={download} /> :
           <button type="button" disabled={busy} onClick={render}>{busy ? "Generating MP4…" : "Generate MP4"}</button>}
       </div></>}
     {progress && <p role="status">{progress}</p>}{error && <p role="alert" className="published-error">{error}</p>}

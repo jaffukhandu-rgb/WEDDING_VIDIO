@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { createServer } from "vite";
 
@@ -14,7 +14,7 @@ test("Customer export keeps the dialog editable and retries securely after UUID 
   await vite.listen();
   const browser = await chromium.launch({ executablePath });
   t.after(() => browser.close());
-  const page = await browser.newPage();
+  const page = await browser.newPage({ acceptDownloads: true });
   page.setDefaultTimeout(8000);
   const master = {
     id: "a".repeat(24), revision: "b".repeat(64), title: "Recovery fixture", eventCount: 0, photoCount: 0,
@@ -23,6 +23,8 @@ test("Customer export keeps the dialog editable and retries securely after UUID 
   await page.route("**/api/templates?*", route => route.fulfill({ json: { templates: [master] } }));
   await page.route("**/api/templates/" + master.id, route => route.fulfill({ json: { template: master } }));
   const jobs = [];
+  // Minimal MP4-signature fixture: verify browser download handoff, not video decoding.
+  const mp4 = Buffer.from([0, 0, 0, 12, 102, 116, 121, 112, 105, 115, 111, 109]);
   let polls = 0;
   await page.route("**/api/customer/render/progress", route => {
     polls++;
@@ -31,6 +33,7 @@ test("Customer export keeps the dialog editable and retries securely after UUID 
   await page.route("**/api/customer/render", route => {
     jobs.push(route.request().headers()["x-render-job"]);
     if (jobs.length === 1) return route.fulfill({ status: 502, contentType: "text/html", body: "<h1>Bad gateway</h1>" });
+    if (jobs.length === 3) return route.fulfill({ status: 200, contentType: "video/mp4", body: mp4 });
     return route.fulfill({ status: 429, json: { error: "Renderer busy" } });
   });
   await page.goto(vite.resolvedUrls.local[0]);
@@ -71,4 +74,22 @@ test("Customer export keeps the dialog editable and retries securely after UUID 
   }
   assert.equal(new Set(jobs).size, 2);
   for (const id of jobs) assert.match(id, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i);
+
+  await generate.click();
+  const link = dialog.getByRole("link", { name: "Download MP4", exact: true });
+  await link.waitFor();
+  const [saved] = await Promise.all([page.waitForEvent("download"), link.click()]);
+  assert.equal(saved.suggestedFilename(), "personalized-invitation.mp4");
+  assert.equal(await saved.failure(), null);
+  assert.deepEqual(readFileSync(await saved.path()), mp4);
+  const done = dialog.getByRole("link", { name: "Done — download MP4 again" });
+  await done.waitFor();
+  await dialog.getByRole("status").filter({ hasText: "Check your browser downloads." }).waitFor();
+  const [again] = await Promise.all([page.waitForEvent("download"), done.click()]);
+  assert.equal(await again.failure(), null);
+  assert.equal(jobs.length, 3);
+  await edit.click();
+  await dialog.getByRole("button", { name: "Preview invitation" }).click();
+  assert.equal(await done.count(), 0);
+  assert.equal(await generate.isEnabled(), true);
 });

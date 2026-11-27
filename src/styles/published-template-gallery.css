@@ -208,3 +208,28 @@
 .customer-dialog audio{max-width:100%}
 .customer-dialog a[download]{padding:10px 14px;color:#ffe3ab;text-decoration:underline}
 .customer-dialog [hidden]{display:none}
+
+/* Ready MP4: keep the native download link, with a compact rolling success state. */
+.customer-dialog .published-download-actions{width:min(100%,390px);align-items:flex-start}
+.published-download-control{flex:1 1 165px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.customer-dialog a.published-download-action{
+  display:flex;align-items:center;justify-content:center;box-sizing:border-box;
+  width:100%;min-height:44px;padding:10px 14px;border:1px solid #d2b277;border-radius:9px;
+  background:#b99255;color:#160e15;text-decoration:none;
+  font:600 14px system-ui,sans-serif;cursor:pointer;
+  transition:background-color .3s ease,border-color .3s ease,color .3s ease;
+}
+.customer-dialog .published-download-action:hover{background:#d2b277}
+.customer-dialog .published-download-action.is-done{background:#203c32;border-color:#609577;color:#c4f1d3}
+.customer-dialog .published-download-action.is-done:hover{background:#294b3e}
+.customer-dialog .published-download-action:focus-visible{outline:2px solid #f1ca89;outline-offset:3px}
+.published-download-window{display:block;height:22px;overflow:hidden}
+.published-download-roll{display:flex;flex-direction:column;transition:transform .35s cubic-bezier(.22,1,.36,1)}
+.published-download-action.is-done .published-download-roll{transform:translateY(-50%)}
+.published-download-row{display:flex;align-items:center;justify-content:center;gap:8px;height:22px;flex-shrink:0;white-space:nowrap}
+.published-download-row svg{width:18px;height:18px;flex-shrink:0}
+.published-download-feedback{font-size:.75rem;line-height:1.4;color:#c6b6c9;text-align:center}
+.published-download-feedback:empty{margin-top:-6px}
+@media(prefers-reduced-motion:reduce){
+  .customer-dialog .published-download-action,.published-download-roll{transition:none}
+}
