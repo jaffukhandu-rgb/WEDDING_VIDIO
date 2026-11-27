@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { analyzeTemplate, prepareTemplate } from "../admin-engine.js";
+import { normalizeTemplateTitle } from "../template-metadata.js";
 import { CustomerInvitationDialog } from "./CustomerInvitationDialog.jsx";
 import "../styles/published-template-gallery.css";
 
@@ -99,7 +100,7 @@ function InvitationCard({ template, fetchPublished, onPreview, busy }) {
           disabled={busy} onClick={() => onPreview(template)} />
       </div>
       <div className="published-card-footer">
-        <h3>{template.title}</h3>
+        <h3>{normalizeTemplateTitle(template.title, "Wedding invitation")}</h3>
         <p>{template.eventCount} events · {template.photoCount} photo slots</p>
         <button type="button" onClick={() => onPreview(template)} disabled={busy}>
           {busy ? "Opening…" : "Preview invitation"}

@@ -3,6 +3,7 @@ import express from "express";
 import { analyzeTemplate } from "../src/admin-engine.js";
 import { validateTemplateSource } from "../src/admin-template-validator.js";
 import { findVideoBackground, isVideoBackgroundMarkerPresent } from "../src/video-html-contract.js";
+import { isValidDisplayName, normalizeTemplateTitle } from "../src/template-metadata.js";
 import { backgroundExists, deleteVideoBackgroundAsset } from "./video-backgrounds.js";
 import { requireAdmin } from "./admin-access.js";
 import {
@@ -61,7 +62,7 @@ export function templateRouter() {
         template: {
           id: document._id.toString(),
           category: document.category,
-          title: document.title,
+          title: normalizeTemplateTitle(document.title, "Wedding invitation"),
           html: document.html,
           revision: document.sourceHash || createHash("sha256").update(document.html).digest("hex"),
           fields: document.fields,
@@ -91,9 +92,42 @@ export function templateRouter() {
       if (!template) return res.status(404).json({ error: "Template not found." });
       return res.set("Cache-Control", "no-store").json({
         template: {
-          id: template._id.toString(), title: template.title,
+          id: template._id.toString(),
+          title: normalizeTemplateTitle(template.title, "Wedding invitation"),
+          titleCustomized: Boolean(template.titleCustomized),
           category: template.category, status: template.status,
-          html: template.html
+          html: template.html,
+          revision: template.sourceHash || createHash("sha256").update(template.html).digest("hex"),
+          videoBackgroundId: template.videoBackgroundId || findVideoBackground(template.html)?.id || null
+        }
+      });
+    } catch (error) {
+      return publicError(res, error);
+    }
+  });
+
+  // Dedicated rename: updates display metadata only without altering HTML, CONFIG or media.
+  router.patch("/admin/templates/:id", requireAdmin, async (req, res) => {
+    if (!isDatabaseConfigured()) {
+      return res.status(503).json({ error: "Set MONGODB_URI on the server before renaming." });
+    }
+    const { title } = req.body || {};
+    if (!isValidDisplayName(title)) {
+      return res.status(400).json({ error: "Enter a template display name between 1 and 120 characters." });
+    }
+    const normalizedTitle = normalizeTemplateTitle(title);
+    try {
+      const updated = await updateAdminTemplate(req.params.id, {
+        title: normalizedTitle,
+        titleCustomized: true,
+        updatedAt: new Date()
+      });
+      if (!updated) return res.status(404).json({ error: "Published template not found or is being deleted." });
+      return res.set("Cache-Control", "no-store").json({
+        template: {
+          id: updated._id.toString(),
+          title: normalizeTemplateTitle(updated.title, normalizedTitle),
+          category: updated.category
         }
       });
     } catch (error) {
@@ -104,9 +138,12 @@ export function templateRouter() {
   // Editing preserves the MongoDB template ID. It cannot bypass the existing
   // review/export step because the admin delivery controller still gates PUT.
   router.put("/admin/templates/:id", requireAdmin, async (req, res) => {
-    const { html, category, visualReviewConfirmed } = req.body || {};
+    const { html, category, visualReviewConfirmed, title: requestedTitle, expectedRevision } = req.body || {};
     if (!ALLOWED_CATEGORY.has(category) || visualReviewConfirmed !== true) {
       return res.status(400).json({ error: "Select a category and confirm your visual review." });
+    }
+    if (requestedTitle !== undefined && (typeof requestedTitle !== "string" || (requestedTitle.trim() && !isValidDisplayName(requestedTitle)))) {
+      return res.status(400).json({ error: "Template display name must be between 1 and 120 characters." });
     }
     if (typeof html !== "string" || Buffer.byteLength(html, "utf8") > MAX_SOURCE_BYTES) {
       return res.status(413).json({ error: "HTML must be 1 MB or smaller." });
@@ -127,6 +164,12 @@ export function templateRouter() {
       if (!current || current.status !== "published") {
         return res.status(404).json({ error: "Published template not found or is being deleted." });
       }
+      if (typeof expectedRevision === "string" && expectedRevision.trim()) {
+        const currentRevision = current.sourceHash || createHash("sha256").update(current.html).digest("hex");
+        if (currentRevision !== expectedRevision.trim()) {
+          return res.status(409).json({ error: "This template was updated elsewhere. Reload it before saving." });
+        }
+      }
       if (background && !await backgroundExists(background.id)) {
         return res.status(400).json({ error: "The selected video background was not found." });
       }
@@ -134,9 +177,20 @@ export function templateRouter() {
       if (checks.some(check => check.status === "fail")) {
         return res.status(400).json({ error: "Template failed source validation." });
       }
+      const analyzedTitle = normalizeTemplateTitle(analysis.name, "Wedding invitation");
+      const hasRequestedTitle = typeof requestedTitle === "string" && requestedTitle.trim().length > 0;
+      const nextTitle = hasRequestedTitle
+        ? normalizeTemplateTitle(requestedTitle, analyzedTitle)
+        : current.titleCustomized
+          ? normalizeTemplateTitle(current.title, analyzedTitle)
+          : analyzedTitle;
+      const titleCustomized = hasRequestedTitle
+        ? nextTitle !== analyzedTitle
+        : Boolean(current.titleCustomized);
+      const sourceHash = createHash("sha256").update(html, "utf8").digest("hex");
       const updated = await updateAdminTemplate(req.params.id, {
-        category, html, title: analysis.name.trim().slice(0, 120) || "Wedding invitation",
-        sourceHash: createHash("sha256").update(html, "utf8").digest("hex"),
+        category, html, title: nextTitle, titleCustomized,
+        sourceHash,
         fields: analysis.fields, config: analysis.config, photoSlots: analysis.photoSlots,
         sceneCount: analysis.sceneCount, eventCount: analysis.config.events?.length || 0,
         photoCount: analysis.photoSlots.length,
@@ -147,7 +201,8 @@ export function templateRouter() {
       return res.set("Cache-Control", "no-store").json({
         template: {
           id: updated._id.toString(), category: updated.category,
-          title: updated.title
+          title: normalizeTemplateTitle(updated.title, nextTitle),
+          revision: sourceHash
         }
       });
     } catch (error) {
@@ -192,12 +247,15 @@ export function templateRouter() {
     if (!isDatabaseConfigured()) {
       return res.status(503).json({ error: "Set MONGODB_URI on the server before publishing." });
     }
-    const { html, category, visualReviewConfirmed } = req.body || {};
+    const { html, category, visualReviewConfirmed, title: requestedTitle } = req.body || {};
     if (!ALLOWED_CATEGORY.has(category)) {
       return res.status(400).json({ error: "Select a valid category before publishing." });
     }
     if (visualReviewConfirmed !== true) {
       return res.status(400).json({ error: "Review the complete invitation before publishing." });
+    }
+    if (requestedTitle !== undefined && (typeof requestedTitle !== "string" || (requestedTitle.trim() && !isValidDisplayName(requestedTitle)))) {
+      return res.status(400).json({ error: "Template display name must be between 1 and 120 characters." });
     }
     if (typeof html !== "string" || Buffer.byteLength(html, "utf8") > MAX_SOURCE_BYTES) {
       return res.status(413).json({ error: "A source HTML document no larger than 1 MB is required." });
@@ -227,11 +285,14 @@ export function templateRouter() {
     if (checks.some(check => check.status === "fail")) {
       return res.status(400).json({ error: "Template failed source validation." });
     }
-    const title = analysis.name.trim().slice(0, 120) || "Wedding invitation";
+    const analyzedTitle = normalizeTemplateTitle(analysis.name, "Wedding invitation");
+    const hasRequestedTitle = typeof requestedTitle === "string" && requestedTitle.trim().length > 0;
+    const title = hasRequestedTitle ? normalizeTemplateTitle(requestedTitle, analyzedTitle) : analyzedTitle;
+    const titleCustomized = hasRequestedTitle && title !== analyzedTitle;
     const sourceHash = createHash("sha256").update(html, "utf8").digest("hex");
     try {
       const published = await publishTemplate({
-        category, title, sourceHash, html,
+        category, title, titleCustomized, sourceHash, html,
         fields: analysis.fields,
         config: analysis.config,
         photoSlots: analysis.photoSlots,

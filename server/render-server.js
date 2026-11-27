@@ -73,7 +73,7 @@ app.use((req, res, next) => {
   if (origin || publicBackground) {
     res.setHeader("Access-Control-Allow-Origin", publicBackground ? "*" : origin);
     if (!publicBackground) res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Key, X-Render-Job, Range");
     if (!publicBackground) res.setHeader("Access-Control-Expose-Headers", "X-Render-Duration");
   }

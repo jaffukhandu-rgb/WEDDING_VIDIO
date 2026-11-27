@@ -1,7 +1,8 @@
 import { isSupportedHtmlFile } from './admin-engine.js';
-import {analyzeTemplate,prepareTemplate} from './admin-engine.js';
+import {analyzeTemplate,diagnoseFieldBindings,prepareTemplate,updateTemplateSourceConfig} from './admin-engine.js';
 import {findVideoBackground} from './video-html-contract.js';
 import {readVideoDesignBlock,replaceVideoDesignBlock} from './video-invitation-design.js';
+import {normalizeTemplateTitle} from './template-metadata.js';
 import {createPreviewController} from './admin-preview-controller.js';
 import {validateTemplateSource,validateRuntimeReport} from './admin-template-validator.js';
 import {createAdminDelivery} from './admin-delivery.js';
@@ -9,6 +10,7 @@ const fileInput=document.querySelector('#source'),status=document.querySelector(
 const codeInput=document.querySelector('#code-input'),analyzeButton=document.querySelector('#analyze-code'),clearButton=document.querySelector('#clear-code');
 const progress=document.querySelector('#analysis-progress'),progressFill=document.querySelector('#progress-fill'),progressLabel=document.querySelector('#progress-label'),resetSample=document.querySelector('#reset-sample');
 const musicUpload=document.querySelector('#music-upload'),musicPlayer=document.querySelector('#music-player'),removeMusic=document.querySelector('#remove-music'),musicStatus=document.querySelector('#music-status');
+const applyMasterDefaults=document.querySelector('#apply-master-defaults'),bindingDiagnostic=document.querySelector('#binding-diagnostic'),workspaceTitle=document.querySelector('#workspace-template-title');
 const validationRun=document.querySelector('#validation-run'),validationSummary=document.querySelector('#validation-summary'),validationResults=document.querySelector('#validation-results'),validationManual=document.querySelector('#validation-manual'),validationNote=document.querySelector('#validation-review-note');
 const previewController=createPreviewController({
   preview,
@@ -370,6 +372,7 @@ async function collectPreviewValues(){
 }
 function resetPrepared(){
   source='';prepared='';lastAnalysis=null;save.disabled=true;editor.classList.add('hide');
+  if(bindingDiagnostic){bindingDiagnostic.classList.add('hide');bindingDiagnostic.textContent='';}
   closePreviewModal();
   expandPreview.disabled=true;
   previewController.reset();preview.replaceChildren();
@@ -415,6 +418,22 @@ async function analyzeSource(text){
     }
     showProgress(80,'Building sample preview form');await nextPaint();
     if(revision!==sourceRevision)return;
+    const bindings=diagnoseFieldBindings(text,analysis);
+    if(bindingDiagnostic){
+      if(bindings.unbound.length){
+        bindingDiagnostic.classList.remove('hide');
+        bindingDiagnostic.textContent='Binding notice: '+bindings.unbound.join(', ')+
+          ' declared in CONFIG, but the template HTML/script does not appear to bind CONFIG.'+
+          bindings.unbound[0]+' or data-bind. Editing unbound fields may not change visible text.';
+      }else{
+        bindingDiagnostic.classList.add('hide');
+        bindingDiagnostic.textContent='';
+      }
+    }
+    if(workspaceTitle&&(!workspaceTitle.value.trim()||workspaceTitle.dataset.userEdited!=='1')&&!document.documentElement.dataset.editTemplateId){
+      workspaceTitle.value=normalizeTemplateTitle(analysis.name,'');
+      delete workspaceTitle.dataset.userEdited;
+    }
     renderDetectedFields(analysis);
     editor.classList.remove('hide');
     staticValidation=validateTemplateSource(text,analysis);
@@ -453,6 +472,9 @@ analyzeButton.addEventListener('click',()=>{void analyzeSource(codeInput.value);
 clearButton.addEventListener('click',()=>{
   if(analysisRunning)return;
   codeInput.value='';fileInput.value='';resetPrepared();progress.classList.add('hide');
+  if(workspaceTitle&&workspaceTitle.dataset.userEdited!=='1'&&!document.documentElement.dataset.editTemplateId){
+    workspaceTitle.value='';
+  }
   setStatus('Code cleared. Paste a new template.');
   codeInput.focus();
 });
@@ -498,6 +520,44 @@ resetSample.addEventListener('click',()=>{
   if(prepared)invalidatePreviewValidation();
   setStatus('Sample values reset. Customers will enter their own details.','good');
 });
+function collectMasterDefaultValues(){
+  if(!lastAnalysis)throw new Error('Analyze a template first.');
+  const values={};
+  for(const key of lastAnalysis.fields){
+    if(key==='events'||key==='photos')continue;
+    const control=editor.elements.namedItem(key);
+    if(control)values[key]=control.value;
+  }
+  if(lastAnalysis.eventMode){
+    values.events=lastAnalysis.config.events.map(event=>({...event}));
+    for(const input of fields.querySelectorAll('[data-event-index]')){
+      values.events[Number(input.dataset.eventIndex)][input.dataset.eventKey]=input.value;
+    }
+  }
+  return values;
+}
+applyMasterDefaults?.addEventListener('click',async()=>{
+  if(!lastAnalysis||!source||analysisRunning)return;
+  applyMasterDefaults.disabled=true;
+  try{
+    const values=collectMasterDefaultValues();
+    const updatedSource=updateTemplateSourceConfig(source,values);
+    const videoCodeInput=document.querySelector('#video-html-code');
+    const videoPanel=document.querySelector('#video-html-panel');
+    codeInput.value=updatedSource;
+    if(videoCodeInput&&videoPanel&&!videoPanel.hidden){
+      videoCodeInput.value=updatedSource;
+    }
+    sourceRevision++;
+    await analyzeSource(updatedSource);
+    codeInput.dispatchEvent(new CustomEvent('wedding:master-defaults-saved',{detail:{source:updatedSource}}));
+    setStatus('Permanent CONFIG defaults saved into template source. Click Preview with sample values and validate before publishing/updating.','good');
+  }catch(error){
+    setStatus(error instanceof Error?error.message:'Unable to update template defaults.','error');
+  }finally{
+    applyMasterDefaults.disabled=false;
+  }
+});
 editor.addEventListener('submit',async event=>{
   event.preventDefault();
   if(!lastAnalysis)return;
@@ -527,7 +587,9 @@ editor.addEventListener('submit',async event=>{
 delivery=createAdminDelivery({
   getState:()=>({
     source,html:prepared,dirty:validationDirty,
+    title:workspaceTitle?.value?.trim()||lastAnalysis?.name||'',
     editTemplateId:document.documentElement.dataset.editTemplateId||null,
+    editTemplateRevision:document.documentElement.dataset.editTemplateRevision||null,
     manualReviewed:validationManual.checked,
     runtimePassed:!validationManual.disabled
   })

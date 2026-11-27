@@ -1,4 +1,5 @@
 import { findVideoBackground, isSupportedVideoDuration, MIN_VIDEO_SECONDS, MAX_VIDEO_SECONDS } from "./video-html-contract.js";
+import { isEquivalentRendererOrigin } from "./template-metadata.js";
 import { analyzeVideoVisual } from "./video-visual-analyzer.js";
 import { buildVideoDesignBlock, buildVideoDesignCss, readVideoDesignBlock, replaceVideoDesignBlock, normalizeDesignPrompt, applyExplicitDesignEdit } from "./video-invitation-design.js";
 import { createVideoGenerationProgress } from "./video-generation-progress.js";
@@ -617,7 +618,7 @@ export function initVideoHtmlTab() {
     }
     const html = videoHtmlCode.value.trim();
     const background = findVideoBackground(html);
-    if (!background || background.origin !== new URL(API_ROOT).origin) {
+    if (!background || !isEquivalentRendererOrigin(background.origin, new URL(API_ROOT).origin)) {
       status.textContent = "Paste a complete Video + HTML document with a valid video-background reference from this renderer, or upload an MP4 first.";
       return;
     }
@@ -669,10 +670,13 @@ export function initVideoHtmlTab() {
 
   function showGeneratedInvitation(result, visualAnalysis, designPrompt, assisted) {
     const url = API_ROOT + "/api/video-backgrounds/" + result.id;
+    const workspaceTitleEl = document.querySelector("#workspace-template-title");
+    const chosenTitle = workspaceTitleEl?.value?.trim() || titleInput.value.trim() || "Video Wedding Invitation";
+    if (workspaceTitleEl && !workspaceTitleEl.value.trim()) workspaceTitleEl.value = chosenTitle;
     const source = buildVideoInvitationSource({
       id: result.id,
       url,
-      title: titleInput.value.trim() || "Video Wedding Invitation",
+      title: chosenTitle,
       visualAnalysis
     });
     if (new TextEncoder().encode(source).length > 1024 * 1024) {
@@ -690,6 +694,9 @@ export function initVideoHtmlTab() {
     videoHtmlCode.value = source;
     pendingVideoReplacement = false;
     analyzeVideoHtml();
+    if (typeof document.dispatchEvent === "function" && typeof CustomEvent === "function") {
+      document.dispatchEvent(new CustomEvent("wedding:video-generated", { detail: { id: result.id, url } }));
+    }
     visualReport.hidden = false;
     visualReport.textContent = "Automatic video analysis: " + visualAnalysis.confidence +
       " confidence. Video duration: " + visualAnalysis.duration.toFixed(1) +

@@ -1,6 +1,7 @@
 import { MongoClient, ObjectId } from "mongodb";
 import dns from "node:dns";
 import { findVideoBackground } from "../src/video-html-contract.js";
+import { normalizeTemplateTitle } from "../src/template-metadata.js";
 
 const DATABASE = process.env.MONGODB_DB_NAME || "wedding_video_maker";
 let clientPromise;
@@ -50,7 +51,7 @@ async function collection() {
 function serializeListItem(document) {
   return {
     id: document._id.toString(),
-    title: document.title,
+    title: normalizeTemplateTitle(document.title, "Wedding invitation"),
     category: document.category,
     sceneCount: document.sceneCount,
     eventCount: document.eventCount,
@@ -99,18 +100,43 @@ function templateId(id) {
 export async function listAdminTemplates() {
   const coll = await collection();
   const docs = await coll.find({ status: { $in: ["published", "deleting"] } })
-    .project({ title: 1, category: 1, html: 1, status: 1, publishedAt: 1,
-      sceneCount: 1, photoCount: 1, videoBackgroundId: 1 })
-    .sort({ publishedAt: -1 }).limit(250).toArray();
+    .project({ title: 1, titleCustomized: 1, category: 1, html: 1, status: 1, publishedAt: 1,
+      updatedAt: 1, sceneCount: 1, eventCount: 1, photoCount: 1, videoBackgroundId: 1 })
+    .sort({ publishedAt: -1 }).limit(500).toArray();
   return docs.map(doc => {
     const videoId = doc.videoBackgroundId || findVideoBackground(doc.html)?.id || null;
     return {
-      id: doc._id.toString(), title: doc.title, category: doc.category,
+      id: doc._id.toString(),
+      title: normalizeTemplateTitle(doc.title, "Wedding invitation"),
+      titleCustomized: Boolean(doc.titleCustomized),
+      category: doc.category,
       status: doc.status, kind: videoId ? "video" : "html",
-      videoBackgroundId: videoId, publishedAt: doc.publishedAt?.toISOString() || null,
-      sceneCount: doc.sceneCount, photoCount: doc.photoCount
+      videoBackgroundId: videoId,
+      publishedAt: doc.publishedAt?.toISOString() || null,
+      updatedAt: doc.updatedAt?.toISOString() || null,
+      sceneCount: doc.sceneCount, eventCount: doc.eventCount || 0, photoCount: doc.photoCount || 0
     };
   });
+}
+
+export async function listVideoTemplateLinks() {
+  const coll = await collection();
+  const docs = await coll.find({ status: { $in: ["published", "deleting"] } })
+    .project({ title: 1, category: 1, status: 1, html: 1, videoBackgroundId: 1 })
+    .sort({ publishedAt: -1 }).limit(500).toArray();
+  const links = new Map();
+  for (const doc of docs) {
+    const videoId = (doc.videoBackgroundId || findVideoBackground(doc.html)?.id || "").toLowerCase();
+    if (!videoId) continue;
+    if (!links.has(videoId)) links.set(videoId, []);
+    links.get(videoId).push({
+      id: doc._id.toString(),
+      title: normalizeTemplateTitle(doc.title, "Wedding invitation"),
+      category: doc.category,
+      status: doc.status
+    });
+  }
+  return links;
 }
 
 export async function getAdminTemplate(id) {

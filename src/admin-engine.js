@@ -1,4 +1,5 @@
 import { findVideoBackground } from "./video-html-contract.js";
+import { normalizeTemplateTitle } from "./template-metadata.js";
 // Contract v1: narrow, non-executing analysis for structured HTML templates.
 const FIELD_TYPES = Object.freeze({partner1:'text',partner2:'text',date:'date',time:'text',venue:'text',address:'text',message:'textarea',blessing:'text',photos:'images',music:'audio'});
 const CONFIG_MARKER = /\bconst\s+CONFIG\s*=\s*\{/g;
@@ -52,6 +53,16 @@ function removeArrayComments(source){
   return out;
 }
 
+function decodeJsString(raw){
+  return raw.replace(/\\(u[0-9a-fA-F]{4}|n|r|t|["'\\])/g,(_,seq)=>{
+    if(seq==='n')return '\n';
+    if(seq==='r')return '\r';
+    if(seq==='t')return '\t';
+    if(seq.startsWith('u'))return String.fromCharCode(Number.parseInt(seq.slice(1),16));
+    return seq;
+  });
+}
+
 function readValue(body,key){
   const match=body.match(new RegExp('(?:^|[,\\n])\\s*'+key+'\\s*:\\s*','m'));
   if(!match)return undefined;
@@ -61,7 +72,7 @@ function readValue(body,key){
     for(let i=1;i<rest.length;i++){
       if(escaped){escaped=false;continue;}
       if(rest[i]==='\\'){escaped=true;continue;}
-      if(rest[i]===q)return rest.slice(1,i).replace(/\\(["'\\])/g,'$1');
+      if(rest[i]===q)return decodeJsString(rest.slice(1,i));
     }
     throw new Error('Unclosed string for '+key);
   }
@@ -105,8 +116,8 @@ function parseEvents(body){
   let match;
   while((match=objectPattern.exec(raw))){
     const item={};
-    for(const pair of match[1].matchAll(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(.*?)\2\s*(?=,|$)/gs)){
-      item[pair[1]]=pair[3];
+    for (const pair of match[1].matchAll(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(.*?)\2\s*(?=,|$)/gs)){
+      item[pair[1]]=decodeJsString(pair[3]);
     }
     // Reject unsupported or malformed properties instead of silently dropping them.
     const consumed=match[1].replace(/(?:^|,)\s*([a-zA-Z_$][\w$]*)\s*:\s*(["'])(.*?)\2\s*(?=,|$)/gs,'');
@@ -279,7 +290,105 @@ export function analyzeTemplate(html){
   if(eventData)fields.push('events');
   const uniqueFields=[...new Set(fields)];
   const eventFieldCount=eventData?eventData.events.reduce((count,event)=>count+Object.keys(event).length,0):0;
-  return {name:html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled',sceneCount,layoutType,fields:uniqueFields,config,warnings,artworkBindingIssues,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
+  const rawTitle=html.match(/<title>([^<]+)<\/title>/i)?.[1]||'Untitled';
+  const name=normalizeTemplateTitle(rawTitle,'Untitled');
+  return {name,sceneCount,layoutType,fields:uniqueFields,config,warnings,artworkBindingIssues,range:{start,end},eventMode:!!eventData,photoSlots,fonts,eventFieldCount};
+}
+
+function encodeJsString(value){
+  return JSON.stringify(String(value ?? '')).replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
+}
+
+function replaceStringProperty(body,key,newValue){
+  let depth=0,quote='',escaped=false,comment='';
+  for(let i=0;i<body.length;i++){
+    const ch=body[i],next=body[i+1];
+    if(comment==='line'){if(ch==='\n')comment='';continue;}
+    if(comment==='block'){if(ch==='*'&&next==='/'){comment='';i++;}continue;}
+    if(quote){if(escaped)escaped=false;else if(ch==='\\')escaped=true;else if(ch===quote)quote='';continue;}
+    if(ch==='/'&&next==='/'){comment='line';i++;continue;}
+    if(ch==='/'&&next==='*'){comment='block';i++;continue;}
+    if('"\'\x60'.includes(ch)){quote=ch;continue;}
+    if(ch==='{'||ch==='['){depth++;continue;}
+    if(ch==='}'||ch===']'){depth--;continue;}
+    if(depth===0 && (i===0||/[,\n\r\s]/.test(body[i-1]))){
+      const sub=body.slice(i);
+      const match=new RegExp('^'+key+'\\s*:\\s*([\'"])').exec(sub);
+      if(match){
+        const q=match[1];
+        const valueStart=i+match[0].length-1;
+        let esc=false;
+        for(let j=valueStart+1;j<body.length;j++){
+          if(esc){esc=false;continue;}
+          if(body[j]==='\\'){esc=true;continue;}
+          if(body[j]===q){
+            return body.slice(0,valueStart)+encodeJsString(newValue)+body.slice(j+1);
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+export function diagnoseFieldBindings(html,analysis=analyzeTemplate(html)){
+  const outsideConfig=html.slice(0,analysis.range.start)+html.slice(analysis.range.end+1);
+  const dynamicDataBind=/\bdataset\.bind\b/.test(outsideConfig);
+  const dynamicIni=/\bdata-bind-initials\s*=\s*(["'])partner1,partner2\1/i.test(outsideConfig);
+  const bound=[],unbound=[];
+  for(const field of analysis.fields){
+    if(field==='photos')continue;
+    if(field==='events'){
+      if(/\bCONFIG\.events\b|\bCONFIG\s*\[\s*['"]events['"]\s*\]/.test(outsideConfig))bound.push(field);
+      else unbound.push(field);
+      continue;
+    }
+    const direct=new RegExp('\\bCONFIG\\.'+field+'\\b|\\bCONFIG\\s*\\[\\s*[\'"]'+field+'[\'"]\\s*\\]').test(outsideConfig);
+    const dataBind=dynamicDataBind && new RegExp('data-bind\\s*=\\s*[\'"]'+field+'[\'"]','i').test(outsideConfig);
+    const initialsBind=dynamicIni && (field==='partner1'||field==='partner2');
+    if(direct||dataBind||initialsBind)bound.push(field);
+    else unbound.push(field);
+  }
+  return {bound,unbound};
+}
+
+// Surgically updates literal CONFIG defaults in the master source while preserving
+// unknown properties, scripts, animations, video URLs, and artwork untouched.
+export function updateTemplateSourceConfig(html,values){
+  const report=analyzeTemplate(html);
+  let body=html.slice(report.range.start+1,report.range.end);
+  for(const key of Object.keys(FIELD_TYPES)){
+    if(key==='photos'||key==='music'||!(key in values))continue;
+    const value=values[key];
+    if(typeof value!=='string'||value.length>(key==='message'?1000:300))throw new Error('Invalid '+key+'.');
+    if(['partner1','partner2','venue'].includes(key)&&!value.trim())throw new Error(key+' cannot be empty.');
+    if(key==='date'&&!validDate(value))throw new Error('Invalid wedding date.');
+    const updatedBody=replaceStringProperty(body,key,value);
+    if(updatedBody===null)throw new Error('Field '+key+' cannot be updated safely in this template source.');
+    body=updatedBody;
+  }
+  if(report.eventMode&&'events' in values){
+    const evRange=eventRange(body);
+    if(!evRange)throw new Error('Events block missing from template.');
+    if(!Array.isArray(values.events)||values.events.length!==report.config.events.length){
+      throw new Error('Event count must match the template.');
+    }
+    const formattedEvents=values.events.map((event,i)=>{
+      const original=report.config.events[i];
+      const entries=Object.keys(original).map(k=>{
+        const v=event&&Object.hasOwn(event,k)?event[k]:original[k];
+        if(typeof v!=='string'||v.length>300)throw new Error('Invalid event '+(i+1)+' '+k);
+        if(['name','time','venue'].includes(k)&&!v.trim())throw new Error('Event '+(i+1)+' '+k+' cannot be empty.');
+        if(k==='date'&&!validDate(v))throw new Error('Invalid date for event '+(i+1));
+        return '    '+k+': '+encodeJsString(v);
+      });
+      return '  {\n'+entries.join(',\n')+'\n  }';
+    });
+    body=body.slice(0,evRange.start)+'[\n'+formattedEvents.join(',\n')+'\n  ]'+body.slice(evRange.end+1);
+  }
+  const nextSource=html.slice(0,report.range.start+1)+body+html.slice(report.range.end);
+  analyzeTemplate(nextSource);
+  return nextSource;
 }
 export function prepareTemplate(html,values,{preserveConfig=false,analysis}={}){
   const report=analysis??analyzeTemplate(html),config={...report.config};

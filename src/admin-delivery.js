@@ -73,6 +73,7 @@ export function createAdminDelivery({ getState }) {
   const publishStatus = document.querySelector("#publish-status");
   const dialog = document.querySelector("#publish-dialog");
   const form = document.querySelector("#publish-form");
+  const titleInput = document.querySelector("#publish-title");
   const category = document.querySelector("#publish-category");
   const cancel = document.querySelector("#publish-cancel");
   const publishConfirm = document.querySelector("#publish-confirm");
@@ -239,9 +240,11 @@ export function createAdminDelivery({ getState }) {
   publishButton.addEventListener("click", () => {
     updateButtons();
     if (publishButton.disabled) return;
+    const state = getState();
+    if (titleInput) titleInput.value = state.title || document.querySelector("#workspace-template-title")?.value?.trim() || "";
     category.value = document.documentElement.dataset.editTemplateCategory || "";
     dialog.showModal();
-    category.focus();
+    (titleInput || category).focus();
   });
 
   cancel.addEventListener("click", () => dialog.close());
@@ -249,8 +252,13 @@ export function createAdminDelivery({ getState }) {
     event.preventDefault();
     updateButtons();
     if (publishing || publishButton.disabled || !category.value) return;
-    const { source, editTemplateId } = getState();
+    const { source, editTemplateId, editTemplateRevision, title } = getState();
     if (!source) return;
+    const publishTitle = titleInput ? titleInput.value.trim() : title;
+    if (titleInput && !publishTitle) {
+      titleInput.focus();
+      return;
+    }
     if (!keyValue()) {
       publishStatus.textContent = "Enter the Admin access key before publishing.";
       dialog.close();
@@ -270,14 +278,21 @@ export function createAdminDelivery({ getState }) {
         body: JSON.stringify({
           html: source,
           category: category.value,
+          ...(publishTitle ? { title: publishTitle } : {}),
+          ...(editTemplateId && editTemplateRevision ? { expectedRevision: editTemplateRevision } : {}),
           visualReviewConfirmed: true
         })
       });
       if (!response.ok) throw new Error(await readApiError(response, "Could not publish the template."));
       const json = await response.json();
       dialog.close();
+      const saved = json.template || {};
+      document.documentElement.dataset.editTemplateId = saved.id || editTemplateId || "";
+      document.documentElement.dataset.editTemplateCategory = saved.category || category.value;
+      if (saved.revision) document.documentElement.dataset.editTemplateRevision = saved.revision;
+      document.dispatchEvent(new CustomEvent("wedding:template-published", { detail: saved }));
       publishStatus.textContent = (editTemplateId ? "Updated existing template in " : "Published in ") +
-        json.template.category + " (template ID: " + json.template.id + "). " +
+        saved.category + " (template ID: " + saved.id + "). " +
         (editTemplateId ? "The template ID was preserved." : "Customers can now find it in this category.");
     } catch (error) {
       publishStatus.textContent = error instanceof Error ? error.message : "MongoDB publishing failed.";

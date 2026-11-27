@@ -79,3 +79,23 @@ body.admin-layout > main { grid-column: 2; min-width: 0; width: 100%; max-width:
 .admin-preview-header h2 { margin: 0; }
 .admin-preview-dialog iframe { display: block; margin: 14px auto; width: min(100%, 315px);
   aspect-ratio: 9/16; height: auto; border: 1px solid #45536c; border-radius: 10px; background: #080d18; }
+
+/* Shared badges, toolbars, pagination, and modal forms for All Uploaded Templates & Cloudinary. */
+.admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 16px; }
+.admin-toolbar label { display: grid; gap: 5px; color: #d5deee; font-size: .84rem; flex: 1 1 220px; }
+.admin-filter-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-filter-group button[aria-pressed="true"] { background: #d3b57a; border-color: #d3b57a; color: #171b24; }
+.admin-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.admin-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; font-size: .74rem; font-weight: 650; border: 1px solid #43536d; background: #132136; color: #dbe4f3; }
+.admin-badge.gold { border-color: #9e814f; background: #261e12; color: #f1d49b; }
+.admin-badge.green { border-color: #467862; background: #10251c; color: #a9e5c6; }
+.admin-badge.warn { border-color: #9f5d68; background: #2c151c; color: #ffbcc6; }
+.admin-meta-list { margin: 8px 0 0; padding-left: 18px; color: #b8c6db; font-size: .81rem; line-height: 1.45; }
+.admin-meta-list li { margin-bottom: 3px; overflow-wrap: anywhere; }
+.admin-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid #2d3d54; }
+.admin-modal { background: #101a2b; border: 1px solid #52607b; border-radius: 15px; color: #e8eaf1; width: min(440px, calc(100vw - 24px)); padding: 22px; }
+.admin-modal::backdrop { background: rgba(2,7,17,.82); }
+.admin-modal h2 { margin: 0 0 8px; }
+.admin-modal form { display: grid; gap: 12px; }
+.admin-modal label { display: grid; gap: 6px; color: #d5deee; font-size: .88rem; }
+.admin-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }

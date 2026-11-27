@@ -2,10 +2,9 @@
   <div class="admin-sidebar-brand">Invitation Studio<small>Admin workspace</small></div>
   <nav aria-label="Admin pages">
     <a href="/admin.html">Workspace</a>
-    <a href="/admin-templates.html?kind=video">Video Templates</a>
-    <a href="/admin-templates.html?kind=html">HTML Templates</a>
-    <a href="/admin-videos.html">Uploaded Videos</a>
+    <a href="/admin-templates.html">All Uploaded Templates</a>
     <a href="/admin-drafts.html">Drafts</a>
+    <a href="/admin-videos.html">Cloudinary</a>
   </nav>
   <div class="admin-sidebar-bottom">Admin operations require your access key. Keep it private.</div>
-</aside><main class="admin-page"><header class="admin-page-head"><div><h1>Local Drafts</h1><p>Unpublished work saved only in this browser. No draft is uploaded to Cloudinary or MongoDB.</p></div></header><section class="admin-panel"><h2>My drafts</h2><p class="muted">Draft HTML stays on this device and browser. Browser data cleanup will erase it, so download important source files separately.</p><p id="draft-status" class="status" role="status" aria-live="polite"></p><div id="draft-list" class="admin-card-grid"></div></section></main><script type="module" src="/src/admin-sidebar.js"></script><script type="module" src="/src/admin-drafts-page.js"></script></body></html>
+</aside><main class="admin-page"><header class="admin-page-head"><div><h1>Local Drafts</h1><p>Unpublished work and in-progress published-template edits saved automatically in this browser. No draft is uploaded to Cloudinary or MongoDB.</p></div></header><section class="admin-panel"><h2>My drafts</h2><p class="muted">Draft HTML stays on this device and browser. Browser data cleanup will erase it, so download important source files separately. Admin keys, raw MP4 files, and customer photos are never stored in drafts.</p><p id="draft-status" class="status" role="status" aria-live="polite"></p><div id="draft-list" class="admin-card-grid"></div></section></main><script type="module" src="/src/admin-sidebar.js"></script><script type="module" src="/src/admin-drafts-page.js"></script></body></html>

@@ -7,7 +7,8 @@ import dns from "node:dns";
 import { GridFSBucket, MongoClient } from "mongodb";
 import { requireAdmin } from "./admin-access.js";
 import { isCloudinaryConfigured, uploadCloudinaryBackground, fetchCloudinaryBackground, listCloudinaryBackgrounds, destroyCloudinaryBackground } from "./cloudinary-background.js";
-import { countVideoTemplateReferences } from "./template-store.js";
+import { countVideoTemplateReferences, listVideoTemplateLinks } from "./template-store.js";
+import { isValidDisplayName, normalizeAssetDisplayName } from "../src/template-metadata.js";
 
 export const MAX_BACKGROUND_BYTES = 32 * 1024 * 1024;
 const DATABASE = process.env.MONGODB_DB_NAME || "wedding_video_maker";
@@ -281,26 +282,71 @@ export function videoBackgroundRouter() {
   router.get("/admin/video-backgrounds", requireAdmin, async (_req, res) => {
     try {
       const metadata = await assetMetadata();
-      const [cloud, bucket] = await Promise.all([
+      const [cloud, bucket, templateLinks] = await Promise.all([
         metadata.find({ provider: "cloudinary" })
-          .sort({ createdAt: -1 }).limit(150).toArray(),
-        videoBucket()
+          .sort({ createdAt: -1 }).limit(300).toArray(),
+        videoBucket(),
+        listVideoTemplateLinks().catch(() => new Map())
       ]);
-      const gridfs = await bucket.find({}).sort({ uploadDate: -1 }).limit(150).toArray();
+      const gridfs = await bucket.find({}).sort({ uploadDate: -1 }).limit(300).toArray();
       const videos = [
-        ...cloud.filter(item => UUID.test(item.id)).map(item => ({
-          id: item.id, provider: "cloudinary", bytes: item.length,
-          uploadedAt: item.createdAt, status: item.status || "ready"
-        })),
-        ...gridfs.filter(item => UUID.test(item.filename)).map(item => ({
-          id: item.filename, provider: "mongodb", bytes: item.length,
-          uploadedAt: item.uploadDate, status: "ready"
-        }))
-      ].sort((a,b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).slice(0,150);
+        ...cloud.filter(item => UUID.test(item.id)).map(item => {
+          const linkedTemplates = templateLinks.get(item.id.toLowerCase()) || [];
+          return {
+            id: item.id, provider: "cloudinary", bytes: item.length,
+            uploadedAt: item.createdAt, status: item.status || "ready",
+            displayName: normalizeAssetDisplayName(item.displayName, "") || null,
+            linkedTemplates
+          };
+        }),
+        ...gridfs.filter(item => UUID.test(item.filename)).map(item => {
+          const linkedTemplates = templateLinks.get(item.filename.toLowerCase()) || [];
+          return {
+            id: item.filename, provider: "mongodb", bytes: item.length,
+            uploadedAt: item.uploadDate, status: "ready",
+            displayName: normalizeAssetDisplayName(item.metadata?.displayName, "") || null,
+            linkedTemplates
+          };
+        })
+      ].sort((a,b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).slice(0,300);
       return res.set("Cache-Control", "no-store").json({ videos });
     } catch (error) {
       console.error("Video inventory failed:", error);
       return res.status(503).json({ error: "Unable to retrieve saved videos. Check MongoDB." });
+    }
+  });
+
+  // Display-name metadata update only: never modifies Cloudinary public ID, UUID, or URL.
+  router.patch("/admin/video-backgrounds/:id", requireAdmin, async (req, res) => {
+    const id = String(req.params.id || "").toLowerCase();
+    if (!UUID.test(id)) return res.status(400).json({ error: "Invalid video ID." });
+    const { displayName } = req.body || {};
+    if (!isValidDisplayName(displayName)) {
+      return res.status(400).json({ error: "Enter a display name between 1 and 120 characters." });
+    }
+    const normalizedName = normalizeAssetDisplayName(displayName);
+    try {
+      const record = await findAsset(id);
+      if (!record) return res.status(404).json({ error: "Video not found." });
+      if (record.provider === "cloudinary") {
+        const metadata = await assetMetadata();
+        await metadata.updateOne({ id, provider: "cloudinary" }, {
+          $set: { displayName: normalizedName, updatedAt: new Date() }
+        });
+      } else {
+        await videoBucket();
+        const client = await connectionPromise;
+        await client.db(DATABASE).collection("invitation_video_backgrounds.files").updateOne(
+          { _id: record.file._id },
+          { $set: { "metadata.displayName": normalizedName } }
+        );
+      }
+      return res.set("Cache-Control", "no-store").json({
+        video: { id, displayName: normalizedName, provider: record.provider }
+      });
+    } catch (error) {
+      console.error("Video rename failed:", error);
+      return res.status(503).json({ error: "Unable to rename video asset. Check MongoDB." });
     }
   });
 
