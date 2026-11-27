@@ -47,6 +47,28 @@ export function TemplateArtwork({ template }) {
         decoding="async"
       />
 
+      {styleId === "royal-noir" && (
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", padding: "12%", background: "radial-gradient(ellipse at 50% 35%, #49372a, #080909 72%)", color: "#f2dfb6", textAlign: "center" }}>
+          <div style={{ position: "absolute", inset: "9% 12%", border: "1px solid #d8b978", borderRadius: "48% 48% 0 0 / 25% 25% 0 0", boxShadow: "inset 0 0 0 5px rgba(216,185,120,.08)" }} />
+          <div style={{ position: "relative", fontFamily: "Georgia,serif", fontSize: "clamp(20px,3vw,38px)", letterSpacing: ".04em" }}>✦<br />{template.previewTitle}</div>
+          <span style={{ position: "absolute", bottom: "17%", fontSize: 8, letterSpacing: 3 }}>BLACK TIE · GOLDEN HOUR</span>
+        </div>
+      )}
+      {styleId === "maharaja-legacy" && (
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", padding: "12%", background: "linear-gradient(145deg,#260d13,#6b2634 52%,#17090d)", color: "#f2d9a6", textAlign: "center" }}>
+          <div style={{ position: "absolute", inset: "8% 14% 8%", border: "2px solid #d8b978", borderRadius: "50% 50% 0 0 / 25% 25% 0 0" }} />
+          <div style={{ position: "relative", fontFamily: "Georgia,serif", fontSize: "clamp(18px,3vw,34px)" }}>❖<br />{template.previewTitle}</div>
+          <span style={{ position: "absolute", bottom: "15%", fontSize: 8, letterSpacing: 3 }}>A ROYAL INDIAN CELEBRATION</span>
+        </div>
+      )}
+      {styleId === "modern-heirloom" && (
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", padding: "12%", background: "linear-gradient(135deg,#e9e1d3,#f7f3eb 55%,#d9cebd)", color: "#29251f", textAlign: "center" }}>
+          <div style={{ position: "absolute", inset: "7%", border: "1px solid rgba(92,77,58,.35)" }} />
+          <div style={{ position: "relative", fontFamily: "Georgia,serif", fontSize: "clamp(20px,3vw,38px)", fontStyle: "italic" }}>&<br /><span style={{ fontStyle: "normal", fontSize: ".62em" }}>{template.previewTitle}</span></div>
+          <span style={{ position: "absolute", bottom: "15%", fontSize: 8, letterSpacing: 3 }}>THE WEDDING EDITION</span>
+        </div>
+      )}
+
       {styleId === "royal" && (
         <>
           <div className="royal-vignette" />
