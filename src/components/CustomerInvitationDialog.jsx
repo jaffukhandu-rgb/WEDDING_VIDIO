@@ -113,7 +113,11 @@ export function CustomerInvitationDialog({ template, analysis, apiRoot, close })
       const response = await fetch(apiRoot + "/api/customer/render", { method: "POST", headers, signal: controller.signal,
         body: JSON.stringify({ templateId: template.id, revision: template.revision, details, photos: preview.selected,
           ...(preview.audio ? { audioBase64: preview.audio.split(",")[1], audioMimeType: music.type } : {}) }) });
-      if (!response.ok) throw Error((await response.json()).error || "Render failed. Try again.");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw Error(typeof body?.error === "string" && body.error.trim()
+          ? body.error : "The video service could not complete your export. Please try again.");
+      }
       const blob = await response.blob();
       if (blob.type !== "video/mp4" || await blob.slice(4,8).text() !== "ftyp") throw Error("Incomplete MP4. Try again.");
       if (mounted.current) setDownload(URL.createObjectURL(blob));

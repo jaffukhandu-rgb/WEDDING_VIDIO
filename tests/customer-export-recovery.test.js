@@ -30,6 +30,7 @@ test("Customer export keeps the dialog editable and retries securely after UUID 
   });
   await page.route("**/api/customer/render", route => {
     jobs.push(route.request().headers()["x-render-job"]);
+    if (jobs.length === 1) return route.fulfill({ status: 502, contentType: "text/html", body: "<h1>Bad gateway</h1>" });
     return route.fulfill({ status: 429, json: { error: "Renderer busy" } });
   });
   await page.goto(vite.resolvedUrls.local[0]);
@@ -66,7 +67,7 @@ test("Customer export keeps the dialog editable and retries securely after UUID 
     const posted = page.waitForResponse(response => response.url().endsWith("/api/customer/render"));
     await generate.click();
     await posted;
-    await dialog.getByRole("alert").filter({ hasText: "Renderer busy" }).waitFor();
+    await dialog.getByRole("alert").filter({ hasText: attempt === 0 ? "Please try again" : "Renderer busy" }).waitFor();
   }
   assert.equal(new Set(jobs).size, 2);
   for (const id of jobs) assert.match(id, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i);

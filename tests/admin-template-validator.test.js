@@ -97,3 +97,16 @@ test("Video + HTML timeline does not impose the legacy 30-second schedule", asyn
   assert.equal(check.status, "pending");
   assert.match(check.detail, /uploaded MP4 duration/);
 });
+
+test("Only confirmed previews with text-only warnings qualify for manual review", () => {
+  const healthy = { sceneCount: 5, stageWidth: 200, stageHeight: 356, started: true };
+  for (const warning of [{ smartTextFit: .7 }, { timelineReadability: "short" }, { overflowingText: 1 }]) {
+    const runtime = { ...healthy, ...warning };
+    assert.equal(validateRuntimeReport(runtime, 5).manuallyReviewable, true);
+    for (const blocker of [{ started: false }, { brokenImages: 1 }, { smartTextOverflow: true },
+      { videoBackground: { ready: true, advancing: false } }, { errors: ["script failed"] }]) {
+      assert.ok(!validateRuntimeReport({ ...runtime, ...blocker }, 5).manuallyReviewable);
+    }
+  }
+  assert.ok(!validateRuntimeReport(null, 5).manuallyReviewable);
+});

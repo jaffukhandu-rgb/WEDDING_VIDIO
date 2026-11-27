@@ -78,7 +78,7 @@ function renderValidation(){
     const detail=document.createElement('p');detail.textContent=item.detail;
     li.append(state,title,detail);validationResults.append(li);
   }
-  validationManual.disabled=previewCheck.status!=='pass'||staticValidation.some(check=>check.status==='fail');
+  validationManual.disabled=(previewCheck.status!=='pass' && !previewCheck.manuallyReviewable)||staticValidation.some(check=>check.status==='fail');
   if(validationManual.disabled)validationManual.checked=false;
   const failures=items.filter(item=>item.status==='fail').length;
   const warnings=items.filter(item=>item.status==='warning').length;
@@ -529,8 +529,7 @@ delivery=createAdminDelivery({
     source,html:prepared,dirty:validationDirty,
     editTemplateId:document.documentElement.dataset.editTemplateId||null,
     manualReviewed:validationManual.checked,
-    runtimePassed:Boolean(lastAnalysis && runtimeValidation &&
-      validateRuntimeReport(runtimeValidation,lastAnalysis.sceneCount).status==='pass')
+    runtimePassed:!validationManual.disabled
   })
 });
 

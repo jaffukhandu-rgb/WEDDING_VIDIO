@@ -147,9 +147,21 @@ export function validateRuntimeReport(runtime, expectedScenes) {
       detail: 'The invitation text cannot fit within the detected area at the minimum readable scale. Shorten the copy or choose a different layout.'
     };
   }
+  if (!runtime.started) {
+    return {
+      id: 'runtime', status: 'warning', title: 'Browser preview smoke test',
+      detail: 'The page loaded, but playback start was not confirmed. Restart and inspect the preview.'
+    };
+  }
+  if (runtime.brokenImages > 0) {
+    return {
+      id: 'runtime', status: 'warning', title: 'Browser preview smoke test',
+      detail: runtime.brokenImages + ' missing or unfinished image(s). Check the images and run validation again.'
+    };
+  }
   if (Number.isFinite(runtime.smartTextFit) && runtime.smartTextFit < 0.78) {
     return {
-      id: 'runtime', status: 'warning', title: 'Automatic text layout check',
+      id: 'runtime', status: 'warning', manuallyReviewable: true, title: 'Automatic text layout check',
       detail: 'Customer details needed excessive shrinking (' +
         Math.round(runtime.smartTextFit * 100) +
         '%). Shorten optional copy or choose a wider clear area before export.'
@@ -157,23 +169,18 @@ export function validateRuntimeReport(runtime, expectedScenes) {
   }
   if (runtime.timelineReadability === "short") {
     return {
-      id: 'runtime', status: 'warning', title: 'Invitation reading time',
+      id: 'runtime', status: 'warning', manuallyReviewable: true, title: 'Invitation reading time',
       detail: 'The personalized invitation has more text than its safe display windows can comfortably show. Shorten optional copy or use a longer stable video; review every panel before export.'
     };
   }
-  if (runtime.brokenImages > 0 || runtime.overflowingText > 0) {
+  if (runtime.overflowingText > 0) {
     return {
-      id: 'runtime', status: 'warning', title: 'Browser preview smoke test',
+      id: 'runtime', status: 'warning', manuallyReviewable: true, title: 'Browser preview smoke test',
       detail: (runtime.brokenImages || 0) + ' missing or unfinished image(s), ' +
         (runtime.overflowingText || 0) + ' potentially overflowing text element(s). Review the complete preview.'
     };
   }
-  if (!runtime.started) {
-    return {
-      id: 'runtime', status: 'warning', title: 'Browser preview smoke test',
-      detail: 'The page loaded, but playback start was not confirmed. Restart and inspect the preview.'
-    };
-  }
+
   return {
     id: 'runtime', status: 'pass', title: 'Browser preview smoke test',
     detail: runtime.sceneCount + ' scenes found, 9:16 stage visible, playback started, and no script errors reported at check time.'
